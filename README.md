@@ -10,7 +10,8 @@ puissance estimé, avec le texte oracle et le coût de mana de chaque carte.
 - Parcourir les 190 decks Commander préconstruits officiels (Commander
   2011 → aujourd'hui), avec recherche par nom / extension / commandant.
 - Page détail d'un deck : liste complète des cartes, coût de mana, texte
-  oracle et image au clic.
+  oracle et image au clic. Survoler une vignette agrandit l'image en
+  superposition pour mieux la lire, sans avoir à déplier la carte.
 - Suggestions de cartes pour combler les faiblesses structurelles du deck,
   filtrées par légalité Commander et identité couleur du commandant.
 - Jauge visuelle du score de puissance structurelle, avant/après ajout
@@ -25,7 +26,21 @@ puissance estimé, avec le texte oracle et le coût de mana de chaque carte.
   ni de base de données) : une bannière propose de reprendre la session
   en revenant sur la page.
 - Export CSV de la liste finale (nom, coût de mana, type, "ajoutée via
-  suggestion" oui/non) — fonctionne sur tous les formats.
+  suggestion" oui/non, "marquée à retirer" oui/non) — fonctionne sur tous
+  les formats.
+- Suggestions de swap : quand une carte suggérée a une candidate évidente
+  au retrait dans le deck actuel, la suggestion l'affiche directement
+  ("⇄ À la place de [carte]") et le bouton devient "⇄ Swap" plutôt que
+  "+ Ajouter". Cliquer dessus ouvre une confirmation avec deux issues : soit
+  swap immédiat (ajoute la suggestion et retire la candidate en un seul
+  recalcul), soit ajout seul avec la candidate simplement taguée "à
+  retirer" (badge visible sur sa ligne dans la liste du deck) pour la
+  retirer manuellement plus tard. La candidate est choisie par une
+  heuristique interne (voir `pickSwapCandidate` dans `src/lib/recommend.ts`)
+  : en priorité une carte du même rôle déjà bien couverte (swap "montée en
+  gamme"), sinon la carte la moins impactante identifiée dans le deck.
+  Comme pour le reste du moteur de score, c'est une approximation
+  explicable, pas une garantie que c'est LA meilleure carte à sacrifier.
 - Cartes du deck et suggestions en accordéon (une seule carte dépliée à la
   fois par liste) ; le panneau de suggestions défile dans son propre
   cadre (hauteur limitée) plutôt que d'allonger toute la page.
@@ -169,7 +184,9 @@ src/
     arena/decks/[id]/page.tsx   # Détail deck Arena (galerie), sélecteur de format
   components/
     DeckAnalysis.tsx             # Point d'entrée serveur : lance analyzeDeck, rend DeckBuilder
-    DeckBuilder.tsx              # Simulateur interactif (client) : add/remove, accordéon, save, export CSV
+    DeckBuilder.tsx              # Simulateur interactif (client) : add/remove, swap, accordéon, save, export CSV
+    SwapConfirmModal.tsx         # Popup de confirmation d'un swap (ajout + retrait suggéré)
+    CardImageHover.tsx           # Vignette avec image agrandie au survol
     ArenaImportForm.tsx          # Formulaire d'import (client + Server Action)
     ArenaExportButton.tsx        # Export texte Arena (copier/coller)
     LanguageProvider.tsx         # Contexte + toggle FR/EN pour le texte des cartes

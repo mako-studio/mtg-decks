@@ -111,11 +111,25 @@ export interface DeckStats {
   score: number; // 0-100
 }
 
+/**
+ * Carte du deck actuel proposée comme candidate au retrait, pour former un
+ * "swap" avec une suggestion d'ajout. Heuristique interne (voir
+ * `pickSwapCandidate` dans recommend.ts) : pas une garantie que c'est LA
+ * meilleure carte à retirer, juste une proposition raisonnable et
+ * explicable (catégorie déjà bien couverte, ou carte sans rôle identifié).
+ */
+export interface SwapCandidate {
+  name: string;
+  reason: string;
+}
+
 export interface CardSuggestion {
   card: ScryfallCard;
   reason: string;
   categories: DeckCategory[];
   impact: number; // contribution estimée au score, arbitraire mais comparable
+  /** Carte du deck actuel qu'on pourrait retirer pour faire de la place. `null` si aucune candidate trouvée. */
+  swapOut?: SwapCandidate | null;
 }
 
 /**

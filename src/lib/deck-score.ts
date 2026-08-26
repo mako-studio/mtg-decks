@@ -56,6 +56,17 @@ const CATEGORY_PATTERNS: Record<DeckCategory, RegExp[]> = {
   landfix: [/add \{[wubrg]\}.*\{[wubrg]\}/i, /any color/i],
 };
 
+/** Libellés FR des catégories, partagés entre le moteur (raisons de swap) et l'UI. */
+export const CATEGORY_LABELS: Record<DeckCategory, string> = {
+  ramp: "Rampe",
+  removal: "Removal",
+  wipe: "Board wipe",
+  draw: "Pioche",
+  tutor: "Tutor",
+  protection: "Protection",
+  landfix: "Fixing",
+};
+
 export function classifyCard(card: ScryfallCard): DeckCategory[] {
   const text = getDisplayOracleText(card);
   const isLand = card.type_line?.includes("Land");

@@ -6,6 +6,7 @@ import { analyzeDeck, type DeckAnalysisResult } from "@/lib/actions";
 import { getFormat } from "@/lib/formats";
 import { CardTile } from "./CardTile";
 import { SuggestionCard } from "./SuggestionCard";
+import { SwapConfirmModal } from "./SwapConfirmModal";
 import { ImprovementGauge } from "./ImprovementGauge";
 import { ArenaExportButton } from "./ArenaExportButton";
 
@@ -13,6 +14,8 @@ interface SavedSession {
   savedAt: string;
   cards: { name: string; count: number }[];
   addedNames: string[];
+  /** Cartes taguées "à retirer" suite à un swap non confirmé (voir SwapConfirmModal). */
+  markedForRemoval?: string[];
 }
 
 function csvEscape(value: string): string {
@@ -40,7 +43,14 @@ function downloadCsv(filename: string, rows: string[][]) {
  * une, recalcule le score et les nouvelles suggestions à chaque geste
  * (via `analyzeDeck`), et permet d'exporter la liste finale en CSV.
  *
- * La session (liste de cartes + quelles cartes ont été ajoutées) est
+ * Quand une suggestion a une candidate au retrait (`swapOut`, calculée
+ * côté serveur dans recommend.ts), cliquer "Ajouter" ouvre une
+ * confirmation de swap plutôt que d'ajouter directement : soit on
+ * confirme (ajout + retrait en un recalcul), soit on ajoute quand même en
+ * taguant seulement la candidate "à retirer" pour y revenir plus tard
+ * depuis la liste du deck.
+ *
+ * La session (liste de cartes + cartes ajoutées + cartes taguées) est
  * sauvegardée dans le localStorage du navigateur sous `deckSlug` : pas de
  * compte ni de base de données (hors scope v1, voir README), donc la
  * sauvegarde est locale à cet appareil/navigateur et peut être vide en
@@ -55,6 +65,7 @@ export function DeckBuilder({
 }) {
   const [result, setResult] = useState(initial);
   const [addedNames, setAddedNames] = useState<Set<string>>(new Set());
+  const [markedForRemoval, setMarkedForRemoval] = useState<Set<string>>(new Set());
   const [pending, startTransition] = useTransition();
   const [transientError, setTransientError] = useState<string | null>(null);
   const [savedSession, setSavedSession] = useState<SavedSession | null>(null);
@@ -63,9 +74,15 @@ export function DeckBuilder({
   // même temps, ce qui allongeait la page inutilement).
   const [openCardKey, setOpenCardKey] = useState<string | null>(null);
   const [openSuggestionId, setOpenSuggestionId] = useState<string | null>(null);
+  // Suggestion actuellement en attente de confirmation de swap (popup).
+  const [swapPrompt, setSwapPrompt] = useState<CardSuggestion | null>(null);
 
   const storageKey = `mtg-deck-builder:${deckSlug}`;
   const format = getFormat(result.formatKey);
+  const hasChanges =
+    addedNames.size > 0 ||
+    markedForRemoval.size > 0 ||
+    result.cards.length !== initial.cards.length;
 
   // Au montage : propose de reprendre une session sauvegardée précédemment
   // pour ce deck, sans l'appliquer automatiquement (l'utilisateur choisit).
@@ -87,18 +104,26 @@ export function DeckBuilder({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function persist(cards: EnrichedCard[], added: Set<string>) {
+  // Sauvegarde automatique dès que l'état "vivant" du deck change, plutôt
+  // que d'appeler persist() à la main à chaque site d'appel (add/remove/
+  // swap/tag/reprise) : évite les incohérences si plusieurs mises à jour
+  // d'état se chevauchent (ex. swap qui ajoute une carte ET tague une
+  // autre dans le même geste). Synchronisation avec un système externe
+  // (localStorage), pas une cascade de setState.
+  useEffect(() => {
+    if (!hasChanges) return;
     try {
       const payload: SavedSession = {
         savedAt: new Date().toISOString(),
-        cards: cards.map((c) => ({ name: c.name, count: c.count })),
-        addedNames: Array.from(added),
+        cards: result.cards.map((c) => ({ name: c.name, count: c.count })),
+        addedNames: Array.from(addedNames),
+        markedForRemoval: Array.from(markedForRemoval),
       };
       localStorage.setItem(storageKey, JSON.stringify(payload));
     } catch {
       // idem : pas de sauvegarde possible, on continue sans.
     }
-  }
+  }, [result, addedNames, markedForRemoval, hasChanges, storageKey]);
 
   function recompute(cardList: { name: string; count: number }[], newAdded: Set<string>) {
     setTransientError(null);
@@ -113,7 +138,18 @@ export function DeckBuilder({
       if (res.ok) {
         setResult(res);
         setAddedNames(newAdded);
-        persist(res.cards, newAdded);
+        // Une carte taguée "à retirer" qui n'est plus dans le deck (retirée
+        // entre-temps par ce recalcul ou un autre geste) n'a plus de sens à
+        // tagger : on la retire du set. Forme fonctionnelle pour lire le
+        // tag le plus à jour (ex. un tag ajouté par tagOnlySwap juste avant
+        // que ce recalcul ne se termine).
+        setMarkedForRemoval((prev) => {
+          const next = new Set<string>();
+          for (const n of prev) {
+            if (res.cards.some((c) => c.name.toLowerCase() === n)) next.add(n);
+          }
+          return next;
+        });
       } else {
         setTransientError(res.error ?? "Erreur inattendue pendant le recalcul.");
       }
@@ -129,6 +165,48 @@ export function DeckBuilder({
         )
       : [...result.cards.map((c) => ({ name: c.name, count: c.count })), { name: s.card.name, count: 1 }];
     recompute(newList, new Set(addedNames).add(key));
+  }
+
+  function handleAddClick(s: CardSuggestion) {
+    if (s.swapOut) {
+      setSwapPrompt(s);
+    } else {
+      handleAdd(s);
+    }
+  }
+
+  function confirmSwap() {
+    if (!swapPrompt?.swapOut) return;
+    const addKey = swapPrompt.card.name.toLowerCase();
+    const removeKey = swapPrompt.swapOut.name.toLowerCase();
+
+    const already = result.cards.find((c) => c.name.toLowerCase() === addKey);
+    let newList = already
+      ? result.cards.map((c) =>
+          c.name.toLowerCase() === addKey ? { name: c.name, count: c.count + 1 } : { name: c.name, count: c.count }
+        )
+      : [...result.cards.map((c) => ({ name: c.name, count: c.count })), { name: swapPrompt.card.name, count: 1 }];
+
+    const toRemove = newList.find((c) => c.name.toLowerCase() === removeKey);
+    if (toRemove) {
+      newList =
+        toRemove.count > 1
+          ? newList.map((c) =>
+              c.name.toLowerCase() === removeKey ? { name: c.name, count: c.count - 1 } : c
+            )
+          : newList.filter((c) => c.name.toLowerCase() !== removeKey);
+    }
+
+    recompute(newList, new Set(addedNames).add(addKey));
+    setSwapPrompt(null);
+  }
+
+  function tagOnlySwap() {
+    if (!swapPrompt?.swapOut) return;
+    const removeKey = swapPrompt.swapOut.name.toLowerCase();
+    handleAdd(swapPrompt);
+    setMarkedForRemoval((prev) => new Set(prev).add(removeKey));
+    setSwapPrompt(null);
   }
 
   function handleRemove(entry: EnrichedCard) {
@@ -147,6 +225,7 @@ export function DeckBuilder({
   function resumeSaved() {
     if (!savedSession) return;
     recompute(savedSession.cards, new Set(savedSession.addedNames));
+    setMarkedForRemoval(new Set(savedSession.markedForRemoval ?? []));
     setSavedSession(null);
   }
 
@@ -162,6 +241,7 @@ export function DeckBuilder({
   function resetToOriginal() {
     setResult(initial);
     setAddedNames(new Set());
+    setMarkedForRemoval(new Set());
     setTransientError(null);
     try {
       localStorage.removeItem(storageKey);
@@ -172,10 +252,17 @@ export function DeckBuilder({
 
   function exportCsv() {
     const rows: string[][] = [
-      ["Nombre", "Nom", "Coût de mana", "Type", "Ajoutée via suggestion"],
+      ["Nombre", "Nom", "Coût de mana", "Type", "Ajoutée via suggestion", "Marquée à retirer"],
     ];
     for (const c of result.commanderEntries) {
-      rows.push([String(c.count), c.name, c.card?.mana_cost ?? "", c.card?.type_line ?? "", "non (commandant)"]);
+      rows.push([
+        String(c.count),
+        c.name,
+        c.card?.mana_cost ?? "",
+        c.card?.type_line ?? "",
+        "non (commandant)",
+        "non",
+      ]);
     }
     for (const c of [...result.cards].sort((a, b) => a.name.localeCompare(b.name, "fr"))) {
       rows.push([
@@ -184,12 +271,12 @@ export function DeckBuilder({
         c.card?.mana_cost ?? "",
         c.card?.type_line ?? "",
         addedNames.has(c.name.toLowerCase()) ? "oui" : "non",
+        markedForRemoval.has(c.name.toLowerCase()) ? "oui" : "non",
       ]);
     }
     downloadCsv(`${deckSlug || "deck"}.csv`, rows);
   }
 
-  const hasChanges = addedNames.size > 0 || result.cards.length !== initial.cards.length;
   const sortedCards = [...result.cards].sort((a, b) => a.name.localeCompare(b.name, "fr"));
 
   return (
@@ -265,6 +352,7 @@ export function DeckBuilder({
                 key={`${entry.name}-${i}`}
                 entry={entry}
                 added={addedNames.has(entry.name.toLowerCase())}
+                markedForRemoval={markedForRemoval.has(entry.name.toLowerCase())}
                 onRemove={() => handleRemove(entry)}
                 removeDisabled={pending}
                 expanded={openCardKey === entry.name}
@@ -315,7 +403,7 @@ export function DeckBuilder({
                   <SuggestionCard
                     key={s.card.id}
                     suggestion={s}
-                    onAdd={() => handleAdd(s)}
+                    onAddClick={() => handleAddClick(s)}
                     addDisabled={pending}
                     expanded={openSuggestionId === s.card.id}
                     onToggle={() =>
@@ -328,6 +416,15 @@ export function DeckBuilder({
           </div>
         </aside>
       </div>
+
+      {swapPrompt && (
+        <SwapConfirmModal
+          suggestion={swapPrompt}
+          onConfirmSwap={confirmSwap}
+          onTagOnly={tagOnlySwap}
+          onCancel={() => setSwapPrompt(null)}
+        />
+      )}
     </div>
   );
 }

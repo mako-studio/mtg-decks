@@ -3,31 +3,26 @@
 import { useEffect, useState } from "react";
 import type { CardSuggestion } from "@/lib/types";
 import { getDisplayImageUrl, getDisplayManaCost, getDisplayOracleText } from "@/lib/scryfall";
+import { CATEGORY_LABELS } from "@/lib/deck-score";
 import { ManaCost } from "./ManaCost";
 import { useLanguage } from "./LanguageProvider";
 import { fetchLocalizedText, type LocalizedText } from "@/lib/actions";
 import { getCachedTranslation, hasCachedTranslation, setCachedTranslation } from "@/lib/translation-cache";
-
-const CATEGORY_LABELS: Record<string, string> = {
-  ramp: "Rampe",
-  removal: "Removal",
-  wipe: "Board wipe",
-  draw: "Pioche",
-  tutor: "Tutor",
-  protection: "Protection",
-  landfix: "Fixing",
-};
+import { CardImageHover } from "./CardImageHover";
 
 export function SuggestionCard({
   suggestion,
-  onAdd,
+  onAddClick,
   addDisabled = false,
   expanded,
   onToggle,
 }: {
   suggestion: CardSuggestion;
-  /** Si fourni, affiche un bouton "Ajouter" qui simule l'ajout de la carte au deck. */
-  onAdd?: () => void;
+  /**
+   * Clic sur "Ajouter" / "Swap" — c'est au parent de décider s'il ajoute
+   * directement ou ouvre une confirmation de swap (selon `suggestion.swapOut`).
+   */
+  onAddClick?: () => void;
   addDisabled?: boolean;
   /** Contrôlé par le parent pour un comportement accordéon (un seul déplié à la fois). */
   expanded: boolean;
@@ -73,8 +68,12 @@ export function SuggestionCard({
           className="flex min-w-0 flex-1 items-start gap-3 text-left"
         >
           {img && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={img} alt={card.name} width={56} className="h-auto rounded shrink-0" />
+            <CardImageHover
+              src={img}
+              zoomSrc={getDisplayImageUrl(card, "large")}
+              alt={card.name}
+              width={56}
+            />
           )}
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-2">
@@ -92,16 +91,25 @@ export function SuggestionCard({
                 </span>
               ))}
             </div>
+            {suggestion.swapOut && (
+              <p className="mt-1.5 flex items-center gap-1 truncate text-[11px] text-muted">
+                <span aria-hidden="true">⇄</span>
+                <span>
+                  À la place de <span className="font-medium text-foreground/80">{suggestion.swapOut.name}</span>
+                </span>
+              </p>
+            )}
           </div>
         </button>
-        {onAdd && (
+        {onAddClick && (
           <button
             type="button"
-            onClick={onAdd}
+            onClick={onAddClick}
             disabled={addDisabled}
+            title={suggestion.swapOut ? `Swap : + ${card.name} / − ${suggestion.swapOut.name}` : undefined}
             className="shrink-0 rounded-md bg-accent px-2.5 py-1.5 text-xs font-medium text-accent-foreground transition-colors hover:opacity-90 disabled:opacity-50"
           >
-            + Ajouter
+            {suggestion.swapOut ? "⇄ Swap" : "+ Ajouter"}
           </button>
         )}
       </div>

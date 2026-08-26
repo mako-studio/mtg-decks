@@ -5,9 +5,10 @@ import type {
   EnrichedCard,
   FormatConfig,
   ScryfallCard,
+  SwapCandidate,
 } from "./types";
 import { searchCards } from "./scryfall";
-import { classifyCard, computeDeckStats } from "./deck-score";
+import { CATEGORY_LABELS, classifyCard, computeDeckStats } from "./deck-score";
 
 /**
  * Requêtes Scryfall (syntaxe : https://scryfall.com/docs/syntax) utilisées
@@ -108,6 +109,29 @@ export async function suggestImprovements(
     }
   }
 
+  // Pour chaque suggestion, propose une carte du deck actuel à retirer en
+  // échange ("swap"), plutôt que de laisser le deck grossir indéfiniment
+  // (les decks Commander/Brawl/constructed visés ont tous une taille
+  // cible fixe — voir formats.ts). Une seule candidate par carte du deck :
+  // on évite de proposer de retirer la même carte pour plusieurs
+  // suggestions différentes (peu ergonomique), donc les candidates sont
+  // marquées "utilisées" au fur et à mesure.
+  const removalCandidates = buildRemovalCandidates(
+    currentCards,
+    currentStats.categoryCounts,
+    targets
+  );
+  const usedRemovals = new Set<string>();
+  for (const s of suggestions) {
+    const candidate = pickSwapCandidate(s, removalCandidates, usedRemovals, currentStats.categoryCounts, targets);
+    if (candidate) {
+      usedRemovals.add(candidate.name.toLowerCase());
+      s.swapOut = candidate;
+    } else {
+      s.swapOut = null;
+    }
+  }
+
   // Simule l'ajout des cartes suggérées pour projeter le nouveau score.
   const projectedCategoryCounts = { ...currentStats.categoryCounts };
   for (const s of suggestions) {
@@ -149,4 +173,106 @@ function reasonFor(cat: DeckCategory): string {
     landfix: "Fixe votre mana multicolore",
   };
   return labels[cat];
+}
+
+interface RemovalCandidate {
+  name: string;
+  categories: DeckCategory[];
+  cmc: number;
+  /** Score heuristique : plus c'est haut, plus la carte est "sacrifiable" sans risque. */
+  removability: number;
+}
+
+/**
+ * Classe les cartes du deck actuel (hors commandant et terrains de base)
+ * de la plus "sacrifiable" à la moins sacrifiable, pour servir de vivier
+ * de candidates au retrait lors d'un swap.
+ *
+ * Heuristique volontairement simple et explicable, dans le même esprit que
+ * le reste du moteur de score (voir deck-score.ts) : une carte sans
+ * catégorie identifiée (pas de rôle clé détecté dans son texte oracle) est
+ * considérée générique et donc facilement remplaçable ; une carte dont
+ * toutes les catégories sont déjà à/au-dessus de la cible est redondante
+ * et donc elle aussi sacrifiable ; à l'inverse, une carte qui contribue à
+ * une catégorie encore sous sa cible est pénalisée (on évite de la
+ * proposer, elle comble un manque réel). Ce n'est pas une mesure de
+ * puissance individuelle de la carte — juste un signal relatif.
+ */
+function buildRemovalCandidates(
+  currentCards: EnrichedCard[],
+  categoryCounts: Record<DeckCategory, number>,
+  targets: Record<DeckCategory, number>
+): RemovalCandidate[] {
+  const list: RemovalCandidate[] = [];
+  for (const entry of currentCards) {
+    if (entry.isCommander || !entry.card) continue;
+    if (entry.card.type_line?.includes("Basic Land")) continue;
+
+    const categories = classifyCard(entry.card);
+    let removability = 0;
+    if (categories.length === 0) {
+      removability += 3;
+    } else {
+      for (const cat of categories) {
+        removability += categoryCounts[cat] >= targets[cat] ? 2 : -3;
+      }
+    }
+    // Léger bonus aux cartes chères à lancer : à sacrifice égal, autant
+    // garder les cartes les moins gourmandes en mana.
+    removability += (entry.card.cmc ?? 0) * 0.1;
+
+    list.push({ name: entry.name, categories, cmc: entry.card.cmc ?? 0, removability });
+  }
+  return list.sort(
+    (a, b) => b.removability - a.removability || b.cmc - a.cmc || a.name.localeCompare(b.name)
+  );
+}
+
+/**
+ * Choisit, pour une suggestion d'ajout donnée, la meilleure candidate au
+ * retrait parmi celles pas encore utilisées : en priorité une carte qui
+ * partage une catégorie avec la suggestion et dont cette catégorie est
+ * déjà couverte (= "mise à niveau" au sein du même rôle), sinon la carte
+ * la plus sacrifiable qui ne touche à aucune catégorie visée par la
+ * suggestion (= "rééquilibrage", pour ne pas retirer une pièce dont le
+ * deck a justement besoin), sinon en dernier recours la carte la plus
+ * sacrifiable tout court.
+ */
+function pickSwapCandidate(
+  suggestion: CardSuggestion,
+  candidates: RemovalCandidate[],
+  used: Set<string>,
+  categoryCounts: Record<DeckCategory, number>,
+  targets: Record<DeckCategory, number>
+): SwapCandidate | null {
+  const suggestionKey = suggestion.card.name.toLowerCase();
+  const available = candidates.filter(
+    (c) => !used.has(c.name.toLowerCase()) && c.name.toLowerCase() !== suggestionKey
+  );
+  if (available.length === 0) return null;
+
+  const upgrade = available.find(
+    (c) => c.removability > 0 && c.categories.some((cat) => suggestion.categories.includes(cat))
+  );
+  const chosen =
+    upgrade ??
+    available.find((c) => !c.categories.some((cat) => suggestion.categories.includes(cat))) ??
+    available[0];
+
+  return { name: chosen.name, reason: swapReason(chosen, categoryCounts, targets) };
+}
+
+function swapReason(
+  candidate: RemovalCandidate,
+  categoryCounts: Record<DeckCategory, number>,
+  targets: Record<DeckCategory, number>
+): string {
+  if (candidate.categories.length === 0) {
+    return "Pas de rôle clé détecté sur cette carte (ramp/removal/pioche/…) — remplaçable sans perte identifiée.";
+  }
+  const overCovered = candidate.categories.filter((cat) => categoryCounts[cat] >= targets[cat]);
+  if (overCovered.length > 0) {
+    return `Catégorie déjà bien couverte dans le deck (${overCovered.map((c) => CATEGORY_LABELS[c]).join(", ")}) — une carte de plus dans ce rôle a peu d'impact.`;
+  }
+  return "Carte la moins impactante identifiée dans le deck actuel selon notre heuristique.";
 }

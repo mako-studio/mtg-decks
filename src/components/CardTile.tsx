@@ -7,10 +7,12 @@ import { ManaCost } from "./ManaCost";
 import { useLanguage } from "./LanguageProvider";
 import { fetchLocalizedText, type LocalizedText } from "@/lib/actions";
 import { getCachedTranslation, hasCachedTranslation, setCachedTranslation } from "@/lib/translation-cache";
+import { CardImageHover } from "./CardImageHover";
 
 export function CardTile({
   entry,
   added = false,
+  markedForRemoval = false,
   onRemove,
   removeDisabled = false,
   expanded,
@@ -19,6 +21,8 @@ export function CardTile({
   entry: EnrichedCard;
   /** Marque visuellement une carte ajoutée via une suggestion pendant la session. */
   added?: boolean;
+  /** Marque visuellement une carte taguée "à retirer" suite à un swap non confirmé. */
+  markedForRemoval?: boolean;
   /** Si fourni, affiche un bouton de retrait (retire 1 exemplaire). */
   onRemove?: () => void;
   removeDisabled?: boolean;
@@ -81,6 +85,11 @@ export function CardTile({
                 Ajoutée
               </span>
             )}
+            {markedForRemoval && (
+              <span className="ml-2 rounded-full bg-warning/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-warning">
+                À retirer
+              </span>
+            )}
           </span>
           {card ? (
             <ManaCost cost={getDisplayManaCost(card)} />
@@ -105,12 +114,12 @@ export function CardTile({
       {expanded && card && (
         <div className="flex gap-4 border-t border-border px-3 py-3">
           {getDisplayImageUrl(card, "small") && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={getDisplayImageUrl(card, "small") ?? undefined}
+            <CardImageHover
+              src={getDisplayImageUrl(card, "small")!}
+              zoomSrc={getDisplayImageUrl(card, "large")}
               alt={card.name}
               width={110}
-              className="h-auto rounded-md shrink-0"
+              className="rounded-md"
             />
           )}
           <div className="min-w-0 flex-1 text-sm">
