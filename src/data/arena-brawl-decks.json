@@ -1,0 +1,822 @@
+[
+  {
+    "id": "brawl-eld-faerie-schemes",
+    "name": "Faerie Schemes",
+    "setCode": "eld",
+    "setName": "Throne of Eldraine",
+    "releaseDate": "2019-10-04",
+    "commanders": [
+      "Alela, Artful Provocateur"
+    ],
+    "cardCount": 48,
+    "cards": [
+      {
+        "name": "Shimmer Dragon",
+        "count": 1
+      },
+      {
+        "name": "Workshop Elders",
+        "count": 1
+      },
+      {
+        "name": "Sephara, Sky's Blade",
+        "count": 1
+      },
+      {
+        "name": "Massacre Girl",
+        "count": 1
+      },
+      {
+        "name": "Corridor Monitor",
+        "count": 1
+      },
+      {
+        "name": "Shinechaser",
+        "count": 1
+      },
+      {
+        "name": "Arcanist's Owl",
+        "count": 1
+      },
+      {
+        "name": "Empyrean Eagle",
+        "count": 1
+      },
+      {
+        "name": "Shambling Suit",
+        "count": 1
+      },
+      {
+        "name": "Kaya's Wrath",
+        "count": 1
+      },
+      {
+        "name": "Animating Faerie // Bring to Life",
+        "count": 1
+      },
+      {
+        "name": "Winged Words",
+        "count": 1
+      },
+      {
+        "name": "Banish into Fable",
+        "count": 1
+      },
+      {
+        "name": "Chemister's Insight",
+        "count": 1
+      },
+      {
+        "name": "Mortify",
+        "count": 1
+      },
+      {
+        "name": "Mace of the Valiant",
+        "count": 1
+      },
+      {
+        "name": "Bag of Holding",
+        "count": 1
+      },
+      {
+        "name": "Witching Well",
+        "count": 1
+      },
+      {
+        "name": "Golden Egg",
+        "count": 1
+      },
+      {
+        "name": "Arcane Signet",
+        "count": 1
+      },
+      {
+        "name": "Ancestral Blade",
+        "count": 1
+      },
+      {
+        "name": "Bloodsoaked Altar",
+        "count": 1
+      },
+      {
+        "name": "Heraldic Banner",
+        "count": 1
+      },
+      {
+        "name": "Scrabbling Claws",
+        "count": 1
+      },
+      {
+        "name": "Guild Globe",
+        "count": 1
+      },
+      {
+        "name": "Mana Geode",
+        "count": 1
+      },
+      {
+        "name": "Smothering Tithe",
+        "count": 1
+      },
+      {
+        "name": "All That Glitters",
+        "count": 1
+      },
+      {
+        "name": "Frogify",
+        "count": 1
+      },
+      {
+        "name": "Angelic Exaltation",
+        "count": 1
+      },
+      {
+        "name": "Conclave Tribunal",
+        "count": 1
+      },
+      {
+        "name": "Prison Realm",
+        "count": 1
+      },
+      {
+        "name": "Lawmage's Binding",
+        "count": 1
+      },
+      {
+        "name": "Temple of Silence",
+        "count": 1
+      },
+      {
+        "name": "Watery Grave",
+        "count": 1
+      },
+      {
+        "name": "Plains",
+        "count": 6
+      },
+      {
+        "name": "Island",
+        "count": 5
+      },
+      {
+        "name": "Swamp",
+        "count": 4
+      },
+      {
+        "name": "Azorius Guildgate",
+        "count": 1
+      },
+      {
+        "name": "Command Tower",
+        "count": 1
+      },
+      {
+        "name": "Dimir Guildgate",
+        "count": 1
+      },
+      {
+        "name": "Dismal Backwater",
+        "count": 1
+      },
+      {
+        "name": "Emergence Zone",
+        "count": 1
+      },
+      {
+        "name": "Evolving Wilds",
+        "count": 1
+      },
+      {
+        "name": "Orzhov Guildgate",
+        "count": 1
+      },
+      {
+        "name": "Scoured Barrens",
+        "count": 1
+      },
+      {
+        "name": "Tranquil Cove",
+        "count": 1
+      }
+    ],
+    "source": "https://magic.wizards.com/en/articles/archive/card-preview/inside-throne-eldraine-brawl-decks-2019-09-04"
+  },
+  {
+    "id": "brawl-eld-knights-charge",
+    "name": "Knights' Charge",
+    "setCode": "eld",
+    "setName": "Throne of Eldraine",
+    "releaseDate": "2019-10-04",
+    "commanders": [
+      "Syr Gwyn, Hero of Ashvale"
+    ],
+    "cardCount": 50,
+    "cards": [
+      {
+        "name": "Silverwing Squadron",
+        "count": 1
+      },
+      {
+        "name": "Embereth Skyblazer",
+        "count": 1
+      },
+      {
+        "name": "Midnight Reaper",
+        "count": 1
+      },
+      {
+        "name": "Knight of the Ebon Legion",
+        "count": 1
+      },
+      {
+        "name": "Venerable Knight",
+        "count": 1
+      },
+      {
+        "name": "Belle of the Brawl",
+        "count": 1
+      },
+      {
+        "name": "Syr Konrad, the Grim",
+        "count": 1
+      },
+      {
+        "name": "Embereth Shieldbreaker // Battle Display",
+        "count": 1
+      },
+      {
+        "name": "Inspiring Veteran",
+        "count": 1
+      },
+      {
+        "name": "Wintermoor Commander",
+        "count": 1
+      },
+      {
+        "name": "Fireborn Knight",
+        "count": 1
+      },
+      {
+        "name": "Skyknight Legionnaire",
+        "count": 1
+      },
+      {
+        "name": "Corpse Knight",
+        "count": 1
+      },
+      {
+        "name": "Skyknight Vanguard",
+        "count": 1
+      },
+      {
+        "name": "Single Combat",
+        "count": 1
+      },
+      {
+        "name": "Order of Midnight // Alter Fate",
+        "count": 1
+      },
+      {
+        "name": "Smitten Swordmaster // Curry Favor",
+        "count": 1
+      },
+      {
+        "name": "Bond of Discipline",
+        "count": 1
+      },
+      {
+        "name": "Response // Resurgence",
+        "count": 1
+      },
+      {
+        "name": "Foulmire Knight // Profane Insight",
+        "count": 1
+      },
+      {
+        "name": "Ob Nixilis's Cruelty",
+        "count": 1
+      },
+      {
+        "name": "Despark",
+        "count": 1
+      },
+      {
+        "name": "Mortify",
+        "count": 1
+      },
+      {
+        "name": "Integrity // Intervention",
+        "count": 1
+      },
+      {
+        "name": "Mace of the Valiant",
+        "count": 1
+      },
+      {
+        "name": "Icon of Ancestry",
+        "count": 1
+      },
+      {
+        "name": "Shining Armor",
+        "count": 1
+      },
+      {
+        "name": "Crystal Slipper",
+        "count": 1
+      },
+      {
+        "name": "Steelclaw Lance",
+        "count": 1
+      },
+      {
+        "name": "Arcane Signet",
+        "count": 1
+      },
+      {
+        "name": "Ancestral Blade",
+        "count": 1
+      },
+      {
+        "name": "Mask of Immolation",
+        "count": 1
+      },
+      {
+        "name": "Colossus Hammer",
+        "count": 1
+      },
+      {
+        "name": "Marauder's Axe",
+        "count": 1
+      },
+      {
+        "name": "Knights' Charge",
+        "count": 1
+      },
+      {
+        "name": "Godless Shrine",
+        "count": 1
+      },
+      {
+        "name": "Temple of Triumph",
+        "count": 1
+      },
+      {
+        "name": "Plains",
+        "count": 5
+      },
+      {
+        "name": "Swamp",
+        "count": 3
+      },
+      {
+        "name": "Mountain",
+        "count": 5
+      },
+      {
+        "name": "Bloodfell Caves",
+        "count": 1
+      },
+      {
+        "name": "Boros Guildgate",
+        "count": 1
+      },
+      {
+        "name": "Command Tower",
+        "count": 1
+      },
+      {
+        "name": "Evolving Wilds",
+        "count": 1
+      },
+      {
+        "name": "Orzhov Guildgate",
+        "count": 1
+      },
+      {
+        "name": "Rakdos Guildgate",
+        "count": 1
+      },
+      {
+        "name": "Scoured Barrens",
+        "count": 1
+      },
+      {
+        "name": "Tournament Grounds",
+        "count": 1
+      },
+      {
+        "name": "Wind-Scarred Crag",
+        "count": 1
+      }
+    ],
+    "source": "https://magic.wizards.com/en/articles/archive/card-preview/inside-throne-eldraine-brawl-decks-2019-09-04"
+  },
+  {
+    "id": "brawl-eld-savage-hunger",
+    "name": "Savage Hunger",
+    "setCode": "eld",
+    "setName": "Throne of Eldraine",
+    "releaseDate": "2019-10-04",
+    "commanders": [
+      "Korvold, Fae-Cursed King"
+    ],
+    "cardCount": 49,
+    "cards": [
+      {
+        "name": "Angrath, Captain of Chaos",
+        "count": 1
+      },
+      {
+        "name": "Chittering Witch",
+        "count": 1
+      },
+      {
+        "name": "Thorn Mammoth",
+        "count": 1
+      },
+      {
+        "name": "Gluttonous Troll",
+        "count": 1
+      },
+      {
+        "name": "Priest of Forgotten Gods",
+        "count": 1
+      },
+      {
+        "name": "Krenko, Tin Street Kingpin",
+        "count": 1
+      },
+      {
+        "name": "Judith, the Scourge Diva",
+        "count": 1
+      },
+      {
+        "name": "Syr Konrad, the Grim",
+        "count": 1
+      },
+      {
+        "name": "Keeper of Fables",
+        "count": 1
+      },
+      {
+        "name": "Savvy Hunter",
+        "count": 1
+      },
+      {
+        "name": "Orzhov Enforcer",
+        "count": 1
+      },
+      {
+        "name": "Plaguecrafter",
+        "count": 1
+      },
+      {
+        "name": "Vindictive Vampire",
+        "count": 1
+      },
+      {
+        "name": "Goblin Cratermaker",
+        "count": 1
+      },
+      {
+        "name": "Rapacious Dragon",
+        "count": 1
+      },
+      {
+        "name": "Evolution Sage",
+        "count": 1
+      },
+      {
+        "name": "Paradise Druid",
+        "count": 1
+      },
+      {
+        "name": "Pollenbright Druid",
+        "count": 1
+      },
+      {
+        "name": "Golgari Findbroker",
+        "count": 1
+      },
+      {
+        "name": "Thrashing Brontodon",
+        "count": 1
+      },
+      {
+        "name": "Leyline Prowler",
+        "count": 1
+      },
+      {
+        "name": "Mayhem Devil",
+        "count": 1
+      },
+      {
+        "name": "Woodland Champion",
+        "count": 1
+      },
+      {
+        "name": "Taste of Death",
+        "count": 1
+      },
+      {
+        "name": "Find // Finality",
+        "count": 1
+      },
+      {
+        "name": "Bake into a Pie",
+        "count": 1
+      },
+      {
+        "name": "Deathsprout",
+        "count": 1
+      },
+      {
+        "name": "Golden Egg",
+        "count": 1
+      },
+      {
+        "name": "Witch's Oven",
+        "count": 1
+      },
+      {
+        "name": "Arcane Signet",
+        "count": 1
+      },
+      {
+        "name": "Bloodsoaked Altar",
+        "count": 1
+      },
+      {
+        "name": "Dreadhorde Invasion",
+        "count": 1
+      },
+      {
+        "name": "Rhythm of the Wild",
+        "count": 1
+      },
+      {
+        "name": "Moldervine Reclamation",
+        "count": 1
+      },
+      {
+        "name": "Temple of Malady",
+        "count": 1
+      },
+      {
+        "name": "Stomping Ground",
+        "count": 1
+      },
+      {
+        "name": "Swamp",
+        "count": 6
+      },
+      {
+        "name": "Mountain",
+        "count": 2
+      },
+      {
+        "name": "Forest",
+        "count": 6
+      },
+      {
+        "name": "Bloodfell Caves",
+        "count": 1
+      },
+      {
+        "name": "Cryptic Caves",
+        "count": 1
+      },
+      {
+        "name": "Command Tower",
+        "count": 1
+      },
+      {
+        "name": "Evolving Wilds",
+        "count": 1
+      },
+      {
+        "name": "Golgari Guildgate",
+        "count": 1
+      },
+      {
+        "name": "Gruul Guildgate",
+        "count": 1
+      },
+      {
+        "name": "Jungle Hollow",
+        "count": 1
+      },
+      {
+        "name": "Rugged Highlands",
+        "count": 1
+      },
+      {
+        "name": "Rakdos Guildgate",
+        "count": 1
+      }
+    ],
+    "source": "https://magic.wizards.com/en/articles/archive/card-preview/inside-throne-eldraine-brawl-decks-2019-09-04"
+  },
+  {
+    "id": "brawl-eld-wild-bounty",
+    "name": "Wild Bounty",
+    "setCode": "eld",
+    "setName": "Throne of Eldraine",
+    "releaseDate": "2019-10-04",
+    "commanders": [
+      "Chulane, Teller of Tales"
+    ],
+    "cardCount": 48,
+    "cards": [
+      {
+        "name": "Faerie Formation",
+        "count": 1
+      },
+      {
+        "name": "Steelbane Hydra",
+        "count": 1
+      },
+      {
+        "name": "Thorn Mammoth",
+        "count": 1
+      },
+      {
+        "name": "End-Raze Forerunners",
+        "count": 1
+      },
+      {
+        "name": "Incubation Druid",
+        "count": 1
+      },
+      {
+        "name": "Biomancer's Familiar",
+        "count": 1
+      },
+      {
+        "name": "Faerie Vandal",
+        "count": 1
+      },
+      {
+        "name": "Keeper of Fables",
+        "count": 1
+      },
+      {
+        "name": "Maraleaf Pixie",
+        "count": 1
+      },
+      {
+        "name": "Forbidding Spirit",
+        "count": 1
+      },
+      {
+        "name": "Spectral Sailor",
+        "count": 1
+      },
+      {
+        "name": "District Guide",
+        "count": 1
+      },
+      {
+        "name": "Kraul Harpooner",
+        "count": 1
+      },
+      {
+        "name": "Silhana Wayfinder",
+        "count": 1
+      },
+      {
+        "name": "Paradise Druid",
+        "count": 1
+      },
+      {
+        "name": "Frilled Mystic",
+        "count": 1
+      },
+      {
+        "name": "Leafkin Druid",
+        "count": 1
+      },
+      {
+        "name": "Gyre Engineer",
+        "count": 1
+      },
+      {
+        "name": "Sharktocrab",
+        "count": 1
+      },
+      {
+        "name": "Risen Reef",
+        "count": 1
+      },
+      {
+        "name": "Meteor Golem",
+        "count": 1
+      },
+      {
+        "name": "Time Wipe",
+        "count": 1
+      },
+      {
+        "name": "Beanstalk Giant // Fertile Footsteps",
+        "count": 1
+      },
+      {
+        "name": "Rosethorn Acolyte // Seasonal Ritual",
+        "count": 1
+      },
+      {
+        "name": "Circuitous Route",
+        "count": 1
+      },
+      {
+        "name": "Flower // Flourish",
+        "count": 1
+      },
+      {
+        "name": "Run Away Together",
+        "count": 1
+      },
+      {
+        "name": "Growth Spiral",
+        "count": 1
+      },
+      {
+        "name": "Incubation // Incongruity",
+        "count": 1
+      },
+      {
+        "name": "Tome of Legends",
+        "count": 1
+      },
+      {
+        "name": "Parhelion II",
+        "count": 1
+      },
+      {
+        "name": "Arcane Signet",
+        "count": 1
+      },
+      {
+        "name": "Firemind Vessel",
+        "count": 1
+      },
+      {
+        "name": "Prison Realm",
+        "count": 1
+      },
+      {
+        "name": "Hallowed Fountain",
+        "count": 1
+      },
+      {
+        "name": "Temple of Mystery",
+        "count": 1
+      },
+      {
+        "name": "Plains",
+        "count": 5
+      },
+      {
+        "name": "Island",
+        "count": 4
+      },
+      {
+        "name": "Forest",
+        "count": 6
+      },
+      {
+        "name": "Azorius Guildgate",
+        "count": 1
+      },
+      {
+        "name": "Blossoming Sands",
+        "count": 1
+      },
+      {
+        "name": "Command Tower",
+        "count": 1
+      },
+      {
+        "name": "Evolving Wilds",
+        "count": 1
+      },
+      {
+        "name": "Selesnya Guildgate",
+        "count": 1
+      },
+      {
+        "name": "Simic Guildgate",
+        "count": 1
+      },
+      {
+        "name": "Tranquil Cove",
+        "count": 1
+      },
+      {
+        "name": "Thornwood Falls",
+        "count": 1
+      }
+    ],
+    "source": "https://magic.wizards.com/en/articles/archive/card-preview/inside-throne-eldraine-brawl-decks-2019-09-04"
+  }
+]
