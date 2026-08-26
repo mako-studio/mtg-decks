@@ -1,4 +1,4 @@
-import type { ScryfallCard, ScryfallImageUris } from "./types";
+import type { ScryfallCard, ScryfallImageUris, ScryfallSet } from "./types";
 
 /**
  * Client pour l'API Scryfall (https://scryfall.com/docs/api).
@@ -165,10 +165,23 @@ export async function autocompleteCardNames(query: string): Promise<string[]> {
   return data.data;
 }
 
-/** Recherche de cartes via la syntax query Scryfall (https://scryfall.com/docs/syntax). */
-export async function searchCards(query: string, maxPages = 1): Promise<ScryfallCard[]> {
+/**
+ * Recherche de cartes via la syntax query Scryfall (https://scryfall.com/docs/syntax).
+ * `order` accepte n'importe quelle valeur documentée par
+ * https://scryfall.com/docs/api/cards/search (vérifié le 26/08/2026 :
+ * name, set, released, rarity, color, usd, tix, eur, cmc, power,
+ * toughness, edhrec, penny, artist, review) — "edhrec" par défaut
+ * (pertinence pour les suggestions), "set" pour un tri par numéro de
+ * collection au sein d'un set (checklist, voir getSetCards ci-dessous).
+ * 175 résultats par page (maximum documenté par Scryfall).
+ */
+export async function searchCards(
+  query: string,
+  maxPages = 1,
+  order: string = "edhrec"
+): Promise<ScryfallCard[]> {
   const results: ScryfallCard[] = [];
-  let url: string | null = `/cards/search?q=${encodeURIComponent(query)}&order=edhrec`;
+  let url: string | null = `/cards/search?q=${encodeURIComponent(query)}&order=${order}`;
   let pages = 0;
 
   while (url && pages < maxPages) {
@@ -181,6 +194,61 @@ export async function searchCards(query: string, maxPages = 1): Promise<Scryfall
   }
 
   return results;
+}
+
+/**
+ * Nombre maximum de pages Scryfall (175 cartes/page) récupérées pour la
+ * checklist complète d'un set — 25 pages = jusqu'à 4375 cartes, largement
+ * suffisant pour n'importe quel set/produit Commander de la liste
+ * TRACKED_SETS (le plus gros tourne autour de 400-450 cartes), à
+ * l'exception de "sld" (Secret Lair Drop, qui agrège des milliers de
+ * cartes disparates sous un seul code) où la liste peut être tronquée —
+ * voir loadSetChecklist dans sets.ts, qui expose ce cas via `truncated`.
+ */
+const SET_CHECKLIST_MAX_PAGES = 25;
+
+/**
+ * Métadonnées d'un set/extension (`/sets/:code`) — voir
+ * https://scryfall.com/docs/api/sets (vérifié le 26/08/2026).
+ */
+export async function getSetInfo(code: string): Promise<ScryfallSet | null> {
+  const res = await scryfallFetch(`/sets/${encodeURIComponent(code)}`);
+  if (!res || !res.ok) return null;
+  return (await res.json()) as ScryfallSet;
+}
+
+/**
+ * Checklist complète (anglaise) d'un set : toutes les cartes uniques
+ * imprimées dans ce set, triées par numéro de collection
+ * (`order=set`, mode `unique=cards` par défaut de Scryfall — une entrée
+ * par carte unique, pas par variante d'illustration/finition).
+ */
+export async function getSetCards(code: string): Promise<ScryfallCard[]> {
+  return searchCards(`set:${code}`, SET_CHECKLIST_MAX_PAGES, "set");
+}
+
+/**
+ * Noms français imprimés pour les cartes d'un set, en un seul passage
+ * paginé (`lang:fr`) plutôt qu'un appel par carte — voir la note sur
+ * getLocalizedPrint plus haut : même principe, mais en lot pour éviter
+ * 200-400 requêtes individuelles sur une checklist complète.
+ *
+ * Retourne une Map numéro-de-collection -> nom imprimé français. Le
+ * numéro de collection est la clé la plus fiable au sein d'un même set
+ * (contrairement au nom anglais, stable même pour les cartes multi-faces
+ * ou les variantes de traduction). Les cartes sans impression française
+ * (set non traduit, ou impression bonus anglaise uniquement) sont
+ * simplement absentes de la Map — à traiter comme "pas de traduction
+ * disponible", pas comme une erreur (voir getLocalizedPrint).
+ */
+export async function getSetCardsFrNames(code: string): Promise<Map<string, string>> {
+  const frCards = await searchCards(`set:${code} lang:fr`, SET_CHECKLIST_MAX_PAGES, "set");
+  const map = new Map<string, string>();
+  for (const card of frCards) {
+    const name = pickLocalized(card, "printed_name");
+    if (name) map.set(card.collector_number, name);
+  }
+  return map;
 }
 
 /** Texte oracle affichable, en gérant les cartes double-face. */

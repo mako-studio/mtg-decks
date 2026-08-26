@@ -107,6 +107,19 @@ puissance estimé, avec le texte oracle et le coût de mana de chaque carte.
 - Export du deck (+ suggestions) au format texte Arena, prêt à recoller
   dans le client.
 
+**Glossaire** (`/glossaire`) et **Extensions** (`/extensions`)
+- Glossaire de ~55 termes MTG (FR/EN), recherchable et filtrable par
+  catégorie (mots-clés intemporels, autres mots-clés, deckbuilding,
+  Commander, jeu/règles) — chaque entrée cite sa source et signale les
+  traductions non confirmées officiellement.
+- Liste des ~58 extensions déjà couvertes par le site (recherchable,
+  triable par date ou par nom) ; chaque extension ouvre sur sa checklist
+  complète (cartes en FR/EN, zoom au survol, recherche) et ses mécaniques
+  clés — mots-clés officiels agrégés depuis les cartes du set,
+  automatiquement reliés au glossaire quand une entrée correspond. Voir
+  "Glossaire et Extensions (26/08/2026)" plus bas pour l'architecture et
+  les limites connues.
+
 ## Refonte UI/UX du 26/08/2026
 
 Demande de Ben : le site s'était complexifié avec l'ajout de features
@@ -198,6 +211,88 @@ titre "Deck"). Re-cliquer le même pilier annule le filtre. Vérifié avec
 un jeu de cartes mockées couvrant plusieurs piliers (capture d'écran :
 cliquer "Disruption" affiche bien "Mana Maze" + "Static Orb" et réduit la
 liste à ces deux cartes).
+
+**"Déjà dans le deck".** Dans "Tester une carte", le badge "✓ Améliore le
+deck" était trompeur quand la carte cherchée était déjà présente au
+nombre d'exemplaires maximum autorisé pour le format (typiquement déjà
+dans le deck en Commander/Brawl, singleton). Il affiche maintenant "Déjà
+dans le deck" dans ce cas précis (`alreadyInDeck` dans
+`AddCardSearch.tsx`) ; les verdicts "≈ Impact limité" / "? Rôle non
+identifié" restent inchangés, toujours pertinents même pour une carte
+déjà présente.
+
+## Glossaire et Extensions (26/08/2026)
+
+Trois ajouts demandés par Ben : un glossaire de termes MTG (FR/EN,
+recherchable), une section listant les extensions déjà couvertes par le
+site avec leurs mécaniques, et — au sein de cette dernière — la checklist
+complète de chaque set avec noms FR/EN, zoom au survol et recherche.
+
+**Portée**, choisie via deux questions posées à Ben (`AskUserQuestion`) :
+- Sets couverts : uniquement les ~58 sets déjà référencés par les decks du
+  site (dédupliqués depuis les 3 fichiers `src/data/*.json`, voir
+  `src/data/tracked-sets.ts`), pas l'intégralité des sets Magic jamais
+  imprimés.
+- Cartes par set : la checklist officielle complète du set (toutes les
+  cartes qu'il contient), pas seulement celles déjà connues via les
+  decklists précon/Arena.
+
+**Glossaire** (`src/data/glossary.ts`, ~55 termes) — contenu recherché
+(pas rédigé de mémoire) : chaque entrée cite sa source dans
+`sourceNote` (glossaire officiel des mots-clés Wizards, notes de
+publication officielles, texte imprimé sur cartes françaises, ou à
+défaut une source communautaire). `confidence: "low"` signale une
+traduction non confirmée officiellement (affiché avec un ⚠ dans l'UI,
+ex. "board wipe", "mana dork", "bracket system") — assumé plutôt que
+masqué, cohérent avec le reste du site. Portée volontairement limitée
+(~55 termes essentiels plutôt que les centaines de mots-clés jamais
+imprimés) pour rester fiable sur chaque entrée ; jamais explicitement
+confirmée avec Ben, à ajuster sur demande.
+
+**Mécaniques par set** (`computeMechanics` dans `src/lib/sets.ts`) :
+plutôt que de rédiger à la main "les mécaniques introduites par ce set"
+— risqué factuellement, puisque beaucoup des sets suivis sont des
+produits Commander préconstruits distincts du set d'extension qui a
+réellement introduit une mécanique (ex. "Neon Dynasty Commander"/`nec`
+≠ "Kamigawa: Neon Dynasty"/`neo`) — les mécaniques affichées sont
+calculées automatiquement à partir du champ `keywords` officiel de
+chaque carte Scryfall, agrégé sur toute la checklist du set. Zéro risque
+d'invention, avec une nuance assumée dans l'UI : ce sont les mots-clés
+**présents** dans les cartes de ce set, pas nécessairement des mots-clés
+qu'il a introduits en premier. Quand un mot-clé correspond à une entrée
+du glossaire (`termEn` matché), le chip affiche la traduction FR et
+renvoie vers le glossaire (recherche pré-remplie) ; sinon il reste en
+anglais, sans lien.
+
+**Checklist FR/EN d'un set** (`loadSetChecklist` dans `src/lib/sets.ts`) :
+les noms français sont récupérés en un seul passage paginé
+(`set:<code> lang:fr`) plutôt qu'un appel par carte, puis appairés aux
+cartes anglaises par **numéro de collection** (plus fiable que le nom
+pour les cartes multi-faces). `getSetInfo`/`getSetCards`/
+`getSetCardsFrNames` sont les nouveaux helpers Scryfall (`scryfall.ts`) ;
+`searchCards` accepte maintenant un paramètre `order` (généralisé,
+"edhrec" par défaut pour ne rien casser côté suggestions).
+
+**Limites connues, transparence :**
+- Un set volumineux et hétérogène comme "Secret Lair Drop" (`sld`, des
+  milliers de cartes disparates sous un seul code) peut dépasser la
+  limite de pages récupérées par prudence (25 pages = ~4375 cartes) — la
+  page affiche alors un avertissement (`checklist.truncated`) plutôt que
+  de prétendre à une liste complète.
+- `/extensions` (page liste) est forcée en rendu à la demande
+  (`export const dynamic = "force-dynamic"`) plutôt que statique, pour
+  éviter que Next.js tente de précalculer ~58 appels Scryfall au moment
+  du build — même raisonnement que `/decks/[id]`. Le cache `fetch` 24h
+  s'applique quand même normalement ensuite.
+- Comme pour tout ce qui dépend de Scryfall dans ce projet, je n'ai pas pu
+  tester le comportement avec un accès réseau réel depuis mon bac à
+  sable (voir "Limites connues sur les sources de données" plus bas) : la
+  logique de fusion FR/EN et l'agrégation de mécaniques sont vérifiées
+  avec un `fetch` mocké reproduisant la forme exacte des réponses
+  Scryfall (pagination, `printed_name`, `keywords`...), et le rendu/les
+  interactions (filtre par mécanique, recherche, zoom au survol) avec des
+  données de cartes fictives via Playwright — pas avec de vraies cartes
+  en conditions réelles.
 
 ## Stack
 
@@ -482,9 +577,15 @@ src/
     decks/[id]/page.tsx         # Détail deck Commander papier
     arena/page.tsx              # Accueil Arena : import + galeries Brawl/Starter
     arena/decks/[id]/page.tsx   # Détail deck Arena (galerie), sélecteur de format
+    glossaire/page.tsx          # Glossaire MTG (FR/EN), recherchable
+    extensions/page.tsx         # Liste des extensions suivies (métadonnées légères)
+    extensions/[code]/page.tsx  # Checklist complète d'un set (cartes FR/EN, mécaniques)
   components/
     DeckAnalysis.tsx             # Point d'entrée serveur : lance analyzeDeck, rend DeckBuilder
-    DeckBuilder.tsx              # Simulateur interactif (client) : add/remove, swap, accordéon, save, export CSV
+    DeckBuilder.tsx              # Simulateur interactif (client) : add/remove, swap, tableau de bord, panneau latéral
+    DeckDashboard.tsx            # Score actuel/projeté + couverture des 9 piliers (en tête de page)
+    PillarCoverage.tsx           # Les 9 piliers, cliquables (filtre le deck sur la catégorie)
+    ImproveDeckPanel.tsx         # Panneau à onglets Suggestions / Tester une carte
     SwapConfirmModal.tsx         # Popup de confirmation d'un swap (ajout + retrait suggéré)
     AddCardSearch.tsx            # Recherche + test de compatibilité d'une carte (hors suggestions)
     CardImageHover.tsx           # Vignette avec image agrandie au survol
@@ -492,7 +593,10 @@ src/
     ArenaExportButton.tsx        # Export texte Arena (copier/coller)
     CsvImportForm.tsx            # Reprend un deck Commander exporté en CSV (client + Server Action)
     LanguageProvider.tsx         # Contexte + toggle FR/EN pour le texte des cartes
-    CardTile.tsx, SuggestionCard.tsx, ManaCost.tsx, ImprovementGauge.tsx, DeckCard.tsx
+    GlossaryBrowser.tsx          # Glossaire : recherche + filtre par catégorie
+    ExtensionsBrowser.tsx        # Liste des extensions : recherche + tri
+    SetDetail.tsx                # Checklist d'un set : mécaniques cliquables + recherche + zoom au survol
+    CardTile.tsx, SuggestionCard.tsx, ManaCost.tsx, DeckCard.tsx
   lib/
     types.ts                     # Types partagés
     formats.ts                   # Registre des formats (cibles/poids par format)
@@ -503,7 +607,9 @@ src/
     arena-import.ts              # Adapte un deck importé vers le modèle interne
     csv-import.ts                # Parse un CSV exporté depuis ce site (reprise de session)
     actions.ts                   # Server Actions : analyzeDeck (cœur), analyzeArenaImport, fetchLocalizedText, recherche de carte
-    scryfall.ts                  # Client API Scryfall (cache, throttle, headers requis, impressions FR, autocomplétion)
+    scryfall.ts                  # Client API Scryfall (cache, throttle, headers requis, impressions FR, sets, autocomplétion)
+    sets.ts                       # Checklist + mécaniques d'un set (combine scryfall.ts + glossary.ts)
+    text.ts                       # Recherche insensible aux accents, slug, formatage de date FR
     deck-loader.ts                # Résolution deck -> cartes Scryfall (par format)
     deck-score.ts                 # Heuristique de score (catégories, paramétrable)
     recommend.ts                   # Recherche + classement des suggestions (par format)
@@ -511,6 +617,8 @@ src/
     commander-decks.json          # Snapshot Commander papier
     arena-brawl-decks.json        # Snapshot Brawl (Arena)
     arena-starter-decks.json      # Snapshot Starter Decks (Arena)
+    glossary.ts                   # Contenu du glossaire (~55 termes, sourcés)
+    tracked-sets.ts               # Codes des ~58 sets couverts par la section Extensions
 scripts/
   fetch-precon-decks.mjs          # Génère les 3 fichiers src/data/*.json
 ```

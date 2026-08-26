@@ -266,3 +266,48 @@ export interface ParsedArenaDeck {
   commander: ArenaCardLine | null;
   companion: ArenaCardLine | null;
 }
+
+/**
+ * Métadonnées d'un set/extension Scryfall (sous-ensemble utilisé par
+ * l'app) — voir https://scryfall.com/docs/api/sets (vérifié le
+ * 26/08/2026, y compris la liste des valeurs de `set_type`).
+ */
+export interface ScryfallSet {
+  code: string;
+  name: string;
+  set_type: string;
+  released_at?: string | null;
+  card_count: number;
+  icon_svg_uri?: string;
+  block?: string | null;
+  parent_set_code?: string | null;
+}
+
+/**
+ * Catégorie d'un terme de glossaire (src/data/glossary.ts) — sert de
+ * filtre dans la section Glossaire.
+ */
+export type GlossaryCategory =
+  | "keyword-evergreen"
+  | "keyword-other"
+  | "deckbuilding"
+  | "commander"
+  | "gameplay";
+
+/**
+ * Terme de glossaire MTG (FR/EN). `termEn` correspond, quand le terme est
+ * une capacité mot-clé, à la chaîne officielle Scryfall (`ScryfallCard.keywords`)
+ * — ce qui permet de relier automatiquement les mots-clés affichés dans la
+ * section Extensions aux entrées du glossaire (voir src/lib/sets.ts).
+ * `confidence`/`sourceNote` documentent la fiabilité de la traduction FR
+ * (voir README) : "low"/"medium" signale une traduction communautaire non
+ * officielle plutôt qu'un terme confirmé sur des cartes/documents Wizards.
+ */
+export interface GlossaryTerm {
+  termEn: string;
+  termFr: string;
+  category: GlossaryCategory;
+  definitionFr: string;
+  sourceNote: string;
+  confidence: "high" | "medium" | "low";
+}
