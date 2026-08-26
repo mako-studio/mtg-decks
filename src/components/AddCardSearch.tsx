@@ -148,9 +148,8 @@ export function AddCardSearch({
   const verdictStyle = suggestion?.verdict ? VERDICT_STYLES[suggestion.verdict] : null;
 
   return (
-    <div className="rounded-xl border border-border bg-surface p-4">
-      <h3 className="text-sm font-medium text-muted">Tester une carte</h3>
-      <p className="mt-1 text-xs text-muted">
+    <div>
+      <p className="text-xs text-muted">
         Cherche une carte pour voir si elle améliorerait ton deck et quelle carte elle pourrait
         remplacer, avant de valider l&apos;ajout ou le swap.
       </p>

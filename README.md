@@ -14,8 +14,13 @@ puissance estimé, avec le texte oracle et le coût de mana de chaque carte.
   superposition pour mieux la lire, sans avoir à déplier la carte.
 - Suggestions de cartes pour combler les faiblesses structurelles du deck,
   filtrées par légalité Commander et identité couleur du commandant.
-- Jauge visuelle du score de puissance structurelle, avant/après ajout
-  des cartes suggérées.
+- Tableau de bord en tête de page (score actuel → projeté, et couverture
+  des 9 piliers de deckbuilding avec leur cible) — voir "Refonte UI/UX du
+  26/08/2026" plus bas.
+- Chaque carte de la liste affiche son (ou ses) rôle(s) directement en
+  ligne — plus besoin de la retaper dans "Tester une carte" pour savoir à
+  quoi elle sert (ou qu'elle ne matche aucun des 9 piliers, assumé
+  honnêtement plutôt que masqué).
 - Reprendre un deck exporté en CSV (page d'accueil) : réimporte un fichier
   CSV précédemment généré par le bouton "Exporter en CSV" pour continuer
   une session d'optimisation plus tard, sur un autre appareil ou après
@@ -55,7 +60,10 @@ puissance estimé, avec le texte oracle et le coût de mana de chaque carte.
   au deck initial" (dans le panneau "Sauvegarder / exporter") pour tout
   annuler d'un coup et repartir du deck tel quel.
 - Tester une carte en dehors des suggestions : recherche libre (avec
-  autocomplétion Scryfall) au-dessus de la liste du deck. Contrairement à
+  autocomplétion Scryfall), regroupée avec les suggestions automatiques
+  dans un seul panneau à onglets ("Suggestions automatiques" /
+  "Tester une carte") — voir "Refonte UI/UX du 26/08/2026" plus bas.
+  Contrairement à
   un simple ajout à l'aveugle, la carte choisie est évaluée par la même
   heuristique que les suggestions automatiques (`evaluateCardCompatibility`
   dans `src/lib/recommend.ts`) : un verdict ("✓ Améliore le deck" si elle
@@ -98,6 +106,57 @@ puissance estimé, avec le texte oracle et le coût de mana de chaque carte.
   (Brawl/Historic Brawl), et cartes filtrées à `game:arena`.
 - Export du deck (+ suggestions) au format texte Arena, prêt à recoller
   dans le client.
+
+## Refonte UI/UX du 26/08/2026
+
+Demande de Ben : le site s'était complexifié avec l'ajout de features
+(9e pilier, signal de popularité, swap...) sans revoir l'agencement de la
+page deck builder. Après une maquette visuelle (Design Components) validée
+par Ben, voici ce qui a été implémenté dans le code (pas seulement
+esquissé) :
+
+1. **Score et couverture des 9 piliers enterrés en bas de la colonne
+   latérale** (`ImprovementGauge`, invisible sans scroller, et la
+   couverture par pilier n'était visible qu'en testant une carte une par
+   une) → remplacés par `DeckDashboard` + `PillarCoverage`, un bandeau
+   pleine largeur en tête de page, toujours visible sans scroller : score
+   actuel → projeté, puis les 9 piliers avec leur cible, colorés (vert =
+   cible atteinte, ambre = nettement sous la cible — moins de 60 % de la
+   cible, seuil arbitraire choisi pour rester lisible, pas une donnée
+   scientifique). Grille de 9 cartes sur desktop, bandeau compact
+   défilable horizontalement sur mobile (`lg:hidden` / `hidden lg:grid`,
+   même donnée, deux présentations).
+2. **La liste du deck n'affichait jamais le rôle d'une carte** → chaque
+   ligne (`CardTile`) affiche maintenant sa ou ses catégorie(s) via
+   `classifyCard` (jusqu'à 2 affichées, `+N` au-delà pour ne pas surcharger
+   la ligne), ou "non identifiée" en italique gris si aucune catégorie ne
+   matche — assumé honnêtement plutôt que masqué. Pas affiché sur la ligne
+   du commandant (son rôle de "pilier" n'est pas ce qui compte pour lui).
+3. **"Suggestions automatiques" et "Tester une carte" étaient deux zones
+   déconnectées de la page** (l'une en haut de la colonne principale,
+   l'autre en bas de la colonne latérale) alors qu'elles répondent à la
+   même question → regroupées dans `ImproveDeckPanel`, un seul panneau à
+   onglets. `AddCardSearch` a perdu son propre cadre/titre pour s'intégrer
+   dans l'onglet sans double bordure.
+4. **Mobile** : le panneau "Améliorer ce deck" apparaît maintenant juste
+   après le tableau de bord plutôt qu'après la liste de 99 cartes, via un
+   simple réordonnancement CSS (`order-1 lg:order-2` sur la colonne
+   latérale, inversé sur la colonne principale) — sans dupliquer aucun
+   composant. J'ai délibérément simplifié par rapport à la maquette, qui
+   proposait en plus une barre d'onglets fixe en bas d'écran (Deck /
+   Améliorer / Score) : je ne l'ai pas construite, le réordonnancement
+   seul couvrait déjà le problème concret (score et suggestions visibles
+   sans scroller longuement) avec beaucoup moins de surface pour des bugs
+   (zone fixe, safe-area iOS, superposition avec les popups existants). Si
+   tu veux quand même cette barre d'onglets, dis-le et je l'ajoute.
+
+Vérifié : build (`next build`) et `eslint .` sans erreur, capture d'écran
+Playwright de la page deck builder à 1440px et 390px (pas d'erreur de
+rendu ; seuls les 403 Scryfall déjà documentés apparaissent en console,
+propres au bac à sable de dev). Testé aussi la classification sur les
+cartes vérifiées plus tôt cette session (Mana Maze → Disruption,
+Smothering Tithe → aucune catégorie, Swords to Plowshares → Removal) pour
+confirmer qu'aucune régression n'a été introduite par ce remaniement.
 
 ## Stack
 

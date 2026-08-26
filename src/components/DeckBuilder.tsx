@@ -4,11 +4,11 @@ import { useEffect, useState, useTransition } from "react";
 import type { CardSuggestion, EnrichedCard } from "@/lib/types";
 import { analyzeDeck, type DeckAnalysisResult } from "@/lib/actions";
 import { getFormat } from "@/lib/formats";
+import { EMPTY_CATEGORY_COUNTS } from "@/lib/deck-score";
 import { CardTile } from "./CardTile";
-import { SuggestionCard } from "./SuggestionCard";
 import { SwapConfirmModal } from "./SwapConfirmModal";
-import { AddCardSearch } from "./AddCardSearch";
-import { ImprovementGauge } from "./ImprovementGauge";
+import { ImproveDeckPanel } from "./ImproveDeckPanel";
+import { DeckDashboard } from "./DeckDashboard";
 import { ArenaExportButton } from "./ArenaExportButton";
 
 interface SavedSession {
@@ -385,8 +385,30 @@ export function DeckBuilder({
         </p>
       )}
 
+      {/*
+        Tableau de bord (score + couverture des 9 piliers) en tête de page,
+        toujours visible sans scroller — plutôt qu'enterré en bas de la
+        colonne latérale comme avant. Voir refonte UX du 26/08/2026.
+      */}
+      <div className="mb-6">
+        <DeckDashboard
+          currentScore={result.currentStats?.score ?? 0}
+          projectedScore={result.projectedStats?.score ?? 0}
+          improvementPct={result.improvementPct}
+          categoryCounts={result.currentStats?.categoryCounts ?? EMPTY_CATEGORY_COUNTS}
+          targets={format.categories.targets}
+        />
+      </div>
+
+      {/*
+        `order-*` place le panneau "Améliorer ce deck" juste après le
+        tableau de bord sur mobile (un seul flux, colonne unique) — avant
+        la liste de 99 cartes plutôt qu'après — et le renvoie dans sa
+        colonne latérale habituelle à partir de `lg:`. Même logique pour la
+        colonne principale (commandant·s + liste), simplement inversée.
+      */}
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_360px]">
-        <div>
+        <div className="order-2 lg:order-1">
           {result.commanderEntries.length > 0 && (
             <>
               <h2 className="mb-3 text-sm font-medium text-muted">
@@ -404,20 +426,6 @@ export function DeckBuilder({
               </div>
             </>
           )}
-
-          <div className="mb-6">
-            <AddCardSearch
-              formatKey={result.formatKey}
-              formatLabel={format.label}
-              maxCopies={format.maxCopies}
-              hasCommander={format.hasCommander}
-              colorIdentity={deckColorIdentity}
-              currentCards={result.cards}
-              existingCounts={existingCounts}
-              onAddClick={handleAddClick}
-              addDisabled={pending}
-            />
-          </div>
 
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-medium text-muted">
@@ -449,11 +457,21 @@ export function DeckBuilder({
           </div>
         </div>
 
-        <aside className="space-y-6 lg:sticky lg:top-6 lg:self-start">
-          <ImprovementGauge
-            currentScore={result.currentStats?.score ?? 0}
-            projectedScore={result.projectedStats?.score ?? 0}
-            improvementPct={result.improvementPct}
+        <aside className="order-1 space-y-6 lg:order-2 lg:sticky lg:top-6 lg:self-start">
+          <ImproveDeckPanel
+            suggestions={result.suggestions}
+            onAddClick={handleAddClick}
+            addDisabled={pending}
+            pending={pending}
+            openSuggestionId={openSuggestionId}
+            onToggleSuggestion={(id) => setOpenSuggestionId(openSuggestionId === id ? null : id)}
+            formatKey={result.formatKey}
+            formatLabel={format.label}
+            maxCopies={format.maxCopies}
+            hasCommander={format.hasCommander}
+            colorIdentity={deckColorIdentity}
+            currentCards={result.cards}
+            existingCounts={existingCounts}
           />
 
           <div className="rounded-xl border border-border bg-surface p-4">
@@ -481,35 +499,6 @@ export function DeckBuilder({
           </div>
 
           {format.arenaOnly && result.exportText && <ArenaExportButton text={result.exportText} />}
-
-          <div>
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm font-medium text-muted">
-                Cartes suggérées ({result.suggestions.length})
-              </h2>
-              {pending && <span className="text-xs text-muted">Recalcul…</span>}
-            </div>
-            {result.suggestions.length === 0 ? (
-              <p className="text-sm text-muted">
-                Aucune suggestion trouvée (ou service Scryfall indisponible pour la recherche).
-              </p>
-            ) : (
-              <div className="max-h-[65vh] space-y-2 overflow-y-auto pr-1">
-                {result.suggestions.map((s) => (
-                  <SuggestionCard
-                    key={s.card.id}
-                    suggestion={s}
-                    onAddClick={() => handleAddClick(s)}
-                    addDisabled={pending}
-                    expanded={openSuggestionId === s.card.id}
-                    onToggle={() =>
-                      setOpenSuggestionId(openSuggestionId === s.card.id ? null : s.card.id)
-                    }
-                  />
-                ))}
-              </div>
-            )}
-          </div>
         </aside>
       </div>
 

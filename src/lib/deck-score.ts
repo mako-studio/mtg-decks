@@ -220,18 +220,25 @@ export function classifyCard(card: ScryfallCard): DeckCategory[] {
   return categories;
 }
 
+/**
+ * Compteurs à zéro pour les 9 piliers. Exporté pour que l'UI (tableau de
+ * bord du deck builder) ait un repli typé quand les stats ne sont pas
+ * encore disponibles, sans dupliquer la liste des catégories.
+ */
+export const EMPTY_CATEGORY_COUNTS: Record<DeckCategory, number> = {
+  ramp: 0,
+  removal: 0,
+  wipe: 0,
+  draw: 0,
+  tutor: 0,
+  protection: 0,
+  landfix: 0,
+  finisher: 0,
+  disruption: 0,
+};
+
 export function computeDeckStats(cards: EnrichedCard[], config: CategoryConfig): DeckStats {
-  const categoryCounts: Record<DeckCategory, number> = {
-    ramp: 0,
-    removal: 0,
-    wipe: 0,
-    draw: 0,
-    tutor: 0,
-    protection: 0,
-    landfix: 0,
-    finisher: 0,
-    disruption: 0,
-  };
+  const categoryCounts: Record<DeckCategory, number> = { ...EMPTY_CATEGORY_COUNTS };
 
   let landCount = 0;
   let nonLandCount = 0;

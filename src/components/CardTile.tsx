@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { EnrichedCard } from "@/lib/types";
 import { getDisplayImageUrl, getDisplayManaCost, getDisplayOracleText } from "@/lib/scryfall";
+import { CATEGORY_LABELS, classifyCard } from "@/lib/deck-score";
 import { ManaCost } from "./ManaCost";
 import { useLanguage } from "./LanguageProvider";
 import { fetchLocalizedText, type LocalizedText } from "@/lib/actions";
@@ -31,6 +32,13 @@ export function CardTile({
   onToggle: () => void;
 }) {
   const card = entry.card;
+  // Rôle(s) de la carte dans le deck, affiché·s en ligne plutôt que
+  // seulement disponible en dépliant la carte ou en la retapant dans
+  // "Tester une carte" (voir refonte UX du 26/08/2026) — pas pour le
+  // commandant, dont le rôle en tant que "pilier" n'est pas ce qui compte.
+  const categories = card && !entry.isCommander ? classifyCard(card) : [];
+  const shownCategories = categories.slice(0, 2);
+  const extraCategoryCount = categories.length - shownCategories.length;
   const { lang } = useLanguage();
   const [translation, setTranslation] = useState<LocalizedText | null | undefined>(undefined);
   const [loadingTranslation, setLoadingTranslation] = useState(false);
@@ -91,6 +99,29 @@ export function CardTile({
               </span>
             )}
           </span>
+          {card && !entry.isCommander && (
+            <span className="flex shrink-0 items-center gap-1">
+              {categories.length === 0 ? (
+                <span className="text-[10px] italic text-muted">non identifiée</span>
+              ) : (
+                <>
+                  {shownCategories.map((cat) => (
+                    <span
+                      key={cat}
+                      className="rounded-full bg-accent-soft px-2 py-0.5 text-[10px] font-semibold text-accent"
+                    >
+                      {CATEGORY_LABELS[cat]}
+                    </span>
+                  ))}
+                  {extraCategoryCount > 0 && (
+                    <span className="rounded-full bg-surface-muted px-2 py-0.5 text-[10px] font-semibold text-muted">
+                      +{extraCategoryCount}
+                    </span>
+                  )}
+                </>
+              )}
+            </span>
+          )}
           {card ? (
             <ManaCost cost={getDisplayManaCost(card)} />
           ) : (
