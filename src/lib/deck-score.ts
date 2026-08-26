@@ -23,6 +23,17 @@ import { getDisplayOracleText } from "./scryfall";
  * de mesure de puissance certifiée.
  */
 
+// Beaucoup de removal/wipe réels intercalent un ou plusieurs qualificatifs
+// entre "target"/"all" et le nom (ex: "destroy target noncreature
+// artifact", "destroy target attacking or blocking creature", "destroy
+// all nontoken creatures") — sans tolérance, ces formulations très
+// courantes ne matchaient jamais, quel que soit leur effet. `QUAL`
+// autorise 0 à 3 mots avant le nom, borné par la ponctuation (un point ou
+// une virgule collée à un mot casse le mot-qualificatif, donc ça ne
+// "traverse" pas les phrases) : voir README pour l'exemple concret
+// (Hulk Smash!, "Destroy target noncreature artifact.").
+const QUAL = "(?:[a-z][a-z'-]*\\s+){0,3}";
+
 const CATEGORY_PATTERNS: Record<DeckCategory, RegExp[]> = {
   ramp: [
     /search your library for a(n)? (basic )?land card/i,
@@ -32,17 +43,23 @@ const CATEGORY_PATTERNS: Record<DeckCategory, RegExp[]> = {
     /add one mana of any (type|color)/i,
   ],
   removal: [
-    /destroy target (creature|permanent|artifact|enchantment|planeswalker)/i,
-    /exile target (creature|permanent|artifact|enchantment|planeswalker)/i,
-    /exile up to (one|two|three) target (creature|permanent|artifact|enchantment|planeswalker)/i,
+    new RegExp(`destroy target ${QUAL}(creature|permanent|artifact|enchantment|planeswalker)`, "i"),
+    new RegExp(`exile target ${QUAL}(creature|permanent|artifact|enchantment|planeswalker)`, "i"),
+    new RegExp(`exile up to (one|two|three) target ${QUAL}(creature|permanent|artifact|enchantment|planeswalker)`, "i"),
     /target creature gets -\d+\/-\d+/i,
     /deals? \d+ damage to target creature/i,
+    // "Combat/bite" à sens unique sans le mot-clé "fight" (ex: Hulk Smash!
+    // "Target creature you control deals damage equal to its power to
+    // target creature an opponent controls.") — un removal conditionné à
+    // avoir une créature suffisamment forte, comme "fights?" ci-dessous,
+    // mais formulé explicitement plutôt que via le mot-clé.
+    /deals? damage equal to its power to target creature/i,
     /return target (creature|permanent|nonland permanent).* to (its|their) owner's hand/i,
     /fights? target creature/i,
   ],
   wipe: [
-    /destroy all (creatures|permanents)/i,
-    /exile all (creatures|permanents)/i,
+    new RegExp(`destroy all ${QUAL}(creatures|permanents)`, "i"),
+    new RegExp(`exile all ${QUAL}(creatures|permanents)`, "i"),
     /each creature (gets|is)/i,
     /each creature (you don't control|an opponent controls) (gets|is)/i,
     /all creatures get -\d+\/-\d+/i,

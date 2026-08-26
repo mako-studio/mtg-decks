@@ -188,6 +188,29 @@ plus fiable est de vérifier son texte oracle exact sur Scryfall et de me
 le signaler : j'ajoute le motif correspondant seulement si c'est un cas
 générique et sans ambiguïté, pas un cas isolé.
 
+**Bug corrigé le 26/08/2026 : les qualificatifs entre "target"/"all" et
+le nom cassaient le removal/wipe.** Exemple concret que tu as remonté :
+HULK SMASH! ("Destroy target noncreature artifact." / "Target creature
+you control deals damage equal to its power to target creature an
+opponent controls.") ressortait "rôle non identifié" alors que ses deux
+modes sont clairement du removal. Cause réelle, vérifiée sur le texte
+oracle exact de la carte (pas une supposition) : les motifs `removal`/
+`wipe` exigeaient que "target"/"all" soit **immédiatement** suivi du nom
+(`creature`, `permanent`, `artifact`...), donc toute formulation avec un
+qualificatif entre les deux — "target **noncreature** artifact", "target
+**attacking or blocking** creature", "all **nontoken** creatures" — ne
+matchait jamais, quel que soit l'effet réel. C'est une formulation très
+courante dans le texte oracle Magic, donc ce n'était pas un cas isolé à
+Hulk Smash. Corrigé en tolérant 0 à 3 mots de qualificatif entre les deux
+(borné par la ponctuation, donc ça ne "traverse" pas les phrases — pas de
+risque de faux positif sur un texte sans rapport). J'ai aussi ajouté un
+motif dédié pour le 2e mode de Hulk Smash ("deals damage equal to its
+power to target creature") : un removal formulé explicitement comme un
+combat à sens unique, sans passer par le mot-clé `fight`. Testé avant/
+après sur Hulk Smash! (désormais "removal") et sur plusieurs cartes de
+removal/wipe connues (Swords to Plowshares, Wrath of God) pour vérifier
+qu'elles restent correctement classées.
+
 **La recherche manuelle proposait toujours le même swap.** Corrigé le
 26/08/2026 : quand la carte cherchée ne partage de catégorie avec rien
 dans le deck, `pickSwapCandidate` retombe sur "la carte la plus
