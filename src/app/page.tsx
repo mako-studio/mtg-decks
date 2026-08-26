@@ -16,9 +16,7 @@ export default function Home() {
         </p>
       </div>
 
-      <div className="mb-10 max-w-xl">
-        <CsvImportForm />
-      </div>
+      <CsvImportForm />
 
       <DeckBrowser decks={decks} />
     </div>

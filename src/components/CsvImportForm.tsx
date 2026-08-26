@@ -33,12 +33,56 @@ function slugify(str: string): string {
  * d'optimisation plus tard : la liste de cartes ET les cartes marquées
  * "ajoutée via suggestion" / "à retirer" sont restaurées (voir
  * analyzeCsvImport dans actions.ts), pas seulement la liste brute.
+ *
+ * Une fois l'import réussi, on affiche le DeckBuilder en pleine largeur
+ * avec un en-tête façon page de deck précon (voir decks/[id]/page.tsx) —
+ * pas dans la carte étroite du formulaire, qui casse la mise en page à
+ * deux colonnes de DeckBuilder (grille lg:grid-cols-[1fr_360px] écrasée
+ * dans un conteneur max-w-xl).
  */
 export function CsvImportForm() {
   const [state, formAction, pending] = useActionState(analyzeCsvImport, INITIAL_STATE);
 
+  if (state.ok) {
+    const deckSlug = `csv-${slugify(state.commanderEntries[0]?.name || state.deckName || "deck")}`;
+    return (
+      <div className="mb-10">
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="mb-4 text-xs font-medium text-muted underline hover:text-foreground"
+        >
+          ← Importer un autre CSV
+        </button>
+
+        <div className="mb-8">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted">
+            Deck importé · CSV
+          </p>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight">
+            {state.deckName || "Deck importé"}
+          </h1>
+          {state.commanderEntries.length > 0 && (
+            <p className="mt-1 text-sm text-foreground/80">
+              Commandant{state.commanderEntries.length > 1 ? "s" : ""} :{" "}
+              {state.commanderEntries.map((c) => c.name).join(" / ")}
+            </p>
+          )}
+        </div>
+
+        <DeckBuilder
+          key={`${state.formatKey}:${state.deckName}:${state.cards.map((c) => c.name).join("|")}`}
+          initial={state}
+          deckSlug={deckSlug}
+          initialAddedNames={state.restoredAddedNames}
+          initialMarkedForRemoval={state.restoredMarkedForRemoval}
+        />
+      </div>
+    );
+  }
+
   return (
-    <div className="rounded-xl border border-border bg-surface p-5">
+    <div className="mb-10 max-w-xl rounded-xl border border-border bg-surface p-5">
       <h2 className="text-sm font-medium">Reprendre un deck exporté (CSV)</h2>
       <p className="mt-1 text-xs text-muted">
         Importe un fichier CSV précédemment exporté depuis ce site (bouton &quot;Exporter en
@@ -68,19 +112,6 @@ export function CsvImportForm() {
         <p className="mt-4 rounded-lg bg-accent-soft px-3 py-2 text-sm text-accent">
           {state.error}
         </p>
-      )}
-
-      {state.ok && (
-        <div className="mt-6">
-          {/* key forcé pour remonter le simulateur à zéro à chaque nouvel import */}
-          <DeckBuilder
-            key={`${state.formatKey}:${state.deckName}:${state.cards.map((c) => c.name).join("|")}`}
-            initial={state}
-            deckSlug={`csv-${slugify(state.commanderEntries[0]?.name || state.deckName || "deck")}`}
-            initialAddedNames={state.restoredAddedNames}
-            initialMarkedForRemoval={state.restoredMarkedForRemoval}
-          />
-        </div>
       )}
     </div>
   );
