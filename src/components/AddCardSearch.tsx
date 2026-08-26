@@ -146,6 +146,13 @@ export function AddCardSearch({
       : false;
 
   const verdictStyle = suggestion?.verdict ? VERDICT_STYLES[suggestion.verdict] : null;
+  // "Améliore le deck" est trompeur quand la carte est déjà au nombre
+  // d'exemplaires maximum autorisés (donc déjà dans le deck, un cas qui se
+  // confond avec "déjà présente" en Commander/Brawl où maxCopies = 1) —
+  // demande de Ben du 26/08/2026. On ne touche pas aux verdicts "impact
+  // limité"/"rôle non identifié", qui restent pertinents même pour une
+  // carte déjà présente.
+  const alreadyInDeck = atMaxCopies && suggestion?.verdict === "improve";
 
   return (
     <div>
@@ -211,9 +218,11 @@ export function AddCardSearch({
 
             {verdictStyle && (
               <span
-                className={`mt-2 inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold ${verdictStyle.className}`}
+                className={`mt-2 inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                  alreadyInDeck ? "bg-surface-muted text-muted" : verdictStyle.className
+                }`}
               >
-                {verdictStyle.label}
+                {alreadyInDeck ? "Déjà dans le deck" : verdictStyle.label}
               </span>
             )}
             <p className="mt-1.5 text-xs text-muted">{suggestion.reason}</p>
