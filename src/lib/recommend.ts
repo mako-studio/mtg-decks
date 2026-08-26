@@ -1,5 +1,6 @@
 import type {
   CardSuggestion,
+  CardVerdict,
   DeckCategory,
   DeckStats,
   EnrichedCard,
@@ -160,6 +161,55 @@ export async function suggestImprovements(
         : 0;
 
   return { currentStats, projectedStats, improvementPct, suggestions };
+}
+
+/**
+ * Évalue la compatibilité d'une carte cherchée manuellement (voir
+ * AddCardSearch.tsx) avec le deck actuel : quel(s) rôle(s) elle remplit,
+ * si le deck en manque encore ou si c'est déjà bien couvert, et une
+ * candidate au retrait pour en faire un swap — même heuristique et mêmes
+ * fonctions internes que les suggestions automatiques (`suggestImprovements`
+ * ci-dessus), appliquées ici à une carte choisie par l'utilisateur plutôt
+ * qu'à un résultat de recherche Scryfall par catégorie.
+ */
+export function evaluateCardCompatibility(
+  card: ScryfallCard,
+  currentCards: EnrichedCard[],
+  format: FormatConfig
+): CardSuggestion {
+  const currentStats = computeDeckStats(currentCards, format.categories);
+  const targets = format.categories.targets;
+  const categories = classifyCard(card);
+
+  let verdict: CardVerdict;
+  let reason: string;
+
+  if (categories.length === 0) {
+    verdict = "unclear";
+    reason =
+      "Aucun rôle clé détecté dans le texte de cette carte (rampe, removal, pioche, …) selon notre heuristique interne — elle peut malgré tout apporter une synergie que cette analyse ne mesure pas (voir les limites décrites dans le README).";
+  } else {
+    const underTarget = categories.filter((cat) => currentStats.categoryCounts[cat] < targets[cat]);
+    if (underTarget.length > 0) {
+      verdict = "improve";
+      reason = `Comble un manque du deck : ${underTarget.map((c) => CATEGORY_LABELS[c]).join(", ")} (sous la cible actuellement).`;
+    } else {
+      verdict = "marginal";
+      reason = `Catégorie${categories.length > 1 ? "s" : ""} déjà bien couverte${categories.length > 1 ? "s" : ""} dans le deck (${categories.map((c) => CATEGORY_LABELS[c]).join(", ")}) — ajout possible mais impact limité selon notre heuristique.`;
+    }
+  }
+
+  const removalCandidates = buildRemovalCandidates(currentCards, currentStats.categoryCounts, targets);
+  const pseudoSuggestion: CardSuggestion = { card, categories, reason, impact: 0 };
+  const swapOut = pickSwapCandidate(
+    pseudoSuggestion,
+    removalCandidates,
+    new Set(),
+    currentStats.categoryCounts,
+    targets
+  );
+
+  return { card, categories, reason, impact: 0, swapOut, verdict };
 }
 
 function reasonFor(cat: DeckCategory): string {

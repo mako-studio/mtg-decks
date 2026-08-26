@@ -1,23 +1,44 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { ScryfallCard } from "@/lib/types";
-import { autocompleteCardName, searchCardToAdd, type CardSearchResult } from "@/lib/actions";
+import type { CardSuggestion, EnrichedCard } from "@/lib/types";
+import { autocompleteCardName, evaluateCardForDeck, type CardEvaluationResult } from "@/lib/actions";
 import { getDisplayImageUrl, getDisplayManaCost, getDisplayOracleText } from "@/lib/scryfall";
+import { CATEGORY_LABELS } from "@/lib/deck-score";
 import { ManaCost } from "./ManaCost";
 import { CardImageHover } from "./CardImageHover";
 
+const VERDICT_STYLES = {
+  improve: {
+    label: "✓ Améliore le deck",
+    className: "bg-success-soft text-success",
+  },
+  marginal: {
+    label: "≈ Impact limité",
+    className: "bg-warning-soft text-warning",
+  },
+  unclear: {
+    label: "? Rôle non identifié",
+    className: "bg-surface-muted text-muted",
+  },
+} as const;
+
 /**
- * Recherche manuelle d'une carte à ajouter au deck, en dehors des
- * suggestions automatiques. Autocomplétion pendant la saisie
- * (`/cards/autocomplete`), puis aperçu complet (image, coût de mana,
- * légalité dans le format en cours) avant confirmation d'ajout.
+ * Teste la compatibilité d'une carte cherchée manuellement avec le deck
+ * actuel, plutôt qu'un simple ajout à l'aveugle : autocomplétion pendant la
+ * saisie (/cards/autocomplete), puis pour la carte choisie, un verdict
+ * (améliore le deck / impact limité / rôle non identifié) et — le cas
+ * échéant — une candidate au retrait pour en faire un swap, calculés par
+ * `evaluateCardForDeck` (recommend.ts) exactement comme pour les
+ * suggestions automatiques. La confirmation d'ajout/swap réutilise ensuite
+ * le même flow que les suggestions (popup de swap gérée par le parent).
  *
- * Contrairement aux suggestions, aucun filtre de légalité ou d'identité de
- * couleur n'est appliqué en amont : l'utilisateur peut chercher et
- * ajouter n'importe quelle carte existante. On l'informe simplement par
- * un badge si la carte n'est pas légale dans le format, ou hors identité
- * de couleur du commandant — sans le lui interdire (c'est son deck).
+ * Contrairement aux suggestions automatiques, aucun filtre de légalité ou
+ * d'identité de couleur n'est appliqué en amont : l'utilisateur peut
+ * chercher et ajouter n'importe quelle carte existante. On l'informe
+ * simplement par un badge si la carte n'est pas légale dans le format, ou
+ * hors identité de couleur du commandant — sans le lui interdire (c'est son
+ * deck).
  */
 export function AddCardSearch({
   formatKey,
@@ -25,8 +46,9 @@ export function AddCardSearch({
   maxCopies,
   hasCommander,
   colorIdentity,
+  currentCards,
   existingCounts,
-  onAdd,
+  onAddClick,
   addDisabled = false,
 }: {
   formatKey: string;
@@ -35,14 +57,17 @@ export function AddCardSearch({
   hasCommander: boolean;
   /** Identité de couleur du deck (commandant·s) — ignorée si `hasCommander` est faux. */
   colorIdentity: string[];
+  /** Cartes actuelles du deck (hors commandant), pour évaluer la compatibilité de la carte cherchée. */
+  currentCards: EnrichedCard[];
   /** Nombre d'exemplaires déjà dans le deck, par nom en minuscule. */
   existingCounts: Map<string, number>;
-  onAdd: (card: ScryfallCard) => void;
+  /** Clic sur "Ajouter"/"Swap" — au parent de décider (ajout direct ou popup de swap), comme pour les suggestions automatiques. */
+  onAddClick: (suggestion: CardSuggestion) => void;
   addDisabled?: boolean;
 }) {
   const [query, setQuery] = useState("");
-  const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [preview, setPreview] = useState<CardSearchResult | null>(null);
+  const [autocomplete, setAutocomplete] = useState<string[]>([]);
+  const [preview, setPreview] = useState<CardEvaluationResult | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [notFound, setNotFound] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -56,7 +81,7 @@ export function AddCardSearch({
     let cancelled = false;
     const timer = setTimeout(() => {
       autocompleteCardName(q).then((names) => {
-        if (!cancelled) setSuggestions(names);
+        if (!cancelled) setAutocomplete(names);
       });
     }, 250);
     return () => {
@@ -67,10 +92,10 @@ export function AddCardSearch({
 
   async function selectCard(name: string) {
     setQuery(name);
-    setSuggestions([]);
+    setAutocomplete([]);
     setNotFound(false);
     setLoadingPreview(true);
-    const res = await searchCardToAdd(name, formatKey);
+    const res = await evaluateCardForDeck(name, formatKey, currentCards);
     setLoadingPreview(false);
     if (!res) {
       setPreview(null);
@@ -84,7 +109,7 @@ export function AddCardSearch({
     setQuery(value);
     setPreview(null);
     setNotFound(false);
-    if (value.trim().length < 2) setSuggestions([]);
+    if (value.trim().length < 2) setAutocomplete([]);
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -93,24 +118,28 @@ export function AddCardSearch({
       selectCard(query.trim());
     }
     if (e.key === "Escape") {
-      setSuggestions([]);
+      setAutocomplete([]);
     }
   }
 
-  const currentCount = preview ? (existingCounts.get(preview.card.name.toLowerCase()) ?? 0) : 0;
-  const isBasicLand = preview?.card.type_line?.includes("Basic Land") ?? false;
+  const suggestion = preview?.suggestion ?? null;
+  const currentCount = suggestion ? (existingCounts.get(suggestion.card.name.toLowerCase()) ?? 0) : 0;
+  const isBasicLand = suggestion?.card.type_line?.includes("Basic Land") ?? false;
   const atMaxCopies = !isBasicLand && currentCount >= maxCopies;
 
   const outOfColorIdentity =
-    hasCommander && preview
-      ? preview.card.color_identity.some((c) => !colorIdentity.includes(c))
+    hasCommander && suggestion
+      ? suggestion.card.color_identity.some((c) => !colorIdentity.includes(c))
       : false;
+
+  const verdictStyle = suggestion?.verdict ? VERDICT_STYLES[suggestion.verdict] : null;
 
   return (
     <div className="rounded-xl border border-border bg-surface p-4">
-      <h3 className="text-sm font-medium text-muted">Ajouter une carte</h3>
+      <h3 className="text-sm font-medium text-muted">Tester une carte</h3>
       <p className="mt-1 text-xs text-muted">
-        Cherche n&apos;importe quelle carte à ajouter au deck, en dehors des suggestions.
+        Cherche une carte pour voir si elle améliorerait ton deck et quelle carte elle pourrait
+        remplacer, avant de valider l&apos;ajout ou le swap.
       </p>
 
       <div className="relative mt-3">
@@ -123,9 +152,9 @@ export function AddCardSearch({
           placeholder="Nom d'une carte…"
           className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
         />
-        {suggestions.length > 0 && (
+        {autocomplete.length > 0 && (
           <ul className="absolute z-10 mt-1 w-full overflow-hidden rounded-lg border border-border bg-surface shadow-lg">
-            {suggestions.map((name) => (
+            {autocomplete.map((name) => (
               <li key={name}>
                 <button
                   type="button"
@@ -140,7 +169,7 @@ export function AddCardSearch({
         )}
       </div>
 
-      {loadingPreview && <p className="mt-3 text-xs italic text-muted">Recherche…</p>}
+      {loadingPreview && <p className="mt-3 text-xs italic text-muted">Analyse en cours…</p>}
 
       {notFound && !loadingPreview && (
         <p className="mt-3 text-xs text-muted">
@@ -148,29 +177,61 @@ export function AddCardSearch({
         </p>
       )}
 
-      {preview && !loadingPreview && (
+      {suggestion && !loadingPreview && (
         <div className="mt-3 flex items-start gap-3 rounded-lg border border-border p-3">
-          {getDisplayImageUrl(preview.card, "small") && (
+          {getDisplayImageUrl(suggestion.card, "small") && (
             <CardImageHover
-              src={getDisplayImageUrl(preview.card, "small")!}
-              zoomSrc={getDisplayImageUrl(preview.card, "large")}
-              alt={preview.card.name}
+              src={getDisplayImageUrl(suggestion.card, "small")!}
+              zoomSrc={getDisplayImageUrl(suggestion.card, "large")}
+              alt={suggestion.card.name}
               width={56}
             />
           )}
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-2">
-              <span className="truncate text-sm font-medium">{preview.card.name}</span>
-              <ManaCost cost={getDisplayManaCost(preview.card)} />
+              <span className="truncate text-sm font-medium">{suggestion.card.name}</span>
+              <ManaCost cost={getDisplayManaCost(suggestion.card)} />
             </div>
-            <p className="mt-0.5 text-xs text-muted">{preview.card.type_line}</p>
+            <p className="mt-0.5 text-xs text-muted">{suggestion.card.type_line}</p>
             <p className="mt-1 line-clamp-3 whitespace-pre-line text-xs text-foreground/80">
-              {getDisplayOracleText(preview.card) || "—"}
+              {getDisplayOracleText(suggestion.card) || "—"}
             </p>
 
-            {!preview.legal && (
+            {verdictStyle && (
+              <span
+                className={`mt-2 inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold ${verdictStyle.className}`}
+              >
+                {verdictStyle.label}
+              </span>
+            )}
+            <p className="mt-1.5 text-xs text-muted">{suggestion.reason}</p>
+
+            {suggestion.categories.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {suggestion.categories.map((cat) => (
+                  <span
+                    key={cat}
+                    className="rounded-full bg-accent-soft px-2 py-0.5 text-[10px] font-semibold text-accent"
+                  >
+                    {CATEGORY_LABELS[cat] ?? cat}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {suggestion.swapOut && (
+              <p className="mt-1.5 flex items-center gap-1 text-[11px] text-muted">
+                <span aria-hidden="true">⇄</span>
+                <span>
+                  À la place de{" "}
+                  <span className="font-medium text-foreground/80">{suggestion.swapOut.name}</span>
+                </span>
+              </p>
+            )}
+
+            {!preview!.legal && (
               <p className="mt-2 text-[11px] font-medium text-warning">
-                ⚠ Non légale en {formatLabel} (statut Scryfall : {preview.legalityStatus}).
+                ⚠ Non légale en {formatLabel} (statut Scryfall : {preview!.legalityStatus}).
               </p>
             )}
             {outOfColorIdentity && (
@@ -186,11 +247,17 @@ export function AddCardSearch({
 
             <button
               type="button"
-              onClick={() => onAdd(preview.card)}
+              onClick={() => onAddClick(suggestion)}
               disabled={addDisabled || atMaxCopies}
+              title={
+                suggestion.swapOut
+                  ? `Swap : + ${suggestion.card.name} / − ${suggestion.swapOut.name}`
+                  : undefined
+              }
               className="mt-2 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground transition-colors hover:opacity-90 disabled:opacity-50"
             >
-              + Ajouter{currentCount > 0 ? ` (${currentCount}× déjà dans le deck)` : ""}
+              {suggestion.swapOut ? "⇄ Swap" : "+ Ajouter"}
+              {currentCount > 0 ? ` (${currentCount}× déjà dans le deck)` : ""}
             </button>
           </div>
         </div>

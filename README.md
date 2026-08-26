@@ -54,14 +54,25 @@ puissance estimé, avec le texte oracle et le coût de mana de chaque carte.
   (sans swap) reste un simple retrait — rien à restaurer. Bouton "↺ Retour
   au deck initial" (dans le panneau "Sauvegarder / exporter") pour tout
   annuler d'un coup et repartir du deck tel quel.
-- Ajouter une carte en dehors des suggestions : recherche libre (avec
-  autocomplétion Scryfall) au-dessus de la liste du deck, aperçu (image,
-  coût de mana, texte) avant confirmation. Contrairement aux suggestions
-  automatiques, cette recherche n'est filtrée ni par légalité ni par
-  identité de couleur : n'importe quelle carte peut être cherchée et
-  ajoutée, avec un avertissement (pas un blocage) si elle n'est pas légale
-  dans le format en cours ou hors des couleurs du commandant, et un
-  message si elle est déjà au nombre d'exemplaires maximum autorisé.
+- Tester une carte en dehors des suggestions : recherche libre (avec
+  autocomplétion Scryfall) au-dessus de la liste du deck. Contrairement à
+  un simple ajout à l'aveugle, la carte choisie est évaluée par la même
+  heuristique que les suggestions automatiques (`evaluateCardCompatibility`
+  dans `src/lib/recommend.ts`) : un verdict ("✓ Améliore le deck" si elle
+  comble une catégorie encore sous sa cible, "≈ Impact limité" si le rôle
+  est déjà bien couvert, "? Rôle non identifié" si l'heuristique n'y voit
+  aucun rôle clé) accompagné d'une explication, et — le cas échéant — une
+  candidate au retrait pour en faire un swap. La confirmation réutilise le
+  même popup que les suggestions automatiques (swap immédiat, ou ajout
+  seul avec la candidate taguée "à retirer"). Comme pour le reste du
+  moteur de score, ce verdict est une approximation explicable basée sur
+  le texte oracle, pas une mesure de puissance individuelle de la carte
+  (voir les limites documentées plus bas). Cette recherche n'est filtrée
+  ni par légalité ni par identité de couleur : n'importe quelle carte peut
+  être cherchée et ajoutée, avec un avertissement (pas un blocage) si elle
+  n'est pas légale dans le format en cours ou hors des couleurs du
+  commandant, et un message si elle est déjà au nombre d'exemplaires
+  maximum autorisé.
 - Cartes du deck et suggestions en accordéon (une seule carte dépliée à la
   fois par liste) ; le panneau de suggestions défile dans son propre
   cadre (hauteur limitée) plutôt que d'allonger toute la page.
@@ -207,7 +218,7 @@ src/
     DeckAnalysis.tsx             # Point d'entrée serveur : lance analyzeDeck, rend DeckBuilder
     DeckBuilder.tsx              # Simulateur interactif (client) : add/remove, swap, accordéon, save, export CSV
     SwapConfirmModal.tsx         # Popup de confirmation d'un swap (ajout + retrait suggéré)
-    AddCardSearch.tsx            # Recherche + ajout manuel d'une carte (hors suggestions)
+    AddCardSearch.tsx            # Recherche + test de compatibilité d'une carte (hors suggestions)
     CardImageHover.tsx           # Vignette avec image agrandie au survol
     ArenaImportForm.tsx          # Formulaire d'import (client + Server Action)
     ArenaExportButton.tsx        # Export texte Arena (copier/coller)

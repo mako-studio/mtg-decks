@@ -123,6 +123,21 @@ export interface SwapCandidate {
   reason: string;
 }
 
+/**
+ * Verdict d'une évaluation de compatibilité carte/deck (voir
+ * `evaluateCardCompatibility` dans recommend.ts, utilisé par la recherche
+ * manuelle — AddCardSearch.tsx) :
+ * - "improve" : comble une catégorie encore sous sa cible dans le deck.
+ * - "marginal" : rôle identifié mais catégorie déjà bien couverte.
+ * - "unclear" : aucun rôle clé détecté par l'heuristique (ne veut pas dire
+ *   que la carte est mauvaise, juste que ce moteur ne mesure pas son
+ *   apport — voir les limites documentées dans le README).
+ * Absent pour les suggestions automatiques (recommend.ts) : elles ciblent
+ * déjà uniquement des catégories sous-représentées, donc toujours "improve"
+ * par construction — pas la peine de le répéter sur chaque suggestion.
+ */
+export type CardVerdict = "improve" | "marginal" | "unclear";
+
 export interface CardSuggestion {
   card: ScryfallCard;
   reason: string;
@@ -130,6 +145,7 @@ export interface CardSuggestion {
   impact: number; // contribution estimée au score, arbitraire mais comparable
   /** Carte du deck actuel qu'on pourrait retirer pour faire de la place. `null` si aucune candidate trouvée. */
   swapOut?: SwapCandidate | null;
+  verdict?: CardVerdict;
 }
 
 /**

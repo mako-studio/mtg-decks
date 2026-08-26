@@ -1,11 +1,11 @@
 "use server";
 
-import type { CardSuggestion, DeckStats, EnrichedCard, FormatKey, PreconDeck, ScryfallCard } from "./types";
+import type { CardSuggestion, DeckStats, EnrichedCard, FormatKey, PreconDeck } from "./types";
 import { parseArenaDeck, serializeArenaDeck } from "./arena-format";
 import { arenaImportToPreconDeck } from "./arena-import";
 import { parseDeckCsv } from "./csv-import";
 import { loadEnrichedDeck } from "./deck-loader";
-import { suggestImprovements } from "./recommend";
+import { evaluateCardCompatibility, suggestImprovements } from "./recommend";
 import { getFormat } from "./formats";
 import {
   autocompleteCardNames,
@@ -237,8 +237,9 @@ export async function autocompleteCardName(query: string): Promise<string[]> {
   return autocompleteCardNames(query);
 }
 
-export interface CardSearchResult {
-  card: ScryfallCard;
+export interface CardEvaluationResult {
+  /** Carte + rôle(s)/verdict/candidate au retrait (voir evaluateCardCompatibility dans recommend.ts). */
+  suggestion: CardSuggestion;
   /** Statut de légalité brut renvoyé par Scryfall pour ce format (ex: "legal", "banned", "not_legal"). */
   legalityStatus: string;
   legal: boolean;
@@ -246,23 +247,30 @@ export interface CardSearchResult {
 
 /**
  * Server Action : résout une carte par nom (approché si besoin — l'utilisateur
- * n'a pas forcément tapé l'orthographe exacte) pour l'aperçu affiché avant
- * ajout manuel au deck, avec son statut de légalité dans le format en cours.
+ * n'a pas forcément tapé l'orthographe exacte) puis évalue sa compatibilité
+ * avec le deck actuel — quel rôle elle remplit, si le deck en manque, et
+ * quelle carte du deck elle pourrait remplacer (voir AddCardSearch.tsx pour
+ * le flow complet : chercher → voir l'impact → confirmer l'ajout ou le swap).
+ * `currentCards` est renvoyé tel quel par le client (déjà résolu via
+ * analyzeDeck), pas besoin de le recharger depuis Scryfall ici.
+ *
  * Contrairement aux suggestions automatiques (recommend.ts), cette recherche
  * manuelle ne filtre PAS par légalité ni par identité de couleur : c'est le
  * deck de l'utilisateur, on l'informe (badge d'avertissement côté UI) sans
  * lui interdire d'ajouter une carte hors format ou hors couleurs.
  */
-export async function searchCardToAdd(query: string, formatKey: string): Promise<CardSearchResult | null> {
+export async function evaluateCardForDeck(
+  query: string,
+  formatKey: string,
+  currentCards: EnrichedCard[]
+): Promise<CardEvaluationResult | null> {
   const q = query.trim();
   if (!q) return null;
   const format = getFormat(formatKey);
   const card = await getCardByName(q, "fuzzy");
   if (!card) return null;
   const legalityStatus = card.legalities?.[format.scryfallLegality] ?? "not_legal";
-  return {
-    card,
-    legalityStatus,
-    legal: legalityStatus === "legal" || legalityStatus === "restricted",
-  };
+  const legal = legalityStatus === "legal" || legalityStatus === "restricted";
+  const suggestion = evaluateCardCompatibility(card, currentCards, format);
+  return { suggestion, legalityStatus, legal };
 }

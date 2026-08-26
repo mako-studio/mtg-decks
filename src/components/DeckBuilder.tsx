@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import type { CardSuggestion, EnrichedCard, ScryfallCard } from "@/lib/types";
+import type { CardSuggestion, EnrichedCard } from "@/lib/types";
 import { analyzeDeck, type DeckAnalysisResult } from "@/lib/actions";
 import { getFormat } from "@/lib/formats";
 import { CardTile } from "./CardTile";
@@ -218,11 +218,6 @@ export function DeckBuilder({
     }
   }
 
-  /** Ajout manuel via la recherche (AddCardSearch) — pas de logique de swap ici. */
-  function handleAddCard(card: ScryfallCard) {
-    addCardByName(card.name);
-  }
-
   function confirmSwap() {
     if (!swapPrompt?.swapOut) return;
     const addKey = swapPrompt.card.name.toLowerCase();
@@ -417,8 +412,9 @@ export function DeckBuilder({
               maxCopies={format.maxCopies}
               hasCommander={format.hasCommander}
               colorIdentity={deckColorIdentity}
+              currentCards={result.cards}
               existingCounts={existingCounts}
-              onAdd={handleAddCard}
+              onAddClick={handleAddClick}
               addDisabled={pending}
             />
           </div>
