@@ -111,7 +111,21 @@ export interface EnrichedCard {
   card: ScryfallCard | null;
 }
 
-/** Catégories heuristiques utilisées pour scorer un deck Commander. */
+/**
+ * Catégories heuristiques utilisées pour scorer un deck Commander.
+ *
+ * "finisher" est différent des 7 autres piliers : ceux-là mesurent le
+ * "moteur" d'un deck (mana/interaction/avantage de cartes), alors que
+ * "finisher" essaie de repérer les cartes qui terminent la partie (victoire
+ * alternative, combats supplémentaires, évasion difficile à bloquer,
+ * dégâts doublés) — un axe différent, volontairement détecté par des
+ * signaux textuels précis plutôt que par la puissance brute (force/endurance)
+ * d'une créature, pour éviter de qualifier "finisher" n'importe quelle
+ * grosse créature vanille. Une carte peut donc être une bombe reconnue par
+ * les joueurs sans matcher "finisher" si son effet n'est ni une victoire
+ * alternative, ni de l'évasion, ni des dégâts doublés/combats
+ * supplémentaires (voir la note dans classifyCard, deck-score.ts).
+ */
 export type DeckCategory =
   | "ramp"
   | "removal"
@@ -119,7 +133,8 @@ export type DeckCategory =
   | "draw"
   | "tutor"
   | "protection"
-  | "landfix";
+  | "landfix"
+  | "finisher";
 
 export interface DeckStats {
   totalNonLandCards: number;

@@ -28,6 +28,8 @@ const CATEGORY_QUERIES: Record<DeckCategory, string> = {
   tutor: 'o:"search your library for a card" -t:land',
   protection: "(o:hexproof or o:indestructible or o:\"protection from\" or o:\"counter target spell\")",
   landfix: 't:land (o:"add one mana of any color" or o:"any color")',
+  finisher:
+    '(o:"you win the game" or o:"loses the game" or o:"extra combat" or keyword:menace or o:"can\'t be blocked") -t:land',
 };
 
 function colorIdentityQuery(identity: string[]): string {
@@ -230,6 +232,7 @@ function reasonFor(cat: DeckCategory): string {
     tutor: "Va chercher la pièce dont vous avez besoin",
     protection: "Protège votre commandant ou vos permanents clés",
     landfix: "Fixe votre mana multicolore",
+    finisher: "Aide à conclure la partie (évasion, combats supplémentaires, victoire alternative)",
   };
   return labels[cat];
 }

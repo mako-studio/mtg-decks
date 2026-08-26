@@ -51,9 +51,10 @@ export function ImprovementGauge({
 
       <p className="mt-4 text-xs leading-relaxed text-muted">
         Score heuristique interne (0-100) basé sur la présence de rampe, removal, pioche,
-        board wipes, tutors, protection et fixing de mana — pas une donnée EDHREC officielle
-        (voir le README pour le détail de cette limite). En Commander (singleton, 100 cartes),
-        ajouter ces cartes suppose de couper des cartes équivalentes ailleurs dans le deck.
+        board wipes, tutors, protection, fixing de mana et finishers — pas une donnée EDHREC
+        officielle (voir le README pour le détail de cette limite). En Commander (singleton,
+        100 cartes), ajouter ces cartes suppose de couper des cartes équivalentes ailleurs
+        dans le deck.
       </p>
     </div>
   );

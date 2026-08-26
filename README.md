@@ -118,7 +118,7 @@ produit sur une dépendance fragile et potentiellement non autorisée, la
 v1 utilise **un moteur heuristique interne** (`src/lib/deck-score.ts` et
 `src/lib/recommend.ts`) : classification des cartes par mots-clés dans le
 texte oracle (rampe / removal / board wipe / pioche / tutor / protection
-/ fixing), comparaison à des cibles indicatives par format (voir
+/ fixing / finisher), comparaison à des cibles indicatives par format (voir
 `src/lib/formats.ts`), et recherche de candidats via l'API Scryfall
 (syntaxe de recherche, pas de service de recommandation). Les cibles pour
 les formats Arena constructed (Standard/Historic/Explorer/Alchemy/Timeless)
@@ -132,10 +132,10 @@ officiel, soit valider explicitement l'usage d'un scraper non officiel en
 connaissance de cause — je ne l'ai pas fait par défaut.
 
 **"Rôle non identifié" (verdict "unclear") — pas forcément un bug.** Les
-motifs de `CATEGORY_PATTERNS` (`src/lib/deck-score.ts`) couvrent 7 piliers
-classiques du deckbuilding Commander (rampe / removal / board wipe /
-pioche / tutor / protection / fixing), volontairement élargis pour
-couvrir des formulations courantes équivalentes (ex : `surveil`/`scry`
+motifs de `CATEGORY_PATTERNS` (`src/lib/deck-score.ts`) couvrent 8
+piliers : les 7 piliers classiques du deckbuilding Commander (rampe /
+removal / board wipe / pioche / tutor / protection / fixing),
+volontairement élargis pour couvrir des formulations courantes équivalentes (ex : `surveil`/`scry`
 comptent comme "pioche" — sélection de cartes ; `ward`/`shroud` comptent
 comme "protection" ; les effets de fight et le bounce de permanent
 comptent comme "removal"). En complément des regex sur texte oracle, la
@@ -151,26 +151,42 @@ terrains, donc un rocher de mana bicolore/multicolore (Arcane Signet,
 signets de guilde, ...) n'était jamais reconnu comme fixing, même quand
 son texte matchait déjà les motifs existants.
 
-Malgré ça, une carte qui ne rentre dans aucun de ces 7 piliers (ex : une
+Malgré ça, une carte qui ne rentre dans aucun de ces 8 piliers (ex : une
 terre qui fabrique des jetons, une carte qui copie des sorts sans piocher
 ni retirer de menace) reçoit honnêtement "rôle non identifié" plutôt
 qu'un rôle forcé et faux — élargir encore les motifs au point de capter
-ce genre de carte ferait perdre en précision aux 7 piliers existants
+ce genre de carte ferait perdre en précision aux piliers existants
 (l'objectif premier de ce moteur), donc ce n'est pas fait par défaut.
-**Cas fréquent à bien comprendre : les gros finishers/bombes** (grosses
-créatures légendaires, cartes qui gagnent la partie par un effet
-alternatif, etc. — ex: Sephiroth, Hulk dans les sets Universes Beyond)
-sont structurellement hors du périmètre de ce moteur : ces 7 piliers
-mesurent le "moteur" d'un deck (mana, interaction, avantage de cartes),
-pas la puissance brute d'une carte individuelle. "Rôle non identifié" sur
-une bombe ne veut donc pas dire "mauvaise carte", juste que ce moteur ne
-mesure pas cet axe-là — il n'y a pas de 8e pilier "menace/finisher" par
-défaut (ce serait un changement de périmètre à valider, pas une
-correction de bug). Si une carte précise te semble mal classée dans un de
-ces 7 piliers (pas "c'est une bombe et ça devrait être reconnu comme
-telle"), le plus fiable est de vérifier son texte oracle exact sur
-Scryfall et de me le signaler : j'ajoute le motif correspondant seulement
-si c'est un cas générique et sans ambiguïté, pas un cas isolé.
+
+**Le 8e pilier "finisher" (ajouté le 26/08/2026, à la demande de Ben).**
+Les 7 piliers historiques mesurent le "moteur" d'un deck (mana,
+interaction, avantage de cartes), pas ce qui termine la partie — une
+grosse bombe qui ne fait "qu'" attaquer fort ou générer de la valeur
+pouvait donc rester "rôle non identifié" alors qu'elle est objectivement
+excellente. "Finisher" comble cet axe, volontairement limité à des
+signaux textuels précis plutôt qu'à la force/endurance brute d'une
+créature (sinon n'importe quelle grosse créature vanille deviendrait un
+"finisher", ce qui viderait la catégorie de son sens) : victoire
+alternative ("you win the game"), défaite forcée d'un adversaire, combats
+supplémentaires, dégâts doublés, évasion difficile à bloquer (`can't be
+blocked`, mot-clé Menace via `card.keywords`).
+
+Conséquence assumée, vérifiée sur les deux exemples donnés par Ben avant
+l'ajout de la catégorie : le texte oracle réel de Sephiroth, Fallen Hero
+(vérifié sur Scryfall) ne matche toujours pas "finisher" — son ability
+est un moteur de buff/récursion (+1/+0 et gain de mots-clés, mise en jeu
+depuis le cimetière), pas un des signaux ci-dessus, donc "rôle non
+identifié" reste le verdict correct pour cette carte précise, pas un bug
+restant. À l'inverse, le texte oracle réel de The Incredible Hulk (face
+arrière, capacité Enrage "there is an additional combat phase after this
+phase", vérifié sur Scryfall) matche désormais "finisher" via le motif
+"combat supplémentaire" — une vraie amélioration de couverture.
+
+Si une carte précise te semble mal classée dans un de ces 8 piliers (pas
+"c'est une bombe et ça devrait être reconnue comme telle" en général), le
+plus fiable est de vérifier son texte oracle exact sur Scryfall et de me
+le signaler : j'ajoute le motif correspondant seulement si c'est un cas
+générique et sans ambiguïté, pas un cas isolé.
 
 **La recherche manuelle proposait toujours le même swap.** Corrigé le
 26/08/2026 : quand la carte cherchée ne partage de catégorie avec rien

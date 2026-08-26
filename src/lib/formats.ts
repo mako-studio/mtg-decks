@@ -7,8 +7,11 @@ import type { CategoryConfig, DeckCategory, FormatConfig, FormatKey } from "./ty
  * de deckbuilding (singleton, un commandant, ~10 ramp/removal/pioche).
  */
 const COMMANDER_LIKE: CategoryConfig = {
-  targets: { ramp: 10, removal: 10, wipe: 3, draw: 10, tutor: 3, protection: 5, landfix: 5 },
-  weights: { ramp: 20, removal: 20, wipe: 10, draw: 20, tutor: 10, protection: 10, landfix: 10 },
+  targets: { ramp: 10, removal: 10, wipe: 3, draw: 10, tutor: 3, protection: 5, landfix: 5, finisher: 6 },
+  // Poids rééquilibrés pour ajouter "finisher" en gardant un total de 100
+  // (ramp/removal/draw restent le "gros 3" du moteur, à 18 plutôt que 20 ;
+  // wipe/tutor/protection/landfix descendent de 10 à 9 ; finisher à 10).
+  weights: { ramp: 18, removal: 18, wipe: 9, draw: 18, tutor: 9, protection: 9, landfix: 9, finisher: 10 },
 };
 
 /**
@@ -19,8 +22,11 @@ const COMMANDER_LIKE: CategoryConfig = {
  * du deckbuilding constructed, pas une donnée officielle.
  */
 const CONSTRUCTED_60: CategoryConfig = {
-  targets: { ramp: 4, removal: 8, wipe: 2, draw: 6, tutor: 2, protection: 4, landfix: 4 },
-  weights: { ramp: 10, removal: 25, wipe: 10, draw: 25, tutor: 5, protection: 15, landfix: 10 },
+  targets: { ramp: 4, removal: 8, wipe: 2, draw: 6, tutor: 2, protection: 4, landfix: 4, finisher: 4 },
+  // Poids rééquilibrés pour ajouter "finisher" en gardant un total de 100
+  // (removal/draw descendent de 25 à 20 pour faire de la place ; le reste
+  // inchangé).
+  weights: { ramp: 10, removal: 20, wipe: 10, draw: 20, tutor: 5, protection: 15, landfix: 10, finisher: 10 },
 };
 
 export const FORMATS: Record<FormatKey, FormatConfig> = {
@@ -141,4 +147,5 @@ export const ALL_DECK_CATEGORIES: DeckCategory[] = [
   "tutor",
   "protection",
   "landfix",
+  "finisher",
 ];

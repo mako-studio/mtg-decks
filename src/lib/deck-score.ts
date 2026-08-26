@@ -50,7 +50,7 @@ const CATEGORY_PATTERNS: Record<DeckCategory, RegExp[]> = {
     /damage to each creature/i,
   ],
   draw: [
-    /draw (a|one|two|three|four|five|\d+)( additional)? cards?/i,
+    /draw (a|one|two|three|four|five|x|\d+)( additional)? cards?/i,
     /draw cards equal to/i,
     /whenever .* draw a card/i,
     // Surveil/scry : pas une pioche littérale, mais reconnu dans le
@@ -70,6 +70,26 @@ const CATEGORY_PATTERNS: Record<DeckCategory, RegExp[]> = {
     /\bshroud\b/i,
   ],
   landfix: [/add \{[wubrg]\}.*\{[wubrg]\}/i, /any color/i],
+  // "Finisher" mesure un axe différent des 7 piliers ci-dessus : pas le
+  // moteur du deck, mais ce qui termine la partie. Volontairement limité à
+  // des signaux textuels précis (victoire/défaite alternative, combats
+  // supplémentaires, dégâts doublés, évasion difficile à bloquer) plutôt
+  // qu'à la force/endurance brute d'une créature — sinon n'importe quelle
+  // grosse créature vanille deviendrait un "finisher", ce qui viderait la
+  // catégorie de son sens. Conséquence assumée : une bombe reconnue par les
+  // joueurs mais dont l'effet n'est ni une victoire alternative, ni de
+  // l'évasion, ni des dégâts doublés/combats supplémentaires (un moteur de
+  // buff/valeur, par exemple) ne matchera pas "finisher" — ce n'est pas un
+  // manque à combler par plus de mots-clés, voir le README.
+  finisher: [
+    /you win the game/i,
+    /(target player|an opponent|that player|each opponent) loses? the game/i,
+    /(extra|additional) combat( phase)?/i,
+    /deals? double( that (much )?)? damage/i,
+    /damage.* is doubled/i,
+    /can't be blocked/i,
+    /\bunblockable\b/i,
+  ],
 };
 
 /** Libellés FR des catégories, partagés entre le moteur (raisons de swap) et l'UI. */
@@ -81,6 +101,7 @@ export const CATEGORY_LABELS: Record<DeckCategory, string> = {
   tutor: "Tutor",
   protection: "Protection",
   landfix: "Fixing",
+  finisher: "Finisher",
 };
 
 /** Mots-clés Scryfall (card.keywords) considérés comme de la "protection". */
@@ -122,6 +143,12 @@ export function classifyCard(card: ScryfallCard): DeckCategory[] {
       categories.push("landfix");
     }
   }
+  if (!categories.includes("finisher")) {
+    const keywords = (card.keywords ?? []).map((k) => k.toLowerCase());
+    if (keywords.includes("menace")) {
+      categories.push("finisher");
+    }
+  }
 
   return categories;
 }
@@ -135,6 +162,7 @@ export function computeDeckStats(cards: EnrichedCard[], config: CategoryConfig):
     tutor: 0,
     protection: 0,
     landfix: 0,
+    finisher: 0,
   };
 
   let landCount = 0;
