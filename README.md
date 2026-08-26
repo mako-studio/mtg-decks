@@ -158,6 +158,47 @@ cartes vérifiées plus tôt cette session (Mana Maze → Disruption,
 Smothering Tithe → aucune catégorie, Swords to Plowshares → Removal) pour
 confirmer qu'aucune régression n'a été introduite par ce remaniement.
 
+### Retours de Ben du 26/08/2026 (après la refonte ci-dessus)
+
+**Fenêtre de "Tester une carte" coupée.** `ImproveDeckPanel` avait un
+`overflow-hidden` sur son conteneur (pour garder les coins arrondis
+propres) — sans le vouloir, ça coupait aussi la liste d'autocomplétion de
+`AddCardSearch`, positionnée en `absolute` sous le champ de recherche et
+censée dépasser la hauteur du panneau. Corrigé en retirant
+`overflow-hidden` (aucun enfant n'a de fond carré qui aurait besoin d'être
+coupé aux coins arrondis, donc aucune régression visuelle). Vérifié en
+inspectant la chaîne d'ancêtres du champ de recherche jusqu'à `<main>` :
+tous en `overflow: visible` désormais.
+
+**Une carte tout juste ajoutée ("Insult // Injury", carte split) repassait
+"non trouvée" après recalcul**, alors qu'elle existe bien chez Scryfall
+(Ben l'a d'abord trouvée et ajoutée via "Tester une carte", qui utilise
+`/cards/named?fuzzy=`). Cause exacte non confirmée avec certitude — mon
+bac à sable de dev bloque aussi `api.scryfall.com`, impossible de
+reproduire l'appel en direct — mais `/cards/collection` (utilisé pour
+résoudre toute la liste du deck en un seul appel groupé) fait un match
+plus strict que `/cards/named`, et semble ne pas toujours retrouver
+certaines cartes multi-faces par leur nom combiné ("Face A // Face B")
+pourtant exact. Corrigé dans `getCardsByNames` (`scryfall.ts`) par un
+filet de sécurité robuste quelle que soit la cause précise : tout nom qui
+échoue sur le lot groupé est retenté individuellement via
+`/cards/named?fuzzy=` avant d'abandonner — un seul appel réseau
+supplémentaire par nom non résolu, pas par tout le lot. Testé avec un
+`fetch` mocké (le batch groupé "manque" volontairement une carte multi-
+faces, comme observé) : le filet de sécurité la retrouve bien et la carte
+n'apparaît plus en double dans le résultat.
+
+**Piliers cliquables avec filtre de la liste.** Chaque pilier du tableau
+de bord (`PillarCoverage`) est maintenant un bouton : cliquer dessus
+affiche juste en dessous les cartes du deck qui matchent ce pilier (noms
+en puces) et filtre la liste principale du deck sur la même catégorie —
+avec un indicateur clair ("Deck (N cartes) · filtré sur Removal (4)") et
+un moyen de l'effacer à deux endroits (à côté des piliers, et à côté du
+titre "Deck"). Re-cliquer le même pilier annule le filtre. Vérifié avec
+un jeu de cartes mockées couvrant plusieurs piliers (capture d'écran :
+cliquer "Disruption" affiche bien "Mana Maze" + "Static Orb" et réduit la
+liste à ces deux cartes).
+
 ## Stack
 
 Next.js 16 (App Router, TypeScript, Turbopack) + Tailwind CSS v4. Pas de

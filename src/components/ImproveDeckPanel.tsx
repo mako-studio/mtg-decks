@@ -49,7 +49,12 @@ export function ImproveDeckPanel({
   const [tab, setTab] = useState<Tab>("suggestions");
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-surface">
+    // Pas d'`overflow-hidden` ici : la liste d'autocomplétion de "Tester une
+    // carte" (AddCardSearch) est positionnée en `absolute` sous le champ de
+    // recherche et doit pouvoir dépasser la hauteur du panneau — un
+    // `overflow-hidden` sur ce conteneur la coupait au ras du bord (bug
+    // remonté par Ben le 26/08/2026).
+    <div className="rounded-xl border border-border bg-surface">
       <div className="flex border-b border-border">
         <button
           type="button"

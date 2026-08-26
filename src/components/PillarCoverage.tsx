@@ -1,3 +1,5 @@
+"use client";
+
 import type { DeckCategory } from "@/lib/types";
 import { ALL_DECK_CATEGORIES } from "@/lib/formats";
 import { CATEGORY_LABELS } from "@/lib/deck-score";
@@ -50,14 +52,22 @@ const STATUS_STYLES: Record<
  * format), affichée en tête du deck builder plutôt qu'enterrée en bas de
  * la colonne latérale (voir refonte UX du 26/08/2026) : une grille de 9
  * cartes sur desktop, un bandeau compact défilable horizontalement sur
- * mobile — mêmes données, deux présentations.
+ * mobile — mêmes données, deux présentations. Chaque pilier est cliquable
+ * (voir demande de Ben du 26/08/2026) : le parent (DeckDashboard) affiche
+ * les cartes correspondantes et filtre la liste du deck en conséquence.
  */
 export function PillarCoverage({
   categoryCounts,
   targets,
+  selected,
+  onSelect,
 }: {
   categoryCounts: Record<DeckCategory, number>;
   targets: Record<DeckCategory, number>;
+  /** Pilier actuellement sélectionné comme filtre, `null` si aucun. */
+  selected: DeckCategory | null;
+  /** Clic sur un pilier — au parent de gérer le "toggle" (désélectionner si déjà actif). */
+  onSelect: (cat: DeckCategory) => void;
 }) {
   const pillars = ALL_DECK_CATEGORIES.map((cat) => {
     const count = categoryCounts[cat] ?? 0;
@@ -73,8 +83,17 @@ export function PillarCoverage({
       <div className="mt-4 hidden gap-2 lg:grid lg:grid-cols-9">
         {pillars.map(({ cat, count, target, status, pct }) => {
           const s = STATUS_STYLES[status];
+          const isSelected = selected === cat;
           return (
-            <div key={cat} className={`rounded-lg border px-2.5 py-2 ${s.card}`}>
+            <button
+              key={cat}
+              type="button"
+              onClick={() => onSelect(cat)}
+              aria-pressed={isSelected}
+              className={`rounded-lg border px-2.5 py-2 text-left transition-shadow ${s.card} ${
+                isSelected ? "ring-2 ring-accent ring-offset-1 ring-offset-surface" : ""
+              }`}
+            >
               <div className="flex items-baseline justify-between gap-1">
                 <span className="text-[11px] font-medium">{CATEGORY_LABELS[cat]}</span>
                 <span className={`text-[10px] ${s.count}`}>
@@ -85,7 +104,7 @@ export function PillarCoverage({
               <div className={`mt-1.5 h-1 overflow-hidden rounded-full ${s.track}`}>
                 <div className={`h-full rounded-full ${s.fill}`} style={{ width: `${pct}%` }} />
               </div>
-            </div>
+            </button>
           );
         })}
       </div>
@@ -95,14 +114,20 @@ export function PillarCoverage({
         <div className="flex gap-1.5 overflow-x-auto pb-1">
           {pillars.map(({ cat, count, target, status }) => {
             const s = STATUS_STYLES[status];
+            const isSelected = selected === cat;
             return (
-              <span
+              <button
                 key={cat}
-                className={`shrink-0 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-medium ${s.card} ${s.count}`}
+                type="button"
+                onClick={() => onSelect(cat)}
+                aria-pressed={isSelected}
+                className={`shrink-0 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-medium transition-shadow ${s.card} ${s.count} ${
+                  isSelected ? "ring-2 ring-accent ring-offset-1 ring-offset-surface" : ""
+                }`}
               >
                 {CATEGORY_LABELS[cat]} {count}/{target}
                 {status === "met" ? " ✓" : ""}
-              </span>
+              </button>
             );
           })}
         </div>

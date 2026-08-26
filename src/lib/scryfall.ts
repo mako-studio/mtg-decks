@@ -97,6 +97,20 @@ export async function getCardByName(
  * Résout un lot de noms de cartes via `/cards/collection` (max 75 par appel).
  * Retourne une Map name(lowercase) -> ScryfallCard, en ignorant silencieusement
  * les cartes non trouvées ou les erreurs réseau (elles restent "non trouvée" côté UI).
+ *
+ * ⚠️ Filet de sécurité pour les cartes multi-faces (bug remonté par Ben le
+ * 26/08/2026) : `/cards/collection` matche les noms de façon stricte, et il
+ * peut arriver qu'une carte comme "Insult // Injury" (carte split) — pourtant
+ * bien orthographiée et bien présente chez Scryfall, ajoutée quelques
+ * instants plus tôt via "Tester une carte" (qui utilise `/cards/named`,
+ * plus tolérant) — reparte en "non trouvée" au recalcul suivant. Cause
+ * exacte non confirmée (mon bac à sable bloque aussi `api.scryfall.com`, je
+ * n'ai pas pu reproduire l'appel en direct), mais le correctif est robuste
+ * quelle qu'elle soit : tout nom qui échoue sur le lot rapide est retenté
+ * individuellement via `/cards/named?fuzzy=` (même endpoint que la
+ * recherche manuelle, qui l'a résolu la première fois) avant d'abandonner.
+ * Seuls les noms non résolus sont retentés — le cas normal (l'immense
+ * majorité des cartes) ne fait qu'un seul appel groupé, comme avant.
  */
 export async function getCardsByNames(names: string[]): Promise<Map<string, ScryfallCard>> {
   const uniqueNames = Array.from(new Set(names));
@@ -126,6 +140,12 @@ export async function getCardsByNames(names: string[]): Promise<Map<string, Scry
     for (const card of data.data) {
       result.set(card.name.toLowerCase(), card);
     }
+  }
+
+  const unresolvedNames = uniqueNames.filter((name) => !result.has(name.toLowerCase()));
+  for (const name of unresolvedNames) {
+    const card = await getCardByName(name, "fuzzy");
+    if (card) result.set(name.toLowerCase(), card);
   }
 
   return result;

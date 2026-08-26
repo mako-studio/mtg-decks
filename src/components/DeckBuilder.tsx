@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import type { CardSuggestion, EnrichedCard } from "@/lib/types";
+import type { CardSuggestion, DeckCategory, EnrichedCard } from "@/lib/types";
 import { analyzeDeck, type DeckAnalysisResult } from "@/lib/actions";
 import { getFormat } from "@/lib/formats";
-import { EMPTY_CATEGORY_COUNTS } from "@/lib/deck-score";
+import { CATEGORY_LABELS, EMPTY_CATEGORY_COUNTS, classifyCard } from "@/lib/deck-score";
 import { CardTile } from "./CardTile";
 import { SwapConfirmModal } from "./SwapConfirmModal";
 import { ImproveDeckPanel } from "./ImproveDeckPanel";
@@ -102,6 +102,10 @@ export function DeckBuilder({
   const [openSuggestionId, setOpenSuggestionId] = useState<string | null>(null);
   // Suggestion actuellement en attente de confirmation de swap (popup).
   const [swapPrompt, setSwapPrompt] = useState<CardSuggestion | null>(null);
+  // Pilier sélectionné dans le tableau de bord (DeckDashboard) pour filtrer
+  // la liste du deck ci-dessous — `null` si aucun filtre actif. Cf. demande
+  // de Ben du 26/08/2026 : cliquer un pilier montre les cartes concernées.
+  const [categoryFilter, setCategoryFilter] = useState<DeckCategory | null>(null);
 
   const storageKey = `mtg-deck-builder:${deckSlug}`;
   const format = getFormat(result.formatKey);
@@ -342,6 +346,15 @@ export function DeckBuilder({
 
   const sortedCards = [...result.cards].sort((a, b) => a.name.localeCompare(b.name, "fr"));
 
+  // Cartes du deck qui matchent le pilier sélectionné dans le tableau de
+  // bord (voir DeckDashboard) — affichées sous les piliers ET utilisées
+  // pour filtrer la liste du deck ci-dessous. Une carte non résolue (card:
+  // null) ne matche jamais de pilier (rien à classifier).
+  const cardsForCategory = (cat: DeckCategory) =>
+    sortedCards.filter((entry) => entry.card && classifyCard(entry.card).includes(cat));
+  const matchingCards = categoryFilter ? cardsForCategory(categoryFilter) : [];
+  const visibleCards = categoryFilter ? matchingCards : sortedCards;
+
   const existingCounts = new Map<string, number>();
   for (const c of result.cards) existingCounts.set(c.name.toLowerCase(), c.count);
 
@@ -397,6 +410,9 @@ export function DeckBuilder({
           improvementPct={result.improvementPct}
           categoryCounts={result.currentStats?.categoryCounts ?? EMPTY_CATEGORY_COUNTS}
           targets={format.categories.targets}
+          selectedCategory={categoryFilter}
+          onSelectCategory={(cat) => setCategoryFilter((prev) => (prev === cat ? null : cat))}
+          matchingCards={matchingCards}
         />
       </div>
 
@@ -427,22 +443,46 @@ export function DeckBuilder({
             </>
           )}
 
-          <div className="mb-3 flex items-center justify-between">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-sm font-medium text-muted">
               Deck ({result.cards.reduce((s, c) => s + c.count, 0)} cartes)
+              {categoryFilter && (
+                <>
+                  {" "}
+                  · filtré sur{" "}
+                  <span className="font-semibold text-accent">
+                    {CATEGORY_LABELS[categoryFilter]}
+                  </span>{" "}
+                  ({visibleCards.length})
+                </>
+              )}
             </h2>
-            {hasChanges && (
-              <button
-                type="button"
-                onClick={resetToOriginal}
-                className="text-xs font-medium text-muted underline hover:text-foreground"
-              >
-                Revenir au deck d&apos;origine
-              </button>
-            )}
+            <div className="flex items-center gap-3">
+              {categoryFilter && (
+                <button
+                  type="button"
+                  onClick={() => setCategoryFilter(null)}
+                  className="text-xs font-medium text-muted underline hover:text-foreground"
+                >
+                  ✕ Effacer le filtre
+                </button>
+              )}
+              {hasChanges && (
+                <button
+                  type="button"
+                  onClick={resetToOriginal}
+                  className="text-xs font-medium text-muted underline hover:text-foreground"
+                >
+                  Revenir au deck d&apos;origine
+                </button>
+              )}
+            </div>
           </div>
+          {categoryFilter && visibleCards.length === 0 && (
+            <p className="mb-3 text-sm text-muted">Aucune carte du deck ne correspond à ce pilier.</p>
+          )}
           <div className="space-y-2">
-            {sortedCards.map((entry, i) => (
+            {visibleCards.map((entry, i) => (
               <CardTile
                 key={`${entry.name}-${i}`}
                 entry={entry}
