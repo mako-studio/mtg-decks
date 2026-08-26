@@ -41,6 +41,12 @@ puissance estimé, avec le texte oracle et le coût de mana de chaque carte.
   gamme"), sinon la carte la moins impactante identifiée dans le deck.
   Comme pour le reste du moteur de score, c'est une approximation
   explicable, pas une garantie que c'est LA meilleure carte à sacrifier.
+- Annuler un swap : retirer (via le ×) une carte qui a été ajoutée par un
+  swap confirmé remet automatiquement la carte d'origine qu'elle avait
+  remplacée, plutôt que de laisser un trou dans le deck. Un ajout simple
+  (sans swap) reste un simple retrait — rien à restaurer. Bouton "↺ Retour
+  au deck initial" (dans le panneau "Sauvegarder / exporter") pour tout
+  annuler d'un coup et repartir du deck tel quel.
 - Cartes du deck et suggestions en accordéon (une seule carte dépliée à la
   fois par liste) ; le panneau de suggestions défile dans son propre
   cadre (hauteur limitée) plutôt que d'allonger toute la page.

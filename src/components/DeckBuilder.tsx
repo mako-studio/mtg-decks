@@ -16,6 +16,8 @@ interface SavedSession {
   addedNames: string[];
   /** Cartes taguées "à retirer" suite à un swap non confirmé (voir SwapConfirmModal). */
   markedForRemoval?: string[];
+  /** Carte ajoutée (clé minuscule) -> carte d'origine qu'elle a remplacée lors d'un swap confirmé. */
+  swapHistory?: Record<string, string>;
 }
 
 function csvEscape(value: string): string {
@@ -50,6 +52,12 @@ function downloadCsv(filename: string, rows: string[][]) {
  * taguant seulement la candidate "à retirer" pour y revenir plus tard
  * depuis la liste du deck.
  *
+ * Si on retire ensuite une carte ajoutée via un swap confirmé, la carte
+ * d'origine qu'elle avait remplacée est automatiquement remise dans le
+ * deck (voir `swapHistory`) — retirer un swap l'annule proprement plutôt
+ * que de laisser un trou. Un ajout simple (sans swap) reste un simple
+ * retrait, rien à restaurer.
+ *
  * La session (liste de cartes + cartes ajoutées + cartes taguées) est
  * sauvegardée dans le localStorage du navigateur sous `deckSlug` : pas de
  * compte ni de base de données (hors scope v1, voir README), donc la
@@ -66,6 +74,11 @@ export function DeckBuilder({
   const [result, setResult] = useState(initial);
   const [addedNames, setAddedNames] = useState<Set<string>>(new Set());
   const [markedForRemoval, setMarkedForRemoval] = useState<Set<string>>(new Set());
+  // Carte ajoutée (clé minuscule) -> nom de la carte d'origine qu'elle a
+  // remplacée, uniquement pour les swaps confirmés (pas les ajouts
+  // simples). Permet de restaurer automatiquement l'originale si on
+  // retire ensuite la carte ajoutée.
+  const [swapHistory, setSwapHistory] = useState<Record<string, string>>({});
   const [pending, startTransition] = useTransition();
   const [transientError, setTransientError] = useState<string | null>(null);
   const [savedSession, setSavedSession] = useState<SavedSession | null>(null);
@@ -118,12 +131,13 @@ export function DeckBuilder({
         cards: result.cards.map((c) => ({ name: c.name, count: c.count })),
         addedNames: Array.from(addedNames),
         markedForRemoval: Array.from(markedForRemoval),
+        swapHistory,
       };
       localStorage.setItem(storageKey, JSON.stringify(payload));
     } catch {
       // idem : pas de sauvegarde possible, on continue sans.
     }
-  }, [result, addedNames, markedForRemoval, hasChanges, storageKey]);
+  }, [result, addedNames, markedForRemoval, swapHistory, hasChanges, storageKey]);
 
   function recompute(cardList: { name: string; count: number }[], newAdded: Set<string>) {
     setTransientError(null);
@@ -147,6 +161,17 @@ export function DeckBuilder({
           const next = new Set<string>();
           for (const n of prev) {
             if (res.cards.some((c) => c.name.toLowerCase() === n)) next.add(n);
+          }
+          return next;
+        });
+        // Idem pour l'historique de swap : une entrée dont la carte
+        // ajoutée n'est plus dans le deck n'a plus de sens à garder.
+        setSwapHistory((prev) => {
+          const next: Record<string, string> = {};
+          for (const [addedKey, originalName] of Object.entries(prev)) {
+            if (res.cards.some((c) => c.name.toLowerCase() === addedKey)) {
+              next[addedKey] = originalName;
+            }
           }
           return next;
         });
@@ -178,7 +203,8 @@ export function DeckBuilder({
   function confirmSwap() {
     if (!swapPrompt?.swapOut) return;
     const addKey = swapPrompt.card.name.toLowerCase();
-    const removeKey = swapPrompt.swapOut.name.toLowerCase();
+    const originalName = swapPrompt.swapOut.name;
+    const removeKey = originalName.toLowerCase();
 
     const already = result.cards.find((c) => c.name.toLowerCase() === addKey);
     let newList = already
@@ -198,6 +224,7 @@ export function DeckBuilder({
     }
 
     recompute(newList, new Set(addedNames).add(addKey));
+    setSwapHistory((prev) => ({ ...prev, [addKey]: originalName }));
     setSwapPrompt(null);
   }
 
@@ -211,14 +238,32 @@ export function DeckBuilder({
 
   function handleRemove(entry: EnrichedCard) {
     const key = entry.name.toLowerCase();
-    const newList =
-      entry.count > 1
-        ? result.cards.map((c) =>
-            c.name.toLowerCase() === key ? { name: c.name, count: c.count - 1 } : { name: c.name, count: c.count }
-          )
-        : result.cards.filter((c) => c.name.toLowerCase() !== key).map((c) => ({ name: c.name, count: c.count }));
+    // On ne retire complètement (et donc on ne restaure l'originale) que si
+    // c'est le dernier exemplaire : décrémenter un stock de plusieurs
+    // copies n'annule pas le swap, il en reste encore en jeu.
+    const willFullyRemove = entry.count <= 1;
+    const restoreName = willFullyRemove ? swapHistory[key] : undefined;
+
+    let newList = willFullyRemove
+      ? result.cards.filter((c) => c.name.toLowerCase() !== key).map((c) => ({ name: c.name, count: c.count }))
+      : result.cards.map((c) =>
+          c.name.toLowerCase() === key ? { name: c.name, count: c.count - 1 } : { name: c.name, count: c.count }
+        );
+
     const newAdded = new Set(addedNames);
-    newAdded.delete(key);
+    if (willFullyRemove) newAdded.delete(key);
+
+    if (restoreName) {
+      // Carte ajoutée via un swap confirmé : on remet la carte d'origine
+      // qu'elle avait remplacée plutôt que de laisser un trou dans le deck.
+      const restoreKey = restoreName.toLowerCase();
+      const already = newList.find((c) => c.name.toLowerCase() === restoreKey);
+      newList = already
+        ? newList.map((c) => (c.name.toLowerCase() === restoreKey ? { name: c.name, count: c.count + 1 } : c))
+        : [...newList, { name: restoreName, count: 1 }];
+      newAdded.delete(restoreKey);
+    }
+
     recompute(newList, newAdded);
   }
 
@@ -226,6 +271,7 @@ export function DeckBuilder({
     if (!savedSession) return;
     recompute(savedSession.cards, new Set(savedSession.addedNames));
     setMarkedForRemoval(new Set(savedSession.markedForRemoval ?? []));
+    setSwapHistory(savedSession.swapHistory ?? {});
     setSavedSession(null);
   }
 
@@ -242,6 +288,7 @@ export function DeckBuilder({
     setResult(initial);
     setAddedNames(new Set());
     setMarkedForRemoval(new Set());
+    setSwapHistory({});
     setTransientError(null);
     try {
       localStorage.removeItem(storageKey);
@@ -382,6 +429,15 @@ export function DeckBuilder({
             >
               Exporter en CSV
             </button>
+            {hasChanges && (
+              <button
+                type="button"
+                onClick={resetToOriginal}
+                className="mt-2 w-full rounded-lg border border-border py-2 text-sm font-medium text-foreground transition-colors hover:bg-surface-muted"
+              >
+                ↺ Retour au deck initial
+              </button>
+            )}
           </div>
 
           {format.arenaOnly && result.exportText && <ArenaExportButton text={result.exportText} />}
