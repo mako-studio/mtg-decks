@@ -1,5 +1,6 @@
 import { getAllPreconDecks } from "@/lib/precon-decks";
 import { DeckBrowser } from "@/components/DeckBrowser";
+import { CsvImportForm } from "@/components/CsvImportForm";
 
 export default function Home() {
   const decks = getAllPreconDecks();
@@ -14,6 +15,11 @@ export default function Home() {
           score de puissance avant/après.
         </p>
       </div>
+
+      <div className="mb-10 max-w-xl">
+        <CsvImportForm />
+      </div>
+
       <DeckBrowser decks={decks} />
     </div>
   );

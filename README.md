@@ -16,6 +16,13 @@ puissance estimé, avec le texte oracle et le coût de mana de chaque carte.
   filtrées par légalité Commander et identité couleur du commandant.
 - Jauge visuelle du score de puissance structurelle, avant/après ajout
   des cartes suggérées.
+- Reprendre un deck exporté en CSV (page d'accueil) : réimporte un fichier
+  CSV précédemment généré par le bouton "Exporter en CSV" pour continuer
+  une session d'optimisation plus tard, sur un autre appareil ou après
+  nettoyage du navigateur. Contrairement à la sauvegarde automatique
+  (localStorage, locale à un navigateur), le CSV est un fichier portable.
+  Les cartes marquées "ajoutée via suggestion" / "à retirer" dans le CSV
+  sont restaurées telles quelles, pas seulement la liste de cartes.
 
 **Simulateur interactif** (sur toute page deck)
 - Ajouter une carte suggérée met à jour le deck immédiatement, recalcule
@@ -204,6 +211,7 @@ src/
     CardImageHover.tsx           # Vignette avec image agrandie au survol
     ArenaImportForm.tsx          # Formulaire d'import (client + Server Action)
     ArenaExportButton.tsx        # Export texte Arena (copier/coller)
+    CsvImportForm.tsx            # Reprend un deck Commander exporté en CSV (client + Server Action)
     LanguageProvider.tsx         # Contexte + toggle FR/EN pour le texte des cartes
     CardTile.tsx, SuggestionCard.tsx, ManaCost.tsx, ImprovementGauge.tsx, DeckCard.tsx
   lib/
@@ -214,6 +222,7 @@ src/
     arena-decks.ts               # Decks Brawl/Starter Arena (snapshot local)
     arena-format.ts              # Parse/génère le texte d'import-export Arena
     arena-import.ts              # Adapte un deck importé vers le modèle interne
+    csv-import.ts                # Parse un CSV exporté depuis ce site (reprise de session)
     actions.ts                   # Server Actions : analyzeDeck (cœur), analyzeArenaImport, fetchLocalizedText, recherche de carte
     scryfall.ts                  # Client API Scryfall (cache, throttle, headers requis, impressions FR, autocomplétion)
     deck-loader.ts                # Résolution deck -> cartes Scryfall (par format)

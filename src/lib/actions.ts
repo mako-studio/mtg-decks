@@ -3,6 +3,7 @@
 import type { CardSuggestion, DeckStats, EnrichedCard, FormatKey, PreconDeck, ScryfallCard } from "./types";
 import { parseArenaDeck, serializeArenaDeck } from "./arena-format";
 import { arenaImportToPreconDeck } from "./arena-import";
+import { parseDeckCsv } from "./csv-import";
 import { loadEnrichedDeck } from "./deck-loader";
 import { suggestImprovements } from "./recommend";
 import { getFormat } from "./formats";
@@ -28,6 +29,15 @@ export interface DeckAnalysisResult {
   improvementPct: number;
   suggestions: CardSuggestion[];
   exportText: string;
+  /**
+   * Renseignés uniquement par `analyzeCsvImport` : cartes à remettre dans
+   * l'état "ajoutée via suggestion" / "à retirer" dès le montage du
+   * DeckBuilder, pour reprendre exactement la session exportée en CSV
+   * (voir CsvImportForm.tsx). `undefined` pour tous les autres chemins
+   * (précon, import Arena) — pas de restauration à faire dans ces cas.
+   */
+  restoredAddedNames?: string[];
+  restoredMarkedForRemoval?: string[];
 }
 
 function emptyResult(formatKey: FormatKey, deckName: string, error: string): DeckAnalysisResult {
@@ -144,6 +154,48 @@ export async function analyzeArenaImport(
     commanders: deck.commanders,
     cards: deck.cards,
   });
+}
+
+/**
+ * Server Action liée à l'import CSV (voir CsvImportForm.tsx) : reprend un
+ * deck exporté précédemment (bouton "Exporter en CSV") pour continuer une
+ * session d'optimisation plus tard — restaure aussi quelles cartes
+ * étaient "ajoutée via suggestion" / "à retirer" via `restoredAddedNames`/
+ * `restoredMarkedForRemoval`, pas juste la liste de cartes.
+ */
+export async function analyzeCsvImport(
+  prevState: DeckAnalysisResult,
+  formData: FormData
+): Promise<DeckAnalysisResult> {
+  const file = formData.get("csv");
+  if (!(file instanceof File) || file.size === 0) {
+    return emptyResult("commander", prevState.deckName || "Deck importé (CSV)", "Choisis un fichier CSV à importer.");
+  }
+
+  const text = await file.text();
+  const parsed = parseDeckCsv(text);
+  if (!parsed.ok) {
+    return emptyResult(
+      "commander",
+      prevState.deckName || "Deck importé (CSV)",
+      parsed.error ?? "Impossible de lire ce fichier CSV."
+    );
+  }
+
+  const result = await analyzeDeck({
+    formatKey: "commander",
+    deckName: file.name.replace(/\.csv$/i, "") || "Deck importé (CSV)",
+    commanders: parsed.commanders,
+    cards: parsed.cards,
+  });
+
+  if (!result.ok) return result;
+
+  return {
+    ...result,
+    restoredAddedNames: parsed.addedNames,
+    restoredMarkedForRemoval: parsed.markedForRemoval,
+  };
 }
 
 export interface LocalizedText {

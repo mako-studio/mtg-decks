@@ -68,13 +68,25 @@ function downloadCsv(filename: string, rows: string[][]) {
 export function DeckBuilder({
   initial,
   deckSlug,
+  initialAddedNames,
+  initialMarkedForRemoval,
 }: {
   initial: DeckAnalysisResult;
   deckSlug: string;
+  /**
+   * Pré-remplit les cartes "ajoutée via suggestion" / "à retirer" au
+   * montage — utilisé par l'import CSV (CsvImportForm) pour reprendre une
+   * session exportée précédemment, pas seulement la liste de cartes.
+   * Noms attendus en minuscule (même convention que l'état interne).
+   */
+  initialAddedNames?: string[];
+  initialMarkedForRemoval?: string[];
 }) {
   const [result, setResult] = useState(initial);
-  const [addedNames, setAddedNames] = useState<Set<string>>(new Set());
-  const [markedForRemoval, setMarkedForRemoval] = useState<Set<string>>(new Set());
+  const [addedNames, setAddedNames] = useState<Set<string>>(new Set(initialAddedNames ?? []));
+  const [markedForRemoval, setMarkedForRemoval] = useState<Set<string>>(
+    new Set(initialMarkedForRemoval ?? [])
+  );
   // Carte ajoutée (clé minuscule) -> nom de la carte d'origine qu'elle a
   // remplacée, uniquement pour les swaps confirmés (pas les ajouts
   // simples). Permet de restaurer automatiquement l'originale si on
@@ -309,21 +321,19 @@ export function DeckBuilder({
   }
 
   function exportCsv() {
+    // Colonne "Commandant" dédiée (plutôt que de surcharger "Ajoutée via
+    // suggestion" avec la valeur "non (commandant)") : plus lisible dans un
+    // tableur, et exploitée telle quelle par l'import CSV (csv-import.ts)
+    // pour reconnaître le(s) commandant(s) sans ambiguïté.
     const rows: string[][] = [
-      ["Nombre", "Nom", "Coût de mana", "Type", "Ajoutée via suggestion", "Marquée à retirer"],
+      ["Commandant", "Nombre", "Nom", "Coût de mana", "Type", "Ajoutée via suggestion", "Marquée à retirer"],
     ];
     for (const c of result.commanderEntries) {
-      rows.push([
-        String(c.count),
-        c.name,
-        c.card?.mana_cost ?? "",
-        c.card?.type_line ?? "",
-        "non (commandant)",
-        "non",
-      ]);
+      rows.push(["oui", String(c.count), c.name, c.card?.mana_cost ?? "", c.card?.type_line ?? "", "non", "non"]);
     }
     for (const c of [...result.cards].sort((a, b) => a.name.localeCompare(b.name, "fr"))) {
       rows.push([
+        "non",
         String(c.count),
         c.name,
         c.card?.mana_cost ?? "",
