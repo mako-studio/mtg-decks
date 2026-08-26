@@ -18,10 +18,26 @@ import type { ScryfallCard, ScryfallImageUris } from "./types";
  * mais les données de cartes appartiennent à Wizards of the Coast : on
  * affiche un crédit "Données fournies par Scryfall" dans le footer par
  * précaution (voir README pour le détail de cette limite).
+ *
+ * ⚠️ Header User-Agent obligatoire (bug corrigé le 26/08/2026) : Scryfall
+ * exige désormais un header `User-Agent` explicite et personnalisé sur
+ * toutes les requêtes — celui généré par défaut par le client HTTP
+ * (undici/Next.js sur Vercel, curl, etc.) est traité comme du trafic
+ * indésirable et bloqué. Voir
+ * https://scryfall.com/blog/user-agent-and-accept-header-now-required-on-the-api-225
+ * C'est ce qui causait un "non trouvée" sur 100% des cartes une fois le
+ * site déployé (accès non testable depuis mon sandbox de dev, dont le
+ * pare-feu sortant bloque api.scryfall.com — voir README).
  */
 
 const SCRYFALL_API = "https://api.scryfall.com";
 const REVALIDATE_SECONDS = 60 * 60 * 24; // 24h, cf. recommandation Scryfall
+
+/** Headers requis par Scryfall sur toute requête (voir note ci-dessus). */
+const REQUIRED_HEADERS = {
+  "User-Agent": "CommanderBooster/1.0 (+https://github.com/mako-studio/mtg-decks)",
+  Accept: "application/json;q=0.9,*/*;q=0.8",
+};
 
 let lastRequestAt = 0;
 const MIN_INTERVAL_MS = 110; // ~9 req/s, sous la limite de 10 req/s
@@ -48,12 +64,17 @@ async function scryfallFetch(path: string, init?: RequestInit): Promise<Response
     return await fetch(`${SCRYFALL_API}${path}`, {
       ...init,
       headers: {
-        Accept: "application/json",
+        ...REQUIRED_HEADERS,
         ...(init?.headers ?? {}),
       },
       next: { revalidate: REVALIDATE_SECONDS },
     });
-  } catch {
+  } catch (err) {
+    // Erreur réseau (DNS, timeout, hôte injoignable) : on logue pour
+    // pouvoir diagnostiquer depuis les logs de la plateforme d'hébergement
+    // (les erreurs silencieuses sont ce qui a rendu le bug de header
+    // User-Agent manquant difficile à repérer, voir note en haut du fichier).
+    console.error(`[scryfall] échec réseau sur ${path}:`, err);
     return null;
   }
 }
@@ -64,7 +85,11 @@ export async function getCardByName(
   mode: "exact" | "fuzzy" = "exact"
 ): Promise<ScryfallCard | null> {
   const res = await scryfallFetch(`/cards/named?${mode}=${encodeURIComponent(name)}`);
-  if (!res || !res.ok) return null;
+  if (!res) return null;
+  if (!res.ok) {
+    if (res.status !== 404) console.error(`[scryfall] HTTP ${res.status} sur /cards/named (${name})`);
+    return null;
+  }
   return (await res.json()) as ScryfallCard;
 }
 
@@ -85,14 +110,18 @@ export async function getCardsByNames(names: string[]): Promise<Map<string, Scry
     try {
       res = await fetch(`${SCRYFALL_API}/cards/collection`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        headers: { ...REQUIRED_HEADERS, "Content-Type": "application/json" },
         body: JSON.stringify({ identifiers: chunk.map((name) => ({ name })) }),
         next: { revalidate: REVALIDATE_SECONDS },
       });
-    } catch {
+    } catch (err) {
+      console.error(`[scryfall] échec réseau sur /cards/collection:`, err);
       continue;
     }
-    if (!res.ok) continue;
+    if (!res.ok) {
+      console.error(`[scryfall] HTTP ${res.status} sur /cards/collection (${chunk.length} cartes)`);
+      continue;
+    }
     const data = (await res.json()) as { data: ScryfallCard[] };
     for (const card of data.data) {
       result.set(card.name.toLowerCase(), card);
