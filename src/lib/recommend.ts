@@ -171,11 +171,20 @@ export async function suggestImprovements(
  * fonctions internes que les suggestions automatiques (`suggestImprovements`
  * ci-dessus), appliquées ici à une carte choisie par l'utilisateur plutôt
  * qu'à un résultat de recherche Scryfall par catégorie.
+ *
+ * `excludeFromSwap` (optionnel) : noms de cartes à ignorer comme candidate
+ * au retrait — sert à faire tourner les propositions entre plusieurs
+ * recherches manuelles successives (voir AddCardSearch.tsx) : sans ça, la
+ * carte la plus "sacrifiable" du deck (souvent une seule, très générique)
+ * ressort identique pour toute recherche qui ne partage aucune catégorie
+ * avec elle, ce qui donne l'impression d'un outil qui répète toujours la
+ * même réponse plutôt que d'analyser vraiment chaque carte.
  */
 export function evaluateCardCompatibility(
   card: ScryfallCard,
   currentCards: EnrichedCard[],
-  format: FormatConfig
+  format: FormatConfig,
+  excludeFromSwap: string[] = []
 ): CardSuggestion {
   const currentStats = computeDeckStats(currentCards, format.categories);
   const targets = format.categories.targets;
@@ -204,7 +213,7 @@ export function evaluateCardCompatibility(
   const swapOut = pickSwapCandidate(
     pseudoSuggestion,
     removalCandidates,
-    new Set(),
+    new Set(excludeFromSwap.map((n) => n.toLowerCase())),
     currentStats.categoryCounts,
     targets
   );

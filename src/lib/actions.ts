@@ -262,7 +262,8 @@ export interface CardEvaluationResult {
 export async function evaluateCardForDeck(
   query: string,
   formatKey: string,
-  currentCards: EnrichedCard[]
+  currentCards: EnrichedCard[],
+  excludeFromSwap: string[] = []
 ): Promise<CardEvaluationResult | null> {
   const q = query.trim();
   if (!q) return null;
@@ -271,6 +272,6 @@ export async function evaluateCardForDeck(
   if (!card) return null;
   const legalityStatus = card.legalities?.[format.scryfallLegality] ?? "not_legal";
   const legal = legalityStatus === "legal" || legalityStatus === "restricted";
-  const suggestion = evaluateCardCompatibility(card, currentCards, format);
+  const suggestion = evaluateCardCompatibility(card, currentCards, format, excludeFromSwap);
   return { suggestion, legalityStatus, legal };
 }

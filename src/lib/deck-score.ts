@@ -83,6 +83,9 @@ export const CATEGORY_LABELS: Record<DeckCategory, string> = {
   landfix: "Fixing",
 };
 
+/** Mots-clés Scryfall (card.keywords) considérés comme de la "protection". */
+const PROTECTION_KEYWORDS = ["hexproof", "indestructible", "ward", "shroud"];
+
 export function classifyCard(card: ScryfallCard): DeckCategory[] {
   const text = getDisplayOracleText(card);
   const isLand = card.type_line?.includes("Land");
@@ -92,12 +95,34 @@ export function classifyCard(card: ScryfallCard): DeckCategory[] {
     DeckCategory,
     RegExp[]
   ][]) {
-    if (category === "landfix" && !isLand) continue;
+    // "landfix" n'était auparavant vérifié QUE sur les terrains — un rocher
+    // de mana ou une créature qui fixe les couleurs (ex: Arcane Signet)
+    // n'était donc jamais reconnue, quel que soit son texte. Corrigé : le
+    // fixing dépend de ce que la carte produit comme mana, pas de son type.
     if (category === "ramp" && isLand) continue; // les terrains de base ne comptent pas comme "ramp"
     if (patterns.some((p) => p.test(text))) {
       categories.push(category);
     }
   }
+
+  // Signaux structurés Scryfall (déjà présents dans la réponse API, aucun
+  // appel réseau supplémentaire) en complément des regex sur texte oracle
+  // ci-dessus — plus fiables pour ce que Scryfall documente explicitement,
+  // insensibles aux formulations variables ("Ward {2}" vs "Ward — Discard
+  // a card", etc.).
+  if (!categories.includes("protection")) {
+    const keywords = (card.keywords ?? []).map((k) => k.toLowerCase());
+    if (keywords.some((k) => PROTECTION_KEYWORDS.some((p) => k.includes(p)))) {
+      categories.push("protection");
+    }
+  }
+  if (!categories.includes("landfix")) {
+    const coloredManaTypes = (card.produced_mana ?? []).filter((m) => "WUBRG".includes(m));
+    if (coloredManaTypes.length >= 2) {
+      categories.push("landfix");
+    }
+  }
+
   return categories;
 }
 

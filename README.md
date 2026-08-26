@@ -138,16 +138,50 @@ pioche / tutor / protection / fixing), volontairement élargis pour
 couvrir des formulations courantes équivalentes (ex : `surveil`/`scry`
 comptent comme "pioche" — sélection de cartes ; `ward`/`shroud` comptent
 comme "protection" ; les effets de fight et le bounce de permanent
-comptent comme "removal"). Mais une carte qui ne rentre dans aucun de ces
-7 piliers (ex : une terre qui fabrique des jetons, une carte qui copie
-des sorts sans piocher ni retirer de menace) reçoit honnêtement "rôle non
-identifié" plutôt qu'un rôle forcé et faux — élargir encore les motifs au
-point de capter ce genre de carte ferait perdre en précision aux 7
-piliers existants (l'objectif premier de ce moteur), donc ce n'est pas
-fait par défaut. Si une carte précise te semble mal classée, le plus
-fiable est de vérifier son texte oracle exact sur Scryfall et de me le
-signaler : j'ajoute le motif correspondant seulement si c'est un cas
-générique et sans ambiguïté, pas un cas isolé.
+comptent comme "removal"). En complément des regex sur texte oracle, la
+classification utilise aussi deux champs structurés déjà renvoyés par
+Scryfall mais non exploités jusqu'ici (aucun appel réseau
+supplémentaire) : `card.keywords` (liste officielle de mots-clés —
+Hexproof, Ward, Indestructible, ... — insensible aux formulations
+variables comme "Ward {2}" vs "Ward — Discard a card") pour "protection",
+et `card.produced_mana` (couleurs de mana qu'une carte peut produire) pour
+"fixing", **quel que soit le type de permanent** — un bug a été corrigé le
+26/08/2026 : la catégorie "fixing" ne vérifiait auparavant QUE les
+terrains, donc un rocher de mana bicolore/multicolore (Arcane Signet,
+signets de guilde, ...) n'était jamais reconnu comme fixing, même quand
+son texte matchait déjà les motifs existants.
+
+Malgré ça, une carte qui ne rentre dans aucun de ces 7 piliers (ex : une
+terre qui fabrique des jetons, une carte qui copie des sorts sans piocher
+ni retirer de menace) reçoit honnêtement "rôle non identifié" plutôt
+qu'un rôle forcé et faux — élargir encore les motifs au point de capter
+ce genre de carte ferait perdre en précision aux 7 piliers existants
+(l'objectif premier de ce moteur), donc ce n'est pas fait par défaut.
+**Cas fréquent à bien comprendre : les gros finishers/bombes** (grosses
+créatures légendaires, cartes qui gagnent la partie par un effet
+alternatif, etc. — ex: Sephiroth, Hulk dans les sets Universes Beyond)
+sont structurellement hors du périmètre de ce moteur : ces 7 piliers
+mesurent le "moteur" d'un deck (mana, interaction, avantage de cartes),
+pas la puissance brute d'une carte individuelle. "Rôle non identifié" sur
+une bombe ne veut donc pas dire "mauvaise carte", juste que ce moteur ne
+mesure pas cet axe-là — il n'y a pas de 8e pilier "menace/finisher" par
+défaut (ce serait un changement de périmètre à valider, pas une
+correction de bug). Si une carte précise te semble mal classée dans un de
+ces 7 piliers (pas "c'est une bombe et ça devrait être reconnu comme
+telle"), le plus fiable est de vérifier son texte oracle exact sur
+Scryfall et de me le signaler : j'ajoute le motif correspondant seulement
+si c'est un cas générique et sans ambiguïté, pas un cas isolé.
+
+**La recherche manuelle proposait toujours le même swap.** Corrigé le
+26/08/2026 : quand la carte cherchée ne partage de catégorie avec rien
+dans le deck, `pickSwapCandidate` retombe sur "la carte la plus
+sacrifiable du deck" — souvent une seule carte, très générique. Sans
+mémoire entre recherches, cette même carte ressortait pour toute
+recherche non liée, ce qui donnait l'impression (à raison) d'un outil peu
+utile. `AddCardSearch.tsx` garde maintenant en mémoire les 3 dernières
+candidates proposées et les exclut des recherches suivantes
+(`excludeFromSwap` dans `evaluateCardCompatibility`), pour faire tourner
+les propositions plutôt que de répéter toujours la même.
 
 **Decklists préconstruites — pas mtgjson.com en direct.** `mtgjson.com`
 était bloqué par le pare-feu sortant de mon environnement de dev, donc je

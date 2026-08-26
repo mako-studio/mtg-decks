@@ -70,6 +70,12 @@ export function AddCardSearch({
   const [preview, setPreview] = useState<CardEvaluationResult | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [notFound, setNotFound] = useState(false);
+  // Garde les N dernières candidates au retrait proposées par cette
+  // recherche manuelle, pour les exclure des recherches suivantes : sans
+  // ça, la carte la plus "sacrifiable" du deck (souvent une seule, très
+  // générique) ressort identique à chaque recherche qui ne partage aucune
+  // catégorie avec elle — voir evaluateCardCompatibility dans recommend.ts.
+  const [recentSwapOuts, setRecentSwapOuts] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Autocomplétion débattue pendant la saisie. Le cas "requête trop courte"
@@ -95,7 +101,7 @@ export function AddCardSearch({
     setAutocomplete([]);
     setNotFound(false);
     setLoadingPreview(true);
-    const res = await evaluateCardForDeck(name, formatKey, currentCards);
+    const res = await evaluateCardForDeck(name, formatKey, currentCards, recentSwapOuts);
     setLoadingPreview(false);
     if (!res) {
       setPreview(null);
@@ -103,6 +109,13 @@ export function AddCardSearch({
       return;
     }
     setPreview(res);
+    const swapOutName = res.suggestion.swapOut?.name;
+    if (swapOutName) {
+      setRecentSwapOuts((prev) => [
+        swapOutName,
+        ...prev.filter((n) => n.toLowerCase() !== swapOutName.toLowerCase()),
+      ].slice(0, 3));
+    }
   }
 
   function handleInputChange(value: string) {

@@ -63,6 +63,24 @@ export interface ScryfallCard {
   loyalty?: string;
   image_uris?: ScryfallImageUris;
   card_faces?: ScryfallCardFace[];
+  /**
+   * Mots-clés d'habileté officiels reconnus par Scryfall (ex: "Hexproof",
+   * "Ward", "Indestructible", "Flying", "Trample", ...) — données
+   * structurées déjà renvoyées par l'API (aucun appel réseau
+   * supplémentaire), bien plus fiables qu'une regex sur le texte oracle
+   * pour ce genre de mot-clé (formulations variables : "Ward {2}",
+   * "Ward — Discard a card", "Hexproof from black", ...). Voir classifyCard
+   * dans deck-score.ts.
+   */
+  keywords?: string[];
+  /**
+   * Couleurs de mana que cette carte peut produire (ex: ["W","U"]),
+   * renvoyées par Scryfall pour toute source de mana (terrain, artefact,
+   * créature, ...). Plus fiable qu'une regex sur le texte oracle pour
+   * détecter le fixing multicolore, quel que soit le type de permanent ou
+   * la formulation exacte de l'habileté de mana.
+   */
+  produced_mana?: string[] | null;
   legalities: Record<string, "legal" | "not_legal" | "restricted" | "banned">;
   /** Jeux dans lesquels cette impression existe : "paper" | "mtgo" | "arena" | ... */
   games: string[];
