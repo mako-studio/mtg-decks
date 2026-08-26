@@ -4,7 +4,7 @@ import "./globals.css";
 import { LanguageProvider, LanguageToggle } from "@/components/LanguageProvider";
 
 export const metadata: Metadata = {
-  title: "Commander Booster — Améliorez vos decks Commander & MTG Arena",
+  title: "MTG Opti — Améliorez vos decks Commander & MTG Arena",
   description:
     "Partez d'un deck préconstruit (Commander papier ou Arena) ou importez le vôtre, trouvez les cartes qui l'améliorent et visualisez le gain de puissance.",
 };
@@ -17,10 +17,21 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <header className="border-b border-border">
             <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
               <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight">
-                <span className="flex h-7 w-7 items-center justify-center rounded-md bg-accent text-accent-foreground text-sm font-bold">
-                  C
+                <span className="flex h-7 w-7 items-center justify-center rounded-md bg-accent text-accent-foreground">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    aria-hidden="true"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <rect x="1.5" y="9" width="3" height="5.5" rx="1" fill="currentColor" />
+                    <rect x="6.5" y="5.5" width="3" height="9" rx="1" fill="currentColor" />
+                    <rect x="11.5" y="2" width="3" height="12.5" rx="1" fill="currentColor" />
+                  </svg>
                 </span>
-                <span>Commander Booster</span>
+                <span>MTG Opti</span>
               </Link>
               <nav className="flex items-center gap-5 text-sm text-muted">
                 <Link href="/" className="hover:text-foreground transition-colors">
