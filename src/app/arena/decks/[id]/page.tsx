@@ -66,7 +66,7 @@ export default async function ArenaDeckPage({
         )}
       </div>
 
-      <DeckAnalysis deck={deck} format={format} showArenaExport />
+      <DeckAnalysis deck={deck} format={format} deckSlug={`${deck.id}-${formatKey}`} />
     </div>
   );
 }

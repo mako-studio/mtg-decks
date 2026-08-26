@@ -34,6 +34,10 @@ export interface ScryfallCardFace {
   toughness?: string;
   loyalty?: string;
   image_uris?: ScryfallImageUris;
+  /** Nom/texte/type imprimés sur CETTE impression si elle n'est pas en anglais. */
+  printed_name?: string;
+  printed_text?: string;
+  printed_type_line?: string;
 }
 
 export interface ScryfallImageUris {
@@ -73,6 +77,12 @@ export interface ScryfallCard {
   set: string;
   set_name: string;
   collector_number: string;
+  /** Code langue de CETTE impression (ex: "en", "fr") — https://scryfall.com/docs/api/languages */
+  lang?: string;
+  /** Nom/texte/type imprimés sur CETTE impression si elle n'est pas en anglais. */
+  printed_name?: string;
+  printed_text?: string;
+  printed_type_line?: string;
 }
 
 /** Carte enrichie utilisée dans l'UI : la ref du deck + les données Scryfall (si trouvées). */

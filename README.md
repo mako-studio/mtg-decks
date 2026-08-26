@@ -16,6 +16,28 @@ puissance estimé, avec le texte oracle et le coût de mana de chaque carte.
 - Jauge visuelle du score de puissance structurelle, avant/après ajout
   des cartes suggérées.
 
+**Simulateur interactif** (sur toute page deck)
+- Ajouter une carte suggérée met à jour le deck immédiatement, recalcule
+  le score et les nouvelles suggestions (le retrait d'une carte comble
+  peut faire apparaître un nouveau manque ailleurs), et permet de retirer
+  n'importe quelle carte (y compris pour respecter la taille du deck).
+- Sauvegarde automatique dans le navigateur (localStorage, pas de compte
+  ni de base de données) : une bannière propose de reprendre la session
+  en revenant sur la page.
+- Export CSV de la liste finale (nom, coût de mana, type, "ajoutée via
+  suggestion" oui/non) — fonctionne sur tous les formats.
+- Cartes du deck et suggestions en accordéon (une seule carte dépliée à la
+  fois par liste) ; le panneau de suggestions défile dans son propre
+  cadre (hauteur limitée) plutôt que d'allonger toute la page.
+- Toggle FR/EN en haut de page (dans l'en-tête) pour basculer le texte
+  oracle et le type des cartes entre français et anglais. Le nom des
+  cartes reste toujours en anglais (clé canonique utilisée partout —
+  CSV, export Arena, recherche Scryfall). La traduction FR est récupérée
+  à la demande à l'ouverture d'une carte (impression Scryfall en
+  `lang:fr` si elle existe) ; si aucune impression française n'est
+  trouvée pour une carte, le texte anglais reste affiché avec un message
+  explicite plutôt qu'un vide silencieux.
+
 **MTG Arena** (`/arena`)
 - Import d'un deck via le texte d'export natif du client Arena (menu du
   deck → Export), pour n'importe quel format : Standard, Historic,
@@ -101,14 +123,25 @@ pas d'une supposition.
 
 **Scryfall.** Pas de clé API requise. J'ai suivi les recommandations
 officielles (cache 24h, `/cards/collection` pour les lookups groupés,
-throttle ~9 req/s), mais je n'ai **pas pu tester les appels Scryfall en
-direct** : `api.scryfall.com` était bloqué par le pare-feu sortant de mon
-sandbox de dev. Le code est écrit pour dégrader proprement (cartes non
-résolues affichées "non trouvée" plutôt qu'un crash) — vérifié en
-simulant une panne réseau complète sur toutes les pages, y compris
-l'import Arena — mais **le premier test avec un accès réseau normal (en
-local ou déployé) reste à faire** avant de considérer l'intégration
-Scryfall validée.
+throttle ~9 req/s, en-tête `User-Agent` personnalisé — **requis** par
+Scryfall depuis leur changement de politique anti-scraping, voir leur
+blog officiel ; sans lui les requêtes sont bloquées silencieusement, ce
+qui a causé un bug de résolution de cartes à 100% en production avant
+d'être identifié et corrigé). Le code dégrade proprement quand une carte
+n'est pas trouvée ("non trouvée" plutôt qu'un crash). Mon sandbox de dev
+bloque toujours `api.scryfall.com` (403 systématique), donc je n'ai pas pu
+retester les appels Scryfall en direct depuis ce même environnement — mais
+le site déployé (Vercel) a été confirmé fonctionnel par l'utilisateur
+après le correctif du `User-Agent`.
+
+**Code langue FR pour les traductions.** Le toggle FR/EN suppose que
+`"fr"` est le code langue Scryfall pour le français (`lang:fr` dans les
+recherches), par analogie avec la doc Scryfall sur les langues — je n'ai
+pas pu vérifier ce code contre une réponse API réelle (même blocage réseau
+que ci-dessus). La conception est volontairement tolérante à l'erreur : si
+le code est faux, la recherche ne renvoie simplement aucun résultat et
+l'app retombe sur le texte anglais avec un message explicite, plutôt que
+de planter ou d'afficher une traduction incorrecte.
 
 ## Démarrer en local
 
@@ -135,19 +168,22 @@ src/
     arena/page.tsx              # Accueil Arena : import + galeries Brawl/Starter
     arena/decks/[id]/page.tsx   # Détail deck Arena (galerie), sélecteur de format
   components/
-    DeckAnalysis.tsx             # Bloc partagé : liste + jauge + suggestions (server)
+    DeckAnalysis.tsx             # Point d'entrée serveur : lance analyzeDeck, rend DeckBuilder
+    DeckBuilder.tsx              # Simulateur interactif (client) : add/remove, accordéon, save, export CSV
     ArenaImportForm.tsx          # Formulaire d'import (client + Server Action)
     ArenaExportButton.tsx        # Export texte Arena (copier/coller)
+    LanguageProvider.tsx         # Contexte + toggle FR/EN pour le texte des cartes
     CardTile.tsx, SuggestionCard.tsx, ManaCost.tsx, ImprovementGauge.tsx, DeckCard.tsx
   lib/
     types.ts                     # Types partagés
     formats.ts                   # Registre des formats (cibles/poids par format)
+    translation-cache.ts         # Cache mémoire des traductions FR (partagé CardTile/SuggestionCard)
     precon-decks.ts              # Decks Commander papier (snapshot local)
     arena-decks.ts               # Decks Brawl/Starter Arena (snapshot local)
     arena-format.ts              # Parse/génère le texte d'import-export Arena
     arena-import.ts              # Adapte un deck importé vers le modèle interne
-    actions.ts                   # Server Action : analyse d'un deck importé
-    scryfall.ts                  # Client API Scryfall (cache, throttle)
+    actions.ts                   # Server Actions : analyzeDeck (cœur), analyzeArenaImport, fetchLocalizedText
+    scryfall.ts                  # Client API Scryfall (cache, throttle, headers requis, impressions FR)
     deck-loader.ts                # Résolution deck -> cartes Scryfall (par format)
     deck-score.ts                 # Heuristique de score (catégories, paramétrable)
     recommend.ts                   # Recherche + classement des suggestions (par format)
@@ -168,9 +204,12 @@ scripts/
   dans `formats.ts`) une fois testées sur de vrais decks.
 - Décider d'une stratégie EDHREC si le besoin de vraies données de
   synergie se confirme.
-- Authentification / sauvegarde de decks personnalisés (hors scope v1).
-- Simulation de "coupe" de cartes (actuellement les suggestions
-  s'ajoutent sans proposer quoi couper pour respecter la taille du deck).
+- Authentification / sauvegarde serveur de decks personnalisés (hors
+  scope v1 — la sauvegarde actuelle est locale au navigateur, voir
+  DeckBuilder.tsx).
+- Import d'un CSV précédemment exporté pour reprendre une session sur un
+  autre appareil (actuellement la sauvegarde ne survit que dans le
+  navigateur d'origine via localStorage).
 - Gérer le sideboard et le companion dans l'analyse Arena (actuellement
   seul le deck principal est analysé).
 

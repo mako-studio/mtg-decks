@@ -167,6 +167,51 @@ export function getDisplayManaCost(card: ScryfallCard): string {
   return "";
 }
 
+/**
+ * Cherche l'impression la plus récente d'une carte dans une langue donnée
+ * (voir https://scryfall.com/docs/api/languages), pour en tirer le texte
+ * imprimé localisé (`printed_text`/`printed_type_line`/`printed_name`).
+ *
+ * ⚠️ Le code langue "fr" pour le français est confirmé par la syntaxe de
+ * recherche Scryfall (`lang:`/`language:`), mais je n'ai pas pu vérifier
+ * en direct la liste exhaustive des codes langue (page bloquée par mon
+ * pare-feu de dev) — "fr" est la convention ISO 639-1 standard et
+ * quasi certainement correcte, mais si jamais elle ne l'était pas, la
+ * recherche renvoie simplement 0 résultat et l'app bascule proprement
+ * sur le texte anglais (voir CardTile.tsx / SuggestionCard.tsx).
+ *
+ * Beaucoup de cartes (surtout anciennes ou de sets non traduits) n'ont
+ * tout simplement pas d'impression française : `null` dans ce cas, à
+ * traiter comme "pas de traduction disponible", pas comme une erreur.
+ */
+export async function getLocalizedPrint(name: string, lang: string): Promise<ScryfallCard | null> {
+  try {
+    const results = await searchCards(`!"${name}" lang:${lang}`, 1);
+    return results[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function pickLocalized(card: ScryfallCard, field: "printed_name" | "printed_text" | "printed_type_line"): string {
+  if (card[field]) return card[field] as string;
+  if (card.card_faces?.length) {
+    return card.card_faces.map((f) => f[field]).filter(Boolean).join(field === "printed_text" ? "\n//\n" : " // ");
+  }
+  return "";
+}
+
+/** Nom/texte/type imprimés localisés d'une impression (vide si non disponibles). */
+export function getDisplayLocalizedName(card: ScryfallCard): string {
+  return pickLocalized(card, "printed_name") || card.name;
+}
+export function getDisplayLocalizedText(card: ScryfallCard): string {
+  return pickLocalized(card, "printed_text");
+}
+export function getDisplayLocalizedTypeLine(card: ScryfallCard): string {
+  return pickLocalized(card, "printed_type_line");
+}
+
 /** URL d'image affichable (recto), en gérant les cartes double-face. */
 export function getDisplayImageUrl(
   card: ScryfallCard,

@@ -1,15 +1,13 @@
 "use client";
 
 import { useActionState } from "react";
-import { analyzeArenaImport, type ArenaAnalysisResult } from "@/lib/actions";
-import { CardTile } from "./CardTile";
-import { SuggestionCard } from "./SuggestionCard";
-import { ImprovementGauge } from "./ImprovementGauge";
-import { ArenaExportButton } from "./ArenaExportButton";
+import { analyzeArenaImport, type DeckAnalysisResult } from "@/lib/actions";
+import { DeckBuilder } from "./DeckBuilder";
 
-const INITIAL_STATE: ArenaAnalysisResult = {
+const INITIAL_STATE: DeckAnalysisResult = {
   ok: false,
   error: null,
+  formatKey: "historic",
   deckName: "",
   commanderEntries: [],
   cards: [],
@@ -19,6 +17,15 @@ const INITIAL_STATE: ArenaAnalysisResult = {
   suggestions: [],
   exportText: "",
 };
+
+function slugify(str: string): string {
+  return str
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
 
 const FORMAT_OPTIONS: { group: string; options: { value: string; label: string }[] }[] = [
   {
@@ -90,45 +97,17 @@ export function ArenaImportForm() {
         </p>
       )}
 
-      {state.ok && state.currentStats && state.projectedStats && (
-        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]">
-          <div>
-            {state.commanderEntries.length > 0 && (
-              <>
-                <h3 className="mb-2 text-sm font-medium text-muted">Commandant</h3>
-                <div className="mb-4 space-y-2">
-                  {state.commanderEntries.map((entry) => (
-                    <CardTile key={entry.name} entry={entry} />
-                  ))}
-                </div>
-              </>
-            )}
-            <h3 className="mb-2 text-sm font-medium text-muted">Deck ({state.cards.length} cartes uniques)</h3>
-            <div className="space-y-2">
-              {state.cards.map((entry, i) => (
-                <CardTile key={`${entry.name}-${i}`} entry={entry} />
-              ))}
-            </div>
-          </div>
-
-          <aside className="space-y-4">
-            <ImprovementGauge
-              currentScore={state.currentStats.score}
-              projectedScore={state.projectedStats.score}
-              improvementPct={state.improvementPct}
-            />
-            {state.exportText && <ArenaExportButton text={state.exportText} />}
-            <div>
-              <h3 className="mb-2 text-sm font-medium text-muted">
-                Cartes suggérées ({state.suggestions.length})
-              </h3>
-              <div className="space-y-2">
-                {state.suggestions.map((s) => (
-                  <SuggestionCard key={s.card.id} suggestion={s} />
-                ))}
-              </div>
-            </div>
-          </aside>
+      {state.ok && (
+        <div className="mt-6">
+          {/* key forcé pour remonter le simulateur à zéro à chaque nouvel import
+              (sinon son état interne survivrait à une resoumission du formulaire). */}
+          <DeckBuilder
+            key={`${state.formatKey}:${state.deckName}:${state.cards.map((c) => c.name).join("|")}`}
+            initial={state}
+            deckSlug={`import-${state.formatKey}-${slugify(
+              state.commanderEntries[0]?.name || state.cards[0]?.name || "deck"
+            )}`}
+          />
         </div>
       )}
     </div>

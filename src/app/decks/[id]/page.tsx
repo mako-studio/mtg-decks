@@ -39,7 +39,7 @@ export default async function DeckPage({
         )}
       </div>
 
-      <DeckAnalysis deck={deck} format={FORMATS.commander} />
+      <DeckAnalysis deck={deck} format={FORMATS.commander} deckSlug={deck.id} />
     </div>
   );
 }
