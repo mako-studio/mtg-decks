@@ -118,7 +118,7 @@ produit sur une dépendance fragile et potentiellement non autorisée, la
 v1 utilise **un moteur heuristique interne** (`src/lib/deck-score.ts` et
 `src/lib/recommend.ts`) : classification des cartes par mots-clés dans le
 texte oracle (rampe / removal / board wipe / pioche / tutor / protection
-/ fixing / finisher), comparaison à des cibles indicatives par format (voir
+/ fixing / finisher / disruption), comparaison à des cibles indicatives par format (voir
 `src/lib/formats.ts`), et recherche de candidats via l'API Scryfall
 (syntaxe de recherche, pas de service de recommandation). Les cibles pour
 les formats Arena constructed (Standard/Historic/Explorer/Alchemy/Timeless)
@@ -132,7 +132,7 @@ officiel, soit valider explicitement l'usage d'un scraper non officiel en
 connaissance de cause — je ne l'ai pas fait par défaut.
 
 **"Rôle non identifié" (verdict "unclear") — pas forcément un bug.** Les
-motifs de `CATEGORY_PATTERNS` (`src/lib/deck-score.ts`) couvrent 8
+motifs de `CATEGORY_PATTERNS` (`src/lib/deck-score.ts`) couvrent 9
 piliers : les 7 piliers classiques du deckbuilding Commander (rampe /
 removal / board wipe / pioche / tutor / protection / fixing),
 volontairement élargis pour couvrir des formulations courantes équivalentes (ex : `surveil`/`scry`
@@ -151,7 +151,7 @@ terrains, donc un rocher de mana bicolore/multicolore (Arcane Signet,
 signets de guilde, ...) n'était jamais reconnu comme fixing, même quand
 son texte matchait déjà les motifs existants.
 
-Malgré ça, une carte qui ne rentre dans aucun de ces 8 piliers (ex : une
+Malgré ça, une carte qui ne rentre dans aucun de ces 9 piliers (ex : une
 terre qui fabrique des jetons, une carte qui copie des sorts sans piocher
 ni retirer de menace) reçoit honnêtement "rôle non identifié" plutôt
 qu'un rôle forcé et faux — élargir encore les motifs au point de capter
@@ -182,7 +182,7 @@ arrière, capacité Enrage "there is an additional combat phase after this
 phase", vérifié sur Scryfall) matche désormais "finisher" via le motif
 "combat supplémentaire" — une vraie amélioration de couverture.
 
-Si une carte précise te semble mal classée dans un de ces 8 piliers (pas
+Si une carte précise te semble mal classée dans un de ces 9 piliers (pas
 "c'est une bombe et ça devrait être reconnue comme telle" en général), le
 plus fiable est de vérifier son texte oracle exact sur Scryfall et de me
 le signaler : j'ajoute le motif correspondant seulement si c'est un cas
@@ -210,6 +210,83 @@ combat à sens unique, sans passer par le mot-clé `fight`. Testé avant/
 après sur Hulk Smash! (désormais "removal") et sur plusieurs cartes de
 removal/wipe connues (Swords to Plowshares, Wrath of God) pour vérifier
 qu'elles restent correctement classées.
+
+**Refonte du 26/08/2026 suite à ton retour "beaucoup de cartes n'ont rien
+d'identifié, il faut que cet outil apporte de la valeur ajoutée pour
+toutes les cartes".** Pas un patch isolé sur Mana Maze : un audit complet
+des motifs `CATEGORY_PATTERNS` a montré que le bug de qualificatif trouvé
+sur Hulk Smash (voir ci-dessus) touchait aussi deux autres piliers, en
+plus de l'ajout d'un 9e pilier. Chaque cas ci-dessous a été vérifié sur le
+texte oracle réel d'une carte connue (pas une supposition) avant d'écrire
+le motif correspondant :
+
+- **Tutor.** L'ancien motif pour les tutors "restreints" (qui cherchent un
+  type de carte précis, pas n'importe laquelle) exigeait littéralement
+  "and put it into your hand" — or une grande partie des tutors les plus
+  emblématiques de Commander posent la carte trouvée **sur le dessus de la
+  bibliothèque**, pas dans la main : Vampiric Tutor, Mystical Tutor,
+  Worldly Tutor, Enlightened Tutor... Vérifié sur Enlightened Tutor
+  ("Search your library for an artifact or enchantment card, reveal it,
+  then shuffle and put that card on top of your library.") : ne matchait
+  ni pattern (pas de "into your hand", et en plus l'ancien motif exigeait
+  l'article "a" alors que le texte a "an"). Corrigé : la destination
+  n'est plus vérifiée, seule la restriction de type compte — en excluant
+  explicitement les recherches de terrain (déjà comptées comme "rampe",
+  pas comme tutor).
+- **Rampe.** Le motif de recherche de terrain n'acceptait que le mot
+  littéral "land" — "search your library for a **Forest** card" (Wood
+  Elves, vérifié) ne contient pas ce mot et ne matchait donc jamais,
+  malgré un effet de rampe évident. Corrigé : le motif reconnaît aussi les
+  noms de terrains de base (Forest, Island, Swamp, Mountain, Plains,
+  Wastes) en plus de "land".
+- **Protection.** "Counter target spell" ne matchait pas "counter target
+  **noncreature** spell" (Negate, vérifié) ni "counter target
+  **creature** spell" (Essence Scatter) — alors que restreindre un
+  contresort à un type de sort est un des templates les plus courants du
+  jeu. Corrigé avec la même tolérance de qualificatif que removal/wipe.
+
+**9e pilier "disruption" (ajouté le 26/08/2026).** Les 8 piliers
+précédents ne couvrent ni les verrous/taxes ("les joueurs ne peuvent pas
+lancer de sorts", "coûte {1} de plus à lancer", "les permanents ne
+dégèlent pas"), ni les sacrifices forcés (edicts), ni la défausse forcée
+— tout un pan classique du deckbuilding Commander (stax, contrôle de
+ressources) qui n'est ni du removal ciblé, ni un board wipe, ni de la
+protection. C'est exactement le cas de Mana Maze que tu as remonté
+("Players can't cast spells that share a color with the spell most
+recently cast this turn.") : un verrou symétrique, hors du périmètre des
+8 piliers existants. Motifs vérifiés sur le texte oracle réel de cartes
+connues avant d'écrire les regex : Mana Maze et Rule of Law ("Each player
+can't cast more than one spell each turn.") pour "can't cast ... spell(s)"
+; Thalia, Guardian of Thraben ("Noncreature spells cost {1} more to
+cast.") pour la taxe ; Static Orb ("players can't untap more than two
+permanents during their untap steps.") pour le verrou de dégel ; Diabolic
+Edict ("Target player sacrifices a creature.") pour le sacrifice forcé ;
+Mind Rot ("Target player discards two cards.") pour la défausse forcée.
+Cibles/poids rééquilibrés dans `formats.ts` pour les deux configs (somme
+des poids revérifiée à 100 programmatiquement).
+
+**Nouveau signal pour les cartes qui restent "rôle non identifié".**
+Même avec 9 piliers, il y aura toujours des cartes hors périmètre — c'est
+inhérent à un système de piliers finis, pas un manque à combler à l'infini
+par plus de mots-clés (au risque de perdre en précision, ce que tu m'as
+explicitement demandé d'éviter). Pour que "rôle non identifié" ne soit
+plus une impasse totale, j'ai ajouté un signal complémentaire, factuel et
+indépendant des piliers : `card.game_changer` (liste officielle "Game
+Changer" du Commander Rules Committee, cartes jugées susceptibles de
+définir une partie à elles seules) et `card.edhrec_rank` (rang de
+popularité générale sur EDHREC) sont deux champs **officiels du Card
+Object Scryfall lui-même** — pas un scraper EDHREC non officiel, donc
+cohérent avec la position prise plus haut sur EDHREC — déjà présents dans
+la réponse API, juste jamais exploités jusqu'ici. Quand aucune catégorie
+ne matche mais que la carte est marquée "Game Changer" ou très populaire
+(rang EDHREC ≤ 5000), le message affiché le mentionne explicitement. ⚠️
+Important : ça ne dit toujours PAS si la carte comble un manque de TON
+deck précis (le verdict reste "unclear", aucune catégorie n'est ajoutée)
+— c'est un fait objectif en plus, pas une recommandation. Testé sur Mana
+Maze : reste "rôle non identifié" si on ignore la nouvelle catégorie
+disruption (donc pas de régression sur les cartes réellement hors
+périmètre), et le signal de popularité s'affiche correctement sur une
+carte mockée avec `game_changer: true` et `edhrec_rank` bas.
 
 **La recherche manuelle proposait toujours le même swap.** Corrigé le
 26/08/2026 : quand la carte cherchée ne partage de catégorie avec rien

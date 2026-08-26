@@ -33,10 +33,19 @@ import { getDisplayOracleText } from "./scryfall";
 // "traverse" pas les phrases) : voir README pour l'exemple concret
 // (Hulk Smash!, "Destroy target noncreature artifact.").
 const QUAL = "(?:[a-z][a-z'-]*\\s+){0,3}";
+// Même idée que QUAL mais jusqu'à 4 mots — utilisé pour "can't cast (...)
+// spell(s)" où le qualificatif est parfois plus long ("can't cast more
+// than one spell").
+const QUAL4 = "(?:[a-z][a-z'-]*\\s+){0,4}";
+// Types de terrain de base (dont Wastes, incolore) — utilisé pour
+// reconnaître les recherches de terrain typé ("search your library for a
+// Forest card", ex: Wood Elves) en plus de "land card" littéral, sans quoi
+// toute recherche de terrain typé plutôt que générique passait inaperçue.
+const BASIC_LAND_TYPES = "plains|island|swamp|mountain|forest|wastes";
 
 const CATEGORY_PATTERNS: Record<DeckCategory, RegExp[]> = {
   ramp: [
-    /search your library for a(n)? (basic )?land card/i,
+    new RegExp(`search your library for a(n)? ${QUAL}(land|${BASIC_LAND_TYPES})( card)?`, "i"),
     /add \{[wubrgc0-9]\}/i,
     /additional land/i,
     /lands you control/i,
@@ -76,12 +85,37 @@ const CATEGORY_PATTERNS: Record<DeckCategory, RegExp[]> = {
     /surveil \d+/i,
     /scry \d+/i,
   ],
-  tutor: [/search your library for a card/i, /search your library for a .* card and put (it|that card) into your hand/i],
+  tutor: [
+    // Tutor "libre" (n'importe quelle carte) — Vampiric Tutor et
+    // équivalents : peu importe où la carte va ensuite (main, dessus de
+    // bibliothèque, ...), "search your library for a card" tout court est
+    // déjà un signal fort et sans ambiguïté.
+    /search your library for a card/i,
+    // Tutor "restreint" à un type de carte (Enlightened Tutor, Mystical
+    // Tutor, Worldly Tutor, ...) : l'ancien motif exigeait explicitement
+    // "and put (it|that card) into your hand", ce qui ratait TOUS les
+    // tutors qui posent la carte sur le dessus de la bibliothèque plutôt
+    // que dans la main (un template très courant, ex: Vampiric/Mystical/
+    // Enlightened Tutor) — et exigeait l'article "a" alors que Scryfall
+    // écrit "an" devant un type qui commence par une voyelle ("an artifact
+    // ... card"). Corrigé : on ne regarde plus la destination, seulement
+    // la restriction de type, et on exclut explicitement les recherches de
+    // terrain (déjà comptées comme "ramp" ci-dessus, pas comme tutor — un
+    // fetch de terrain n'est pas un tutor de carte-clé).
+    new RegExp(
+      `search your library for a(n)? (?!(basic )?(lands?|${BASIC_LAND_TYPES})\\b)${QUAL}cards?\\b`,
+      "i"
+    ),
+  ],
   protection: [
     /hexproof/i,
     /indestructible/i,
     /protection from/i,
-    /counter target spell/i,
+    // "Counter target spell" seul ne matchait pas "counter target
+    // NONCREATURE spell" (Negate) ni "counter target CREATURE spell"
+    // (Essence Scatter) — un contresort restreint à un type de sort est
+    // pourtant un cas extrêmement courant.
+    new RegExp(`counter target ${QUAL}spell`, "i"),
     /can't be countered/i,
     /\bward\b/i,
     /\bshroud\b/i,
@@ -107,6 +141,21 @@ const CATEGORY_PATTERNS: Record<DeckCategory, RegExp[]> = {
     /can't be blocked/i,
     /\bunblockable\b/i,
   ],
+  // "Disruption" (9e pilier, ajouté le 26/08/2026) : verrous/taxes,
+  // sacrifices forcés et défausse forcée — ce qui prive les adversaires de
+  // ressources ou d'options sans nécessairement détruire un permanent.
+  // Formulations vérifiées sur de vraies cartes avant d'écrire les motifs
+  // (voir README) : Mana Maze / Rule of Law ("can't cast ... spell(s)"),
+  // Thalia ("cost {1} more to cast"), Static Orb ("can't untap ... during
+  // their untap steps"), Diabolic Edict ("target player sacrifices a
+  // creature"), Mind Rot ("target player discards two cards").
+  disruption: [
+    new RegExp(`can't cast ${QUAL4}spells?\\b`, "i"),
+    /costs? \{?\d+\}? more to (cast|activate)/i,
+    /can't untap [^.]{0,60}untap steps?/i,
+    /(target player|each opponent|that player) sacrifices? a(n)? (creature|permanent|artifact|enchantment|planeswalker)/i,
+    /(target player|each opponent|that player) discards? (a|an|one|two|three|four|five|x|\d+) cards?/i,
+  ],
 };
 
 /** Libellés FR des catégories, partagés entre le moteur (raisons de swap) et l'UI. */
@@ -119,6 +168,7 @@ export const CATEGORY_LABELS: Record<DeckCategory, string> = {
   protection: "Protection",
   landfix: "Fixing",
   finisher: "Finisher",
+  disruption: "Disruption",
 };
 
 /** Mots-clés Scryfall (card.keywords) considérés comme de la "protection". */
@@ -180,6 +230,7 @@ export function computeDeckStats(cards: EnrichedCard[], config: CategoryConfig):
     protection: 0,
     landfix: 0,
     finisher: 0,
+    disruption: 0,
   };
 
   let landCount = 0;

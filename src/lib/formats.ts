@@ -7,11 +7,31 @@ import type { CategoryConfig, DeckCategory, FormatConfig, FormatKey } from "./ty
  * de deckbuilding (singleton, un commandant, ~10 ramp/removal/pioche).
  */
 const COMMANDER_LIKE: CategoryConfig = {
-  targets: { ramp: 10, removal: 10, wipe: 3, draw: 10, tutor: 3, protection: 5, landfix: 5, finisher: 6 },
-  // Poids rééquilibrés pour ajouter "finisher" en gardant un total de 100
-  // (ramp/removal/draw restent le "gros 3" du moteur, à 18 plutôt que 20 ;
-  // wipe/tutor/protection/landfix descendent de 10 à 9 ; finisher à 10).
-  weights: { ramp: 18, removal: 18, wipe: 9, draw: 18, tutor: 9, protection: 9, landfix: 9, finisher: 10 },
+  targets: {
+    ramp: 10,
+    removal: 10,
+    wipe: 3,
+    draw: 10,
+    tutor: 3,
+    protection: 5,
+    landfix: 5,
+    finisher: 6,
+    disruption: 5,
+  },
+  // Poids rééquilibrés pour ajouter "disruption" (9e pilier, 26/08/2026)
+  // en gardant un total de 100 : les 8 poids précédents sont réduits
+  // d'environ 8% chacun pour faire de la place à "disruption" (8).
+  weights: {
+    ramp: 17,
+    removal: 17,
+    wipe: 8,
+    draw: 17,
+    tutor: 8,
+    protection: 8,
+    landfix: 8,
+    finisher: 9,
+    disruption: 8,
+  },
 };
 
 /**
@@ -22,11 +42,31 @@ const COMMANDER_LIKE: CategoryConfig = {
  * du deckbuilding constructed, pas une donnée officielle.
  */
 const CONSTRUCTED_60: CategoryConfig = {
-  targets: { ramp: 4, removal: 8, wipe: 2, draw: 6, tutor: 2, protection: 4, landfix: 4, finisher: 4 },
-  // Poids rééquilibrés pour ajouter "finisher" en gardant un total de 100
-  // (removal/draw descendent de 25 à 20 pour faire de la place ; le reste
-  // inchangé).
-  weights: { ramp: 10, removal: 20, wipe: 10, draw: 20, tutor: 5, protection: 15, landfix: 10, finisher: 10 },
+  targets: {
+    ramp: 4,
+    removal: 8,
+    wipe: 2,
+    draw: 6,
+    tutor: 2,
+    protection: 4,
+    landfix: 4,
+    finisher: 4,
+    disruption: 3,
+  },
+  // Poids rééquilibrés pour ajouter "disruption" (9e pilier, 26/08/2026)
+  // en gardant un total de 100 (removal reste le poste le plus lourd,
+  // cohérent avec un format 60 cartes où l'interaction prime).
+  weights: {
+    ramp: 9,
+    removal: 19,
+    wipe: 9,
+    draw: 18,
+    tutor: 5,
+    protection: 14,
+    landfix: 9,
+    finisher: 9,
+    disruption: 8,
+  },
 };
 
 export const FORMATS: Record<FormatKey, FormatConfig> = {
@@ -148,4 +188,5 @@ export const ALL_DECK_CATEGORIES: DeckCategory[] = [
   "protection",
   "landfix",
   "finisher",
+  "disruption",
 ];

@@ -81,6 +81,28 @@ export interface ScryfallCard {
    * la formulation exacte de l'habileté de mana.
    */
   produced_mana?: string[] | null;
+  /**
+   * Rang de popularité général de cette carte sur EDHREC (1 = la plus
+   * jouée toutes couleurs/commandants confondus), renvoyé directement par
+   * Scryfall — ⚠️ à ne pas confondre avec les données de SYNERGIE
+   * EDHREC-par-commandant (celles-ci ne sont pas disponibles via une API
+   * officielle, voir la note en tête de deck-score.ts). `edhrec_rank` est
+   * un champ standard du Card Object Scryfall lui-même (pas un scraper
+   * tiers), documenté sur https://scryfall.com/docs/api/cards — un simple
+   * indicateur de popularité générale, pas une recommandation pour CE
+   * deck précis. `null`/absent si la carte n'est pas classée.
+   */
+  edhrec_rank?: number | null;
+  /**
+   * `true` si cette carte figure sur la liste officielle "Game Changers"
+   * du Commander Rules Committee (cartes jugées susceptibles de définir
+   * une partie à elles seules, utilisées pour les "brackets" Commander),
+   * exposée directement par Scryfall (champ officiel, pas un scraper
+   * tiers) — voir https://scryfall.com/docs/api/cards et l'annonce
+   * officielle de Scryfall. Signal de puissance générale, indépendant des
+   * 8 piliers ci-dessous.
+   */
+  game_changer?: boolean | null;
   legalities: Record<string, "legal" | "not_legal" | "restricted" | "banned">;
   /** Jeux dans lesquels cette impression existe : "paper" | "mtgo" | "arena" | ... */
   games: string[];
@@ -114,17 +136,27 @@ export interface EnrichedCard {
 /**
  * Catégories heuristiques utilisées pour scorer un deck Commander.
  *
- * "finisher" est différent des 7 autres piliers : ceux-là mesurent le
- * "moteur" d'un deck (mana/interaction/avantage de cartes), alors que
- * "finisher" essaie de repérer les cartes qui terminent la partie (victoire
- * alternative, combats supplémentaires, évasion difficile à bloquer,
- * dégâts doublés) — un axe différent, volontairement détecté par des
- * signaux textuels précis plutôt que par la puissance brute (force/endurance)
- * d'une créature, pour éviter de qualifier "finisher" n'importe quelle
- * grosse créature vanille. Une carte peut donc être une bombe reconnue par
- * les joueurs sans matcher "finisher" si son effet n'est ni une victoire
- * alternative, ni de l'évasion, ni des dégâts doublés/combats
- * supplémentaires (voir la note dans classifyCard, deck-score.ts).
+ * "finisher" est différent des piliers "moteur" (ramp/removal/wipe/draw/
+ * tutor/protection/landfix) : il essaie de repérer les cartes qui
+ * terminent la partie (victoire alternative, combats supplémentaires,
+ * évasion difficile à bloquer, dégâts doublés) — un axe différent,
+ * volontairement détecté par des signaux textuels précis plutôt que par
+ * la puissance brute (force/endurance) d'une créature, pour éviter de
+ * qualifier "finisher" n'importe quelle grosse créature vanille. Une
+ * carte peut donc être une bombe reconnue par les joueurs sans matcher
+ * "finisher" si son effet n'est ni une victoire alternative, ni de
+ * l'évasion, ni des dégâts doublés/combats supplémentaires (voir la note
+ * dans classifyCard, deck-score.ts).
+ *
+ * "disruption" (9e pilier, ajouté le 26/08/2026) regroupe ce qui ralentit
+ * ou prive les adversaires de ressources sans nécessairement détruire un
+ * permanent : verrous/taxes ("les joueurs ne peuvent pas lancer de
+ * sorts", "coûte {1} de plus à lancer", "ne dégèlent pas"), sacrifices
+ * forcés (edicts, ex: Diabolic Edict) et défausse forcée. Comme
+ * "finisher", volontairement limité à des formulations textuelles
+ * précises et vérifiées sur de vraies cartes (voir CATEGORY_PATTERNS
+ * dans deck-score.ts et le README) plutôt qu'à une notion vague de
+ * "carte qui gêne l'adversaire".
  */
 export type DeckCategory =
   | "ramp"
@@ -134,7 +166,8 @@ export type DeckCategory =
   | "tutor"
   | "protection"
   | "landfix"
-  | "finisher";
+  | "finisher"
+  | "disruption";
 
 export interface DeckStats {
   totalNonLandCards: number;

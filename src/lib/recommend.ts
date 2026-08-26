@@ -30,6 +30,8 @@ const CATEGORY_QUERIES: Record<DeckCategory, string> = {
   landfix: 't:land (o:"add one mana of any color" or o:"any color")',
   finisher:
     '(o:"you win the game" or o:"loses the game" or o:"extra combat" or keyword:menace or o:"can\'t be blocked") -t:land',
+  disruption:
+    '(o:"can\'t cast" or o:"more to cast" or o:"can\'t untap" or o:"sacrifices a creature" or o:"discards two cards")',
 };
 
 function colorIdentityQuery(identity: string[]): string {
@@ -198,7 +200,8 @@ export function evaluateCardCompatibility(
   if (categories.length === 0) {
     verdict = "unclear";
     reason =
-      "Aucun rôle clé détecté dans le texte de cette carte (rampe, removal, pioche, …) selon notre heuristique interne — elle peut malgré tout apporter une synergie que cette analyse ne mesure pas (voir les limites décrites dans le README).";
+      "Aucun rôle clé détecté dans le texte de cette carte (rampe, removal, pioche, …) selon notre heuristique interne — elle peut malgré tout apporter une synergie que cette analyse ne mesure pas (voir les limites décrites dans le README)." +
+      popularitySignal(card);
   } else {
     const underTarget = categories.filter((cat) => currentStats.categoryCounts[cat] < targets[cat]);
     if (underTarget.length > 0) {
@@ -233,8 +236,38 @@ function reasonFor(cat: DeckCategory): string {
     protection: "Protège votre commandant ou vos permanents clés",
     landfix: "Fixe votre mana multicolore",
     finisher: "Aide à conclure la partie (évasion, combats supplémentaires, victoire alternative)",
+    disruption: "Ralentit ou prive les adversaires de ressources (verrou, taxe, sacrifice forcé, défausse)",
   };
   return labels[cat];
+}
+
+/**
+ * Signal complémentaire pour une carte "rôle non identifié" (aucun des 9
+ * piliers ne matche) : `card.game_changer` et `card.edhrec_rank` sont des
+ * champs officiels du Card Object Scryfall lui-même (pas un scraper
+ * EDHREC non officiel, voir la note dans types.ts) qui donnent un
+ * indicateur de puissance/popularité générale, indépendant des piliers.
+ * Ça ne dit PAS si la carte comble un manque de CE deck précis (aucune
+ * catégorie n'est ajoutée, le verdict reste "unclear") — juste un fait
+ * objectif en plus, pour que "rôle non identifié" ne reste pas une
+ * impasse totale sur des cartes hors du périmètre volontairement limité
+ * des 9 piliers (ex : Mana Maze — un verrou symétrique inhabituel qui ne
+ * matche aucun pilier). Aucun des deux champs n'implique "ajoute cette
+ * carte à ton deck" : ils informent, ils ne recommandent pas.
+ */
+function popularitySignal(card: ScryfallCard): string {
+  const parts: string[] = [];
+  if (card.game_changer) {
+    parts.push(
+      "Classée \"Game Changer\" par le Commander Rules Committee (liste officielle de cartes jugées susceptibles de définir une partie à elles seules, utilisée pour les brackets) — signal de forte puissance générale, à manier selon les règles de ta table."
+    );
+  }
+  if (typeof card.edhrec_rank === "number" && card.edhrec_rank > 0 && card.edhrec_rank <= 5000) {
+    parts.push(
+      `Très souvent jouée en Commander toutes couleurs confondues (rang de popularité EDHREC #${card.edhrec_rank}, donnée officielle Scryfall) — ce n'est pas une synergie avec ton deck précis, juste un signal que la carte est généralement appréciée.`
+    );
+  }
+  return parts.length > 0 ? ` ${parts.join(" ")}` : "";
 }
 
 interface RemovalCandidate {
