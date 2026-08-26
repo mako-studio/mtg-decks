@@ -131,6 +131,20 @@ export async function getCardsByNames(names: string[]): Promise<Map<string, Scry
   return result;
 }
 
+/**
+ * Autocomplétion de noms de cartes (`/cards/autocomplete`), pour la
+ * recherche manuelle "ajouter une carte" (DeckBuilder/AddCardSearch) : un
+ * endpoint léger dédié à ce cas d'usage plutôt qu'une recherche complète.
+ */
+export async function autocompleteCardNames(query: string): Promise<string[]> {
+  const q = query.trim();
+  if (!q) return [];
+  const res = await scryfallFetch(`/cards/autocomplete?q=${encodeURIComponent(q)}`);
+  if (!res || !res.ok) return [];
+  const data = (await res.json()) as { data: string[] };
+  return data.data;
+}
+
 /** Recherche de cartes via la syntax query Scryfall (https://scryfall.com/docs/syntax). */
 export async function searchCards(query: string, maxPages = 1): Promise<ScryfallCard[]> {
   const results: ScryfallCard[] = [];

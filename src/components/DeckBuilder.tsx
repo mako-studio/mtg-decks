@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import type { CardSuggestion, EnrichedCard } from "@/lib/types";
+import type { CardSuggestion, EnrichedCard, ScryfallCard } from "@/lib/types";
 import { analyzeDeck, type DeckAnalysisResult } from "@/lib/actions";
 import { getFormat } from "@/lib/formats";
 import { CardTile } from "./CardTile";
 import { SuggestionCard } from "./SuggestionCard";
 import { SwapConfirmModal } from "./SwapConfirmModal";
+import { AddCardSearch } from "./AddCardSearch";
 import { ImprovementGauge } from "./ImprovementGauge";
 import { ArenaExportButton } from "./ArenaExportButton";
 
@@ -181,15 +182,20 @@ export function DeckBuilder({
     });
   }
 
-  function handleAdd(s: CardSuggestion) {
-    const key = s.card.name.toLowerCase();
+  /** Ajoute un exemplaire de `name` au deck (nouvelle entrée, ou +1 si déjà présente). */
+  function addCardByName(name: string) {
+    const key = name.toLowerCase();
     const already = result.cards.find((c) => c.name.toLowerCase() === key);
     const newList = already
       ? result.cards.map((c) =>
           c.name.toLowerCase() === key ? { name: c.name, count: c.count + 1 } : { name: c.name, count: c.count }
         )
-      : [...result.cards.map((c) => ({ name: c.name, count: c.count })), { name: s.card.name, count: 1 }];
+      : [...result.cards.map((c) => ({ name: c.name, count: c.count })), { name, count: 1 }];
     recompute(newList, new Set(addedNames).add(key));
+  }
+
+  function handleAdd(s: CardSuggestion) {
+    addCardByName(s.card.name);
   }
 
   function handleAddClick(s: CardSuggestion) {
@@ -198,6 +204,11 @@ export function DeckBuilder({
     } else {
       handleAdd(s);
     }
+  }
+
+  /** Ajout manuel via la recherche (AddCardSearch) — pas de logique de swap ici. */
+  function handleAddCard(card: ScryfallCard) {
+    addCardByName(card.name);
   }
 
   function confirmSwap() {
@@ -326,6 +337,16 @@ export function DeckBuilder({
 
   const sortedCards = [...result.cards].sort((a, b) => a.name.localeCompare(b.name, "fr"));
 
+  const existingCounts = new Map<string, number>();
+  for (const c of result.cards) existingCounts.set(c.name.toLowerCase(), c.count);
+
+  // Identité de couleur du deck, pour avertir (sans bloquer) si une carte
+  // cherchée manuellement est hors des couleurs du/des commandant(s).
+  // Non pertinent pour les formats constructed sans commandant.
+  const deckColorIdentity = Array.from(
+    new Set(result.commanderEntries.flatMap((c) => c.card?.color_identity ?? []))
+  );
+
   return (
     <div>
       {savedSession && (
@@ -378,6 +399,19 @@ export function DeckBuilder({
               </div>
             </>
           )}
+
+          <div className="mb-6">
+            <AddCardSearch
+              formatKey={result.formatKey}
+              formatLabel={format.label}
+              maxCopies={format.maxCopies}
+              hasCommander={format.hasCommander}
+              colorIdentity={deckColorIdentity}
+              existingCounts={existingCounts}
+              onAdd={handleAddCard}
+              addDisabled={pending}
+            />
+          </div>
 
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-medium text-muted">

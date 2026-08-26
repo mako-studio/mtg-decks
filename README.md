@@ -47,6 +47,14 @@ puissance estimé, avec le texte oracle et le coût de mana de chaque carte.
   (sans swap) reste un simple retrait — rien à restaurer. Bouton "↺ Retour
   au deck initial" (dans le panneau "Sauvegarder / exporter") pour tout
   annuler d'un coup et repartir du deck tel quel.
+- Ajouter une carte en dehors des suggestions : recherche libre (avec
+  autocomplétion Scryfall) au-dessus de la liste du deck, aperçu (image,
+  coût de mana, texte) avant confirmation. Contrairement aux suggestions
+  automatiques, cette recherche n'est filtrée ni par légalité ni par
+  identité de couleur : n'importe quelle carte peut être cherchée et
+  ajoutée, avec un avertissement (pas un blocage) si elle n'est pas légale
+  dans le format en cours ou hors des couleurs du commandant, et un
+  message si elle est déjà au nombre d'exemplaires maximum autorisé.
 - Cartes du deck et suggestions en accordéon (une seule carte dépliée à la
   fois par liste) ; le panneau de suggestions défile dans son propre
   cadre (hauteur limitée) plutôt que d'allonger toute la page.
@@ -192,6 +200,7 @@ src/
     DeckAnalysis.tsx             # Point d'entrée serveur : lance analyzeDeck, rend DeckBuilder
     DeckBuilder.tsx              # Simulateur interactif (client) : add/remove, swap, accordéon, save, export CSV
     SwapConfirmModal.tsx         # Popup de confirmation d'un swap (ajout + retrait suggéré)
+    AddCardSearch.tsx            # Recherche + ajout manuel d'une carte (hors suggestions)
     CardImageHover.tsx           # Vignette avec image agrandie au survol
     ArenaImportForm.tsx          # Formulaire d'import (client + Server Action)
     ArenaExportButton.tsx        # Export texte Arena (copier/coller)
@@ -205,8 +214,8 @@ src/
     arena-decks.ts               # Decks Brawl/Starter Arena (snapshot local)
     arena-format.ts              # Parse/génère le texte d'import-export Arena
     arena-import.ts              # Adapte un deck importé vers le modèle interne
-    actions.ts                   # Server Actions : analyzeDeck (cœur), analyzeArenaImport, fetchLocalizedText
-    scryfall.ts                  # Client API Scryfall (cache, throttle, headers requis, impressions FR)
+    actions.ts                   # Server Actions : analyzeDeck (cœur), analyzeArenaImport, fetchLocalizedText, recherche de carte
+    scryfall.ts                  # Client API Scryfall (cache, throttle, headers requis, impressions FR, autocomplétion)
     deck-loader.ts                # Résolution deck -> cartes Scryfall (par format)
     deck-score.ts                 # Heuristique de score (catégories, paramétrable)
     recommend.ts                   # Recherche + classement des suggestions (par format)

@@ -1,12 +1,14 @@
 "use server";
 
-import type { CardSuggestion, DeckStats, EnrichedCard, FormatKey, PreconDeck } from "./types";
+import type { CardSuggestion, DeckStats, EnrichedCard, FormatKey, PreconDeck, ScryfallCard } from "./types";
 import { parseArenaDeck, serializeArenaDeck } from "./arena-format";
 import { arenaImportToPreconDeck } from "./arena-import";
 import { loadEnrichedDeck } from "./deck-loader";
 import { suggestImprovements } from "./recommend";
 import { getFormat } from "./formats";
 import {
+  autocompleteCardNames,
+  getCardByName,
   getDisplayLocalizedName,
   getDisplayLocalizedText,
   getDisplayLocalizedTypeLine,
@@ -169,5 +171,46 @@ export async function fetchLocalizedText(cardName: string): Promise<LocalizedTex
     name: getDisplayLocalizedName(localized),
     typeLine: typeLine || localized.type_line,
     text: text || getDisplayOracleText(localized),
+  };
+}
+
+/**
+ * Server Action : autocomplétion pour la recherche manuelle "ajouter une
+ * carte" (AddCardSearch.tsx). Ne filtre pas par format/légalité — c'est
+ * juste une liste de noms pour guider la saisie ; la légalité est vérifiée
+ * ensuite par `searchCardToAdd` une fois une carte précise choisie.
+ */
+export async function autocompleteCardName(query: string): Promise<string[]> {
+  if (!query || query.trim().length < 2) return [];
+  return autocompleteCardNames(query);
+}
+
+export interface CardSearchResult {
+  card: ScryfallCard;
+  /** Statut de légalité brut renvoyé par Scryfall pour ce format (ex: "legal", "banned", "not_legal"). */
+  legalityStatus: string;
+  legal: boolean;
+}
+
+/**
+ * Server Action : résout une carte par nom (approché si besoin — l'utilisateur
+ * n'a pas forcément tapé l'orthographe exacte) pour l'aperçu affiché avant
+ * ajout manuel au deck, avec son statut de légalité dans le format en cours.
+ * Contrairement aux suggestions automatiques (recommend.ts), cette recherche
+ * manuelle ne filtre PAS par légalité ni par identité de couleur : c'est le
+ * deck de l'utilisateur, on l'informe (badge d'avertissement côté UI) sans
+ * lui interdire d'ajouter une carte hors format ou hors couleurs.
+ */
+export async function searchCardToAdd(query: string, formatKey: string): Promise<CardSearchResult | null> {
+  const q = query.trim();
+  if (!q) return null;
+  const format = getFormat(formatKey);
+  const card = await getCardByName(q, "fuzzy");
+  if (!card) return null;
+  const legalityStatus = card.legalities?.[format.scryfallLegality] ?? "not_legal";
+  return {
+    card,
+    legalityStatus,
+    legal: legalityStatus === "legal" || legalityStatus === "restricted",
   };
 }
