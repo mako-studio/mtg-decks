@@ -131,6 +131,24 @@ veux une vraie intégration EDHREC, il faudra soit leur demander un accès
 officiel, soit valider explicitement l'usage d'un scraper non officiel en
 connaissance de cause — je ne l'ai pas fait par défaut.
 
+**"Rôle non identifié" (verdict "unclear") — pas forcément un bug.** Les
+motifs de `CATEGORY_PATTERNS` (`src/lib/deck-score.ts`) couvrent 7 piliers
+classiques du deckbuilding Commander (rampe / removal / board wipe /
+pioche / tutor / protection / fixing), volontairement élargis pour
+couvrir des formulations courantes équivalentes (ex : `surveil`/`scry`
+comptent comme "pioche" — sélection de cartes ; `ward`/`shroud` comptent
+comme "protection" ; les effets de fight et le bounce de permanent
+comptent comme "removal"). Mais une carte qui ne rentre dans aucun de ces
+7 piliers (ex : une terre qui fabrique des jetons, une carte qui copie
+des sorts sans piocher ni retirer de menace) reçoit honnêtement "rôle non
+identifié" plutôt qu'un rôle forcé et faux — élargir encore les motifs au
+point de capter ce genre de carte ferait perdre en précision aux 7
+piliers existants (l'objectif premier de ce moteur), donc ce n'est pas
+fait par défaut. Si une carte précise te semble mal classée, le plus
+fiable est de vérifier son texte oracle exact sur Scryfall et de me le
+signaler : j'ajoute le motif correspondant seulement si c'est un cas
+générique et sans ambiguïté, pas un cas isolé.
+
 **Decklists préconstruites — pas mtgjson.com en direct.** `mtgjson.com`
 était bloqué par le pare-feu sortant de mon environnement de dev, donc je
 n'ai pas pu vérifier son schéma en direct. J'ai utilisé à la place le

@@ -34,17 +34,31 @@ const CATEGORY_PATTERNS: Record<DeckCategory, RegExp[]> = {
   removal: [
     /destroy target (creature|permanent|artifact|enchantment|planeswalker)/i,
     /exile target (creature|permanent|artifact|enchantment|planeswalker)/i,
+    /exile up to (one|two|three) target (creature|permanent|artifact|enchantment|planeswalker)/i,
     /target creature gets -\d+\/-\d+/i,
     /deals? \d+ damage to target creature/i,
-    /return target creature.* to (its|their) owner's hand/i,
+    /return target (creature|permanent|nonland permanent).* to (its|their) owner's hand/i,
+    /fights? target creature/i,
   ],
   wipe: [
     /destroy all (creatures|permanents)/i,
+    /exile all (creatures|permanents)/i,
     /each creature (gets|is)/i,
+    /each creature (you don't control|an opponent controls) (gets|is)/i,
     /all creatures get -\d+\/-\d+/i,
     /destroy each/i,
+    /damage to each creature/i,
   ],
-  draw: [/draw (a|two|three|\d+) cards?/i, /draw cards equal to/i, /whenever .* draw a card/i],
+  draw: [
+    /draw (a|one|two|three|four|five|\d+)( additional)? cards?/i,
+    /draw cards equal to/i,
+    /whenever .* draw a card/i,
+    // Surveil/scry : pas une pioche littérale, mais reconnu dans le
+    // deckbuilding Commander comme un outil de qualité/sélection de
+    // cartes du même pilier ("card advantage") — voir README.
+    /surveil \d+/i,
+    /scry \d+/i,
+  ],
   tutor: [/search your library for a card/i, /search your library for a .* card and put (it|that card) into your hand/i],
   protection: [
     /hexproof/i,
@@ -52,6 +66,8 @@ const CATEGORY_PATTERNS: Record<DeckCategory, RegExp[]> = {
     /protection from/i,
     /counter target spell/i,
     /can't be countered/i,
+    /\bward\b/i,
+    /\bshroud\b/i,
   ],
   landfix: [/add \{[wubrg]\}.*\{[wubrg]\}/i, /any color/i],
 };
