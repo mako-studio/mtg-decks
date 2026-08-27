@@ -81,7 +81,7 @@ export default async function ExtensionDetailPage({
           réessaie plus tard.
         </p>
       ) : (
-        <SetDetail mechanics={checklist.mechanics} cards={checklist.cards} />
+        <SetDetail mechanics={checklist.mechanics} cards={checklist.cards} note={checklist.note} />
       )}
     </div>
   );

@@ -113,12 +113,15 @@ puissance estimé, avec le texte oracle et le coût de mana de chaque carte.
   Commander, jeu/règles) — chaque entrée cite sa source et signale les
   traductions non confirmées officiellement.
 - Liste des ~58 extensions déjà couvertes par le site (recherchable,
-  triable par date ou par nom) ; chaque extension ouvre sur sa checklist
-  complète (cartes en FR/EN, zoom au survol, recherche) et ses mécaniques
-  clés — mots-clés officiels agrégés depuis les cartes du set,
-  automatiquement reliés au glossaire quand une entrée correspond. Voir
-  "Glossaire et Extensions (26/08/2026)" plus bas pour l'architecture et
-  les limites connues.
+  triable par date ou par nom) ; chaque extension ouvre sur un détail
+  recherché (mécaniques réellement introduites par ce set précis,
+  expliquées, avec sources — "aucune" étant une réponse honnête et
+  fréquente — + contexte utile au deckbuilding), sa checklist complète
+  (cartes en FR/EN, zoom au survol, recherche) et les mots-clés présents
+  dans ses cartes, automatiquement reliés au glossaire quand une entrée
+  correspond. Voir "Glossaire et Extensions (26/08/2026)" et "Mécaniques
+  introduites par set (27/08/2026)" plus bas pour l'architecture et les
+  limites connues.
 
 ## Refonte UI/UX du 26/08/2026
 
@@ -249,20 +252,71 @@ masqué, cohérent avec le reste du site. Portée volontairement limitée
 imprimés) pour rester fiable sur chaque entrée ; jamais explicitement
 confirmée avec Ben, à ajuster sur demande.
 
-**Mécaniques par set** (`computeMechanics` dans `src/lib/sets.ts`) :
-plutôt que de rédiger à la main "les mécaniques introduites par ce set"
-— risqué factuellement, puisque beaucoup des sets suivis sont des
-produits Commander préconstruits distincts du set d'extension qui a
-réellement introduit une mécanique (ex. "Neon Dynasty Commander"/`nec`
-≠ "Kamigawa: Neon Dynasty"/`neo`) — les mécaniques affichées sont
-calculées automatiquement à partir du champ `keywords` officiel de
-chaque carte Scryfall, agrégé sur toute la checklist du set. Zéro risque
-d'invention, avec une nuance assumée dans l'UI : ce sont les mots-clés
-**présents** dans les cartes de ce set, pas nécessairement des mots-clés
-qu'il a introduits en premier. Quand un mot-clé correspond à une entrée
-du glossaire (`termEn` matché), le chip affiche la traduction FR et
-renvoie vers le glossaire (recherche pré-remplie) ; sinon il reste en
-anglais, sans lien.
+**Mots-clés présents dans les cartes** (`computeMechanics` dans
+`src/lib/sets.ts`) : calculés automatiquement à partir du champ
+`keywords` officiel de chaque carte Scryfall, agrégé sur toute la
+checklist du set. Zéro risque d'invention, avec une nuance assumée dans
+l'UI : ce sont les mots-clés **présents** dans les cartes de ce set, pas
+nécessairement des mots-clés qu'il a introduits en premier — sert
+d'outil de filtre secondaire pour la checklist (voir "Mécaniques
+introduites par set" ci-dessous pour la vraie réponse à "qu'est-ce que ce
+set a introduit ?"). Quand un mot-clé correspond à une entrée du
+glossaire (`termEn` matché), le chip affiche la traduction FR et renvoie
+vers le glossaire (recherche pré-remplie) ; sinon il reste en anglais,
+sans lien.
+
+### Mécaniques introduites par set (27/08/2026)
+
+Demande de Ben, en clarification de ce qui précède : "pour chaque
+extension un détail sur l'extension avec notamment les mécaniques
+introduites par l'extension expliquées (si applicable) ou tout autre
+explication intéressante pour le sujet du site (faire des choix
+éclairés)". Les mots-clés "présents" ci-dessus sont un outil de filtre
+honnête mais ne répondent pas à cette question — un set peut afficher un
+mot-clé sans l'avoir introduit. Ceci ajoute la vraie réponse, recherchée
+set par set : `src/data/set-notes.json` (58 entrées, une par
+`TRACKED_SETS`), typée `SetNote` (`src/lib/types.ts`), chargée via
+`getSetNote` (`src/lib/set-notes.ts`) et affichée en tête de page
+extension (`SetNoteSection` dans `SetDetail.tsx`, avant la checklist), au
+même niveau de priorité visuelle que la checklist elle-même.
+
+**Contenu par set** : `mechanicsIntroduced` (liste, potentiellement
+vide), `context` (2-5 phrases de contexte utile au deckbuilding),
+`sourceNotes` (sources utilisées) et `confidence` globale
+(`"high"`/`"medium"`/`"low"`). `mechanicsIntroduced: []` est un résultat
+attendu et fréquent (22 des 58 sets ont au moins une mécanique
+introduite, 36 n'en ont aucune) — la plupart des produits Commander
+suivis (ex. "Neon Dynasty Commander"/`nec`, "Zendikar Rising
+Commander"/`znc`) sont des suppléments d'un set principal qui n'ajoutent
+eux-mêmes aucune mécanique ; l'UI l'affiche comme un fait neutre ("Ce set
+n'introduit aucune nouvelle mécanique...", pas un avertissement), pas
+comme un manque.
+
+**Méthodologie de recherche** : 58 sets répartis en 12 lots de 4-5,
+chacun confié à un agent de recherche indépendant (outil `Agent`, sans
+mémoire de la conversation ni des autres lots) avec consigne explicite de
+faire une vraie recherche web (plusieurs des sets couverts, dont ceux de
+2025-2026, sont postérieurs à la coupure de connaissances du modèle) et
+de distinguer rigoureusement "ce produit introduit X" de "ce produit
+utilise X, introduit ailleurs" — la confusion la plus probable pour des
+produits Commander portant un nom proche d'un set principal différent
+(ex. "Forgotten Realms Commander"/`afc`, sorti la semaine précédant
+"Adventures in the Forgotten Realms"/`afr`, n'introduit rien lui-même :
+Dungeons/Venture into the Dungeon et Class enchantments appartiennent à
+`afr`). 5 des 12 lots ont initialement échoué en cours de route (limite
+de session du compte, pas une erreur de recherche) et ont été relancés
+avec succès dans un tour suivant.
+
+**Limites connues** : `confidence: "low"` (1 set sur 58, `msc`) signale
+une zone d'incertitude explicitement flaggée par l'agent de recherche
+lui-même (ambiguïté d'attribution non résolue avant l'épuisement de son
+budget de recherche pour ce lot) plutôt que masquée — même traitement ⚠
+que le glossaire. Comme pour le reste du site, ce contenu n'a pas pu être
+vérifié contre l'API Scryfall en direct depuis mon bac à sable (réseau
+bloqué) — la recherche factuelle vient d'agents avec accès web réel, mais
+le rendu/l'intégration (les trois états UI : mécaniques listées, liste
+vide, confiance basse) est vérifié avec un `fetch` mocké et Playwright,
+pas avec de vraies données Scryfall en conditions réelles.
 
 **Checklist FR/EN d'un set** (`loadSetChecklist` dans `src/lib/sets.ts`) :
 les noms français sont récupérés en un seul passage paginé
@@ -608,7 +662,8 @@ src/
     csv-import.ts                # Parse un CSV exporté depuis ce site (reprise de session)
     actions.ts                   # Server Actions : analyzeDeck (cœur), analyzeArenaImport, fetchLocalizedText, recherche de carte
     scryfall.ts                  # Client API Scryfall (cache, throttle, headers requis, impressions FR, sets, autocomplétion)
-    sets.ts                       # Checklist + mécaniques d'un set (combine scryfall.ts + glossary.ts)
+    sets.ts                       # Checklist + mécaniques d'un set (combine scryfall.ts + glossary.ts + set-notes.ts)
+    set-notes.ts                   # Charge set-notes.json (mécaniques introduites par set, recherchées)
     text.ts                       # Recherche insensible aux accents, slug, formatage de date FR
     deck-loader.ts                # Résolution deck -> cartes Scryfall (par format)
     deck-score.ts                 # Heuristique de score (catégories, paramétrable)
@@ -619,6 +674,7 @@ src/
     arena-starter-decks.json      # Snapshot Starter Decks (Arena)
     glossary.ts                   # Contenu du glossaire (~55 termes, sourcés)
     tracked-sets.ts               # Codes des ~58 sets couverts par la section Extensions
+    set-notes.json                 # Mécaniques introduites + contexte par set (58 entrées, sourcées)
 scripts/
   fetch-precon-decks.mjs          # Génère les 3 fichiers src/data/*.json
 ```

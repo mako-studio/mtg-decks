@@ -1,7 +1,8 @@
-import type { GlossaryTerm, ScryfallCard, ScryfallSet } from "./types";
+import type { GlossaryTerm, ScryfallCard, ScryfallSet, SetNote } from "./types";
 import { getSetCards, getSetCardsFrNames, getSetInfo } from "./scryfall";
 import { GLOSSARY_TERMS } from "@/data/glossary";
 import type { TrackedSetRef } from "@/data/tracked-sets";
+import { getSetNote } from "./set-notes";
 
 /**
  * Logique "métier" pour la section Extensions (demande de Ben du
@@ -35,6 +36,16 @@ export interface SetChecklist {
   cards: SetCardEntry[];
   mechanics: SetMechanic[];
   /**
+   * Contenu recherché (pas dérivé automatiquement) sur ce que CE set
+   * précis introduit réellement + contexte deckbuilding — voir
+   * `SetNote` dans types.ts et `getSetNote` (set-notes.ts). `null` ne
+   * devrait pas arriver pour un code de TRACKED_SETS (couverture
+   * complète vérifiée à la génération de set-notes.json), mais reste
+   * traité comme un cas honnête plutôt qu'une erreur si jamais un
+   * nouveau set est ajouté à TRACKED_SETS sans recherche correspondante.
+   */
+  note: SetNote | null;
+  /**
    * `true` si la checklist récupérée est probablement incomplète (cas
    * réaliste : "sld"/Secret Lair Drop, qui agrège des milliers de cartes
    * disparates sous un seul code et peut dépasser la limite de pages
@@ -47,19 +58,17 @@ export interface SetChecklist {
 }
 
 /**
- * ⚠️ Choix de conception (mécaniques d'un set) : plutôt que de rédiger à
- * la main "les mécaniques introduites par ce set" — risqué factuellement
- * (beaucoup des ~58 sets suivis sont des produits Commander
- * préconstruits distincts du set d'extension qui a réellement introduit
- * une mécanique, ex. "Neon Dynasty Commander"/nec n'est pas "Kamigawa:
- * Neon Dynasty"/neo ; et il faudrait vérifier ~58 sets un par un pour
- * être sûr de ne rien avancer à tort) — les "mécaniques" affichées ici
- * sont calculées automatiquement à partir du champ `keywords` officiel
- * de chaque carte Scryfall (voir ScryfallCard.keywords dans types.ts) :
- * factuel et zéro risque d'invention, mais avec une nuance assumée et
- * affichée dans l'UI : ce sont les mots-clés PRÉSENTS dans les cartes de
- * CE set, pas nécessairement des mots-clés qu'il a introduits en
- * premier (certains peuvent réapparaître d'un set antérieur).
+ * Mots-clés officiels PRÉSENTS dans les cartes de ce set, agrégés
+ * automatiquement depuis le champ `keywords` de chaque carte Scryfall
+ * (voir ScryfallCard.keywords dans types.ts) : factuel et zéro risque
+ * d'invention, mais volontairement distinct de la question "qu'est-ce
+ * que ce set a introduit ?" — un mot-clé peut très bien être PRÉSENT ici
+ * sans avoir été introduit par ce set (il peut réapparaître d'un set
+ * antérieur). Cette liste reste utile comme outil de navigation/filtre
+ * de la checklist ci-dessous (voir SetDetail.tsx) ; pour la vraie
+ * réponse "introduit par ce set, sourcée" demandée par Ben le
+ * 26/08/2026, voir `SetNote`/`getSetNote` (set-notes.ts), affiché en
+ * premier sur la page d'une extension.
  */
 function computeMechanics(cards: ScryfallCard[]): SetMechanic[] {
   const counts = new Map<string, number>();
@@ -113,6 +122,7 @@ export async function loadSetChecklist(code: string): Promise<SetChecklist> {
     info,
     cards,
     mechanics: computeMechanics(enCards),
+    note: getSetNote(code),
     truncated,
   };
 }

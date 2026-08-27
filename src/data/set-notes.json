@@ -1,0 +1,990 @@
+{
+  "cmd": {
+    "code": "cmd",
+    "mechanicsIntroduced": [
+      {
+        "termEn": "Join forces",
+        "termFr": "Union des forces",
+        "definitionFr": "Mot de capacité apparu pour la première fois sur les cartes de Commander 2011 (ex. Minds Aglow, Beacon of Creation, True Conviction). Le lanceur du sort déclenche un effet de base, puis chaque adversaire peut payer du mana supplémentaire pour l'amplifier ; l'effet final profite à tous les participants proportionnellement au mana total investi.",
+        "sourceNote": "MTG Wiki (mtg.wiki) - page \"Commander (2011)\" ; MTG Wiki - page \"Join forces\""
+      }
+    ],
+    "context": "Commander 2011 est le tout premier produit Commander jamais publié par Wizards (17 juin 2011) : c'est le premier produit de vente au détail conçu spécifiquement pour un format créé par les joueurs, avec cinq decks de commandants légendaires tricolores (\"wedge\", pas monocolores). Il a introduit Command Tower, le terrain qui produit du mana de n'importe quelle couleur de l'identité du commandant et qui reste l'un des staples les plus joués et les plus réimprimés de tout le format encore aujourd'hui. Scavenging Ooze, autre carte culte multi-format, y a également fait ses débuts, ainsi que Chaos Warp comme retrait polyvalent.",
+    "sourceNotes": [
+      "MTG Wiki (mtg.wiki) - \"Commander (2011)\"",
+      "Draftsim - \"MTG Commander 2011 Decks: Product Breakdown\"",
+      "Scryfall - page du set cmd et carte Command Tower (cmd #269) / Scavenging Ooze (cmd #170)"
+    ],
+    "confidence": "high"
+  },
+  "c13": {
+    "code": "c13",
+    "mechanicsIntroduced": [
+      {
+        "termEn": "Tempting offer",
+        "termFr": "Offre tentante",
+        "definitionFr": "Mot de capacité apparaissant uniquement sur des rituels (sorceries) : le lanceur réalise un effet, puis chaque adversaire, dans l'ordre du tour, peut choisir de faire de même ; pour chaque adversaire qui accepte, le lanceur reproduit l'effet une fois supplémentaire.",
+        "sourceNote": "MTG Wiki (fandom.com) - page \"Tempting offer\" ; carte Tempt with Vengeance/Tempt with Glory (Commander 2013)"
+      }
+    ],
+    "context": "Commander 2013 (1er novembre 2013) propose cinq decks en trichromie \"shard\", chacun avec deux commandants légendaires possibles à sa sortie. Le set a un impact disproportionné en Legacy/Vintage : True-Name Nemesis (première carte avec protection contre un joueur) et Toxic Deluge (un des meilleurs board wipes du jeu) y ont fait leurs débuts. Oloro, Ageless Ascetic y introduit une créature dont la capacité s'applique aussi depuis la zone de commandement, préfigurant ce que deviendra plus tard le mot-clé Éminence (introduit officiellement dans Commander 2017). Derevi, Nekusar et Roon of the Hidden Realm comptent parmi les commandants devenus des piliers du format.",
+    "sourceNotes": [
+      "MTG Wiki (mtg.wiki) - \"Commander 2013\"",
+      "MTG Wiki (fandom.com) - \"Tempting offer\"",
+      "Draftsim - \"MTG Commander 2013 Decks\""
+    ],
+    "confidence": "high"
+  },
+  "c14": {
+    "code": "c14",
+    "mechanicsIntroduced": [
+      {
+        "termEn": "Lieutenant",
+        "termFr": "Lieutenant",
+        "definitionFr": "Mot de capacité imprimé en italique sur un cycle de créatures qui deviennent plus puissantes (bonus statistique et capacité supplémentaire) tant que vous contrôlez votre commandant sur le champ de bataille.",
+        "sourceNote": "Wizards of the Coast - \"Commander (2014 Edition) Release Notes\" (10 nov. 2014, section \"New Ability Word: Lieutenant\") ; confirmé en français dans les Notes de publication Commander Masters (magic.wizards.com, juin 2023)"
+      }
+    ],
+    "context": "Commander 2014 (7 novembre 2014) est constitué de cinq decks monocolores, chacun mené par un planeswalker : c'est la toute première fois qu'un produit Commander permet à des planeswalkers de servir de commandants (une extension majeure des règles du format, jusque-là réservé aux créatures légendaires). Il a aussi doté de nouvelles cartes des personnages légendaires jusque-là sans représentation (Gisa, Geralf, Feldon, Jazal, Titania). Commander's Sphere, l'un des rochers de mana les plus joués du format, y a fait ses débuts.",
+    "sourceNotes": [
+      "MTG Wiki (mtg.wiki) - \"Commander 2014\"",
+      "Wizards of the Coast - \"Commander (2014 Edition) Release Notes\" (magic.wizards.com, 2014-11-10)"
+    ],
+    "confidence": "high"
+  },
+  "c15": {
+    "code": "c15",
+    "mechanicsIntroduced": [
+      {
+        "termEn": "Experience counter",
+        "termFr": "Marqueur « expérience »",
+        "definitionFr": "Nouveau type de marqueur attaché au joueur (comme les marqueurs poison), gagné en jouant certains commandants légendaires ; les effets qui y sont liés s'intensifient selon le nombre de marqueurs accumulés, lesquels sont conservés même si la créature source quitte le champ de bataille.",
+        "sourceNote": "Wizards of the Coast (FR) - \"Mécaniques de Commander (édition 2015)\", magic.wizards.com, 2015-11-02"
+      },
+      {
+        "termEn": "Myriad",
+        "termFr": "Myriade",
+        "definitionFr": "Capacité déclenchée à l'attaque : pour chaque adversaire autre que le joueur défendu, vous obtenez un jeton copie de la créature attaquante qui attaque cet adversaire (ou un de ses planeswalkers) ; ces jetons sont exilés en fin de combat au lieu d'aller au cimetière.",
+        "sourceNote": "Wizards of the Coast (FR) - \"Mécaniques de Commander (édition 2015)\", magic.wizards.com, 2015-11-02"
+      },
+      {
+        "termEn": "Confluence",
+        "termFr": "Confluence",
+        "definitionFr": "Cycle de sorts modaux (un par couleur) : au moment de lancer la carte, on choisit trois modes parmi ceux proposés, avec possibilité de choisir plusieurs fois le même mode.",
+        "sourceNote": "Wizards of the Coast (FR) - \"Mécaniques de Commander (édition 2015)\", magic.wizards.com, 2015-11-02"
+      }
+    ],
+    "context": "Commander 2015 (13 novembre 2015) propose cinq decks en bichromie \"ennemie\" (Call the Spirits WB enchantements/gain de vie, Seize Control UR contrôle de sorts, Plunder the Graves BG cimetière, Wade into Battle WR combat, Swell the Host UG jetons). Le set a introduit trois mécaniques taillées pour le multijoueur en même temps, un cas assez rare. Thought Vessel, rocher de mana sans restriction de couleur, y a fait ses débuts et reste très joué ; des légendes comme Teysa, Melek et Jarad y sont proposées comme commandants alternatifs.",
+    "sourceNotes": [
+      "Wizards of the Coast (FR) - \"Mécaniques de Commander (édition 2015)\" (magic.wizards.com/fr, 2015-11-02)",
+      "MTG Wiki (mtg.wiki) - \"Commander 2015\""
+    ],
+    "confidence": "high"
+  },
+  "c16": {
+    "code": "c16",
+    "mechanicsIntroduced": [
+      {
+        "termEn": "Partner",
+        "termFr": "Partenariat",
+        "definitionFr": "Capacité mot-clé propre au format Commander : deux créatures légendaires possédant le partenariat peuvent servir ensemble de commandants (au lieu d'une seule normalement). Les deux commencent en zone de commandement et sont suivies séparément pour la taxe de commandant et les dommages de combat, mais leurs identités de couleur se combinent pour la construction du deck.",
+        "sourceNote": "Wizards of the Coast (FR) - \"Un solide partenariat\", magic.wizards.com, 2016-10-24 ; confirmé dans les Notes de publication Commander Masters (2023)"
+      },
+      {
+        "termEn": "Undaunted",
+        "termFr": "Témérité",
+        "definitionFr": "Capacité qui réduit le coût générique d'un sort de {1} pour chaque adversaire présent au moment de son lancement (le coût en mana coloré n'est pas affecté).",
+        "sourceNote": "Wizards of the Coast (FR) - \"Commander 2016 Mechanics\" / \"Un solide partenariat\", magic.wizards.com"
+      }
+    ],
+    "context": "Commander 2016 (11 novembre 2016) est bâti autour de cinq decks quadricolores (Yidris, Saskia, Kynaios and Tiro, Atraxa, Breya), une première pour un produit Commander. Le partenariat a eu un impact durable et considérable sur le deckbuilding Commander en ouvrant la voie à des paires de commandants librement combinables, donnant naissance plus tard à des variantes comme \"Partner with\", \"Friends forever\" ou \"Choose a Background\". Le set réimprime aussi des terrains multicolores utiles à la fixation de mana (bounce lands, shard lands) ; note : le cycle de terrains basiques avec cycle-terrain-basique (\"basic landcycling\") présent dans ce set n'y a pas été introduit — cette capacité existait déjà depuis Conflux (2009).",
+    "sourceNotes": [
+      "Wizards of the Coast - \"Commander 2016 Mechanics\" (magic.wizards.com/en/news/feature/commander-2016-mechanics-2016-10-24)",
+      "Wizards of the Coast (FR) - \"Un solide partenariat\" (magic.wizards.com/fr/news/making-magic/howdy-partner-2016-10-24)",
+      "MTG Wiki (mtg.wiki) - \"Partner\" et \"Commander 2016\"",
+      "MTG Wiki (fandom.com) - \"Cycling\" (historique du basic landcycling, première apparition dans Conflux)"
+    ],
+    "confidence": "high"
+  },
+  "cma": {
+    "code": "cma",
+    "mechanicsIntroduced": [],
+    "context": "Commander Anthology est une pure compilation de réimpressions : quatre decks Commander précédents (2011, 2013, 2014, 2015) réédités dans le cadre visuel post-M15, sans aucune carte inédite. Son intérêt pour un deckbuilder tient à ses quatre commandants, tous devenus des piliers du format : Kaalia of the Vast (aggro multicolore qui triche des Anges/Démons/Dragons directement en jeu), Meren of Clan Nel Toth (référence historique du sacrifice et de la récursion de cimetière), Derevi, Empyrial Tactician (tempo/clignotement) et Freyalise, Llanowar's Fury (rampe Sultai). Le produit offrait aussi, pour la première fois, une version foil de ces commandants (Kaalia exceptée, déjà foil via Commander's Arsenal), ce qui en a fait un achat recherché malgré l'absence de nouveauté.",
+    "sourceNotes": [
+      "MTG Wiki – page 'Commander Anthology' (mtg.wiki)",
+      "Forbes – 'In Commander Anthology 2017, A Fan-Favorite Magic: The Gathering Format Goes Premium'"
+    ],
+    "confidence": "high"
+  },
+  "c17": {
+    "code": "c17",
+    "mechanicsIntroduced": [
+      {
+        "termEn": "Eminence",
+        "termFr": "Éminence",
+        "definitionFr": "Mot d'ambiance (ability word, sans effet propre sur les règles) apparu pour la première fois sur les quatre commandants tribaux de Commander 2017 (The Ur-Dragon, Edgar Markov, Arahbo Roar of the World, Inalla Archmage Ritualist) : il signale qu'une capacité fonctionne aussi bien quand la créature légendaire est sur le champ de bataille que lorsqu'elle est encore dans la zone de commandement.",
+        "sourceNote": "MTG Wiki – page 'Eminence' ; Draftsim – 'Eminence in MTG: Rules, History, and All 6 Cards Ranked'"
+      }
+    ],
+    "context": "Ce Commander annuel a marqué le passage à un format entièrement tribal à quatre decks (Dragons, Chats, Vampires, Magiciens), remplaçant la formule à cinq decks des années précédentes. Il a livré des commandants devenus des références absolues du format : Edgar Markov, qui a créé à lui seul tout un archétype Vampires/jetons/aggro encore massivement joué aujourd'hui, The Ur-Dragon (commandant Temur... en réalité cinq couleurs, le plus joué en Dragons WUBRG), Arahbo Roar of the World (Chats/auras voltron) et Inalla, Archmage Ritualist (copie de créatures Magicien). Des cartes comme Kindred Discovery ou Path of Ancestry, issues de ce set, sont depuis devenues des staples multi-tribus du format Commander.",
+    "sourceNotes": [
+      "MTG Wiki – page 'Commander 2017'",
+      "Draftsim – page 'Eminence'",
+      "cartes.mtgfrance.com / magiccorporation.com – texte français d'Edgar Markov (Commander 2017)"
+    ],
+    "confidence": "high"
+  },
+  "dom": {
+    "code": "dom",
+    "mechanicsIntroduced": [
+      {
+        "termEn": "Saga",
+        "termFr": "Saga",
+        "definitionFr": "Nouveau type d'enchantement introduit par Dominaria. Une Saga entre sur le champ de bataille avec un marqueur de légende, en gagne un supplémentaire à chaque entretien de son contrôleur, et déclenche un chapitre différent (I, II, III…) à chaque palier ; une fois le dernier chapitre résolu, elle est sacrifiée.",
+        "sourceNote": "magic.wizards.com – 'Dominaria Mechanics' (2018-03-21), version anglaise et française"
+      },
+      {
+        "termEn": "Legendary Sorcery",
+        "termFr": "Rituel légendaire",
+        "definitionFr": "Pour la première fois, des rituels (sorceries) portent le supertype légendaire : on ne peut lancer un rituel légendaire que si l'on contrôle une créature ou un planeswalker légendaire au moment de le lancer (le permanent légendaire n'a pas besoin de rester en jeu ensuite).",
+        "sourceNote": "magic.wizards.com – 'Dominaria Mechanics' (2018-03-21)"
+      },
+      {
+        "termEn": "Historic",
+        "termFr": "Historique",
+        "definitionFr": "Nouveau terme de jeu (et non un mot-clé à proprement parler) regroupant collectivement les artefacts, tout permanent avec le supertype légendaire, et les Sagas ; plusieurs cartes de Dominaria récompensent le fait de lancer un « sort historique », créant un sous-thème deckbuilding autour de ces trois catégories.",
+        "sourceNote": "magic.wizards.com – 'Dominaria Mechanics' (2018-03-21) : « nous introduisons un nouveau terme de jeu : historique »"
+      }
+    ],
+    "context": "Dominaria est une extension majeure (et non un supplément Commander), marquant le retour narratif au plan d'origine de Magic avec une densité inhabituelle de nouvelles créatures légendaires (environ une vingtaine), ce qui en fait un vivier de commandants encore très joués aujourd'hui (Teferi, Jhoira, Danitha Capashen, Shanna, Muldrotha, etc.). Kicker (coût optionnel additionnel) fait aussi son retour en force, offrant de la flexibilité à de nombreuses cartes limitées/Commander. Pour un deckbuilder EDH, le thème « légendaire »/« historique » de ce set s'accorde naturellement avec l'identité même du format Commander, et plusieurs de ses Sagas (comme The Eldest Reborn) sont devenues des staples multi-formats.",
+    "sourceNotes": [
+      "magic.wizards.com – 'Dominaria Mechanics' (2018-03-21), version anglaise (magic.wizards.com/en/news/feature/dominaria-mechanics-2018-03-21) et française (magic.wizards.com/fr/news/feature/dominaria-mechanics-2018-03-21)",
+      "MTG Wiki – page 'Dominaria'"
+    ],
+    "confidence": "high"
+  },
+  "cm2": {
+    "code": "cm2",
+    "mechanicsIntroduced": [],
+    "context": "Comme le premier Commander Anthology, ce volume II est une pure compilation de réimpressions, cette fois issue de Commander 2011, 2014, 2015 et 2016, avec les cartes légendaires reproduites dans le nouveau cadre visuel introduit par Dominaria. Son principal argument est d'avoir remis en circulation, en foil pour la première fois (à l'exception d'Atraxa), quatre commandants majeurs : Atraxa, Praetors' Voice (l'un des commandants les plus joués et les plus emblématiques de toute l'histoire du format, pivot des decks superfriends/contre-la-montre à quatre couleurs), The Mimeoplasm (graveyard/gros monstres), Daretti, Scrap Savant (artefacts/sacrifice/réanimation) et Kalemne, Disciple of Iroas (voltron agressif). C'est essentiellement la forte demande secondaire pour Atraxa qui a motivé ce produit.",
+    "sourceNotes": [
+      "MTG Wiki – page 'Commander Anthology Volume II'",
+      "magic.wizards.com – 'Commander Anthology Vol. II Legends and Decklists' (2018-05-08)"
+    ],
+    "confidence": "high"
+  },
+  "c18": {
+    "code": "c18",
+    "mechanicsIntroduced": [
+      {
+        "termEn": "Commander Ninjutsu",
+        "termFr": "Ninjutsu de commandant",
+        "definitionFr": "Variante du ninjutsu, apparue uniquement sur Yuriko, l'ombre du tigre dans Commander 2018 : elle permet de renvoyer un attaquant non-bloqué en main pour mettre Yuriko sur le champ de bataille, engagée et attaquante, directement depuis la main OU depuis la zone de commandement — sans que cela compte comme un « cast » (donc sans augmenter la taxe de commandant).",
+        "sourceNote": "Draftsim – 'Commander Ninjutsu in MTG: Rules and History' ; texte français officiel de Yuriko, l'ombre du tigre (boutique.magiccorporation.com)"
+      }
+    ],
+    "context": "Contrairement à Commander 2017, cette édition abandonne le tribal pour quatre thèmes mécaniques portés par des commandants planeswalkers (une tendance initiée en 2014) : Saheeli, the Gifted (artefacts, deck 'Exquisite Invention'), Estrid, the Masked (enchantements/auras, 'Adaptive Enchantment'), Lord Windgrace (terrains/rampe, 'Nature's Vengeance') et Aminatou, the Fateshifter (manipulation du dessus de bibliothèque, 'Subjective Reality'). Le set a été accueilli tièdement à sa sortie, jugé cher pour peu de réimpressions marquantes, mais son héritage tient presque entièrement à une carte secondaire de la deck 'Subjective Reality' : Yuriko, the Tiger's Shadow, devenue l'un des commandants les plus puissants et populaires du Commander compétitif (cEDH) grâce à son ninjutsu de commandant permettant de multiplier les dégâts de combat et les pertes de vie par coût converti de mana.",
+    "sourceNotes": [
+      "MTG Wiki – page 'Commander 2018'",
+      "Draftsim – 'Commander Ninjutsu in MTG: Rules and History'",
+      "boutique.magiccorporation.com – texte français de Yuriko, l'ombre du tigre (Commander 2018)"
+    ],
+    "confidence": "high"
+  },
+  "m19": {
+    "code": "m19",
+    "mechanicsIntroduced": [],
+    "context": "Core Set 2019 n'introduit aucun nouveau mot-clé : les concepteurs ont volontairement réduit la complexité du set, qui ne contient que des mots-clés evergreen et le mécanisme Transform (déjà existant). Son intérêt pour un deckbuilder tient surtout à ses réimpressions : plusieurs Dragons Anciens (Elder Dragons) issus de Legends (comme Arcades, Chromium, Palladia-Mors ou Vaevictis Asmadi) y reviennent sous des versions actualisées, très prisées en Commander pour leur charge tribale/légendaire. Le set soutient aussi des thèmes tribaux accessibles (zombies, gobelins, elfes) et inclut Nicol Bolas, the Ravager // Nicol Bolas, the Arisen God, seule carte recto-verso du set, liée à la trame narrative de l'époque Dominaria/War of the Spark.",
+    "sourceNotes": [
+      "MTG Wiki (Fandom) — page Core Set 2019: https://mtg.fandom.com/wiki/Core_Set_2019",
+      "Wizards.com, « Core to the Point » (article officiel de design, cité par la page MTG Wiki)"
+    ],
+    "confidence": "high"
+  },
+  "grn": {
+    "code": "grn",
+    "mechanicsIntroduced": [
+      {
+        "termEn": "Surveil",
+        "termFr": "Surveiller",
+        "definitionFr": "Action mot-clé de la guilde Dimir : on regarde les X cartes du dessus de sa bibliothèque, on en remet autant qu'on veut sur le dessus dans l'ordre choisi, et le reste va au cimetière — contrairement à scry, les cartes écartées finissent au cimetière plutôt qu'au fond de la bibliothèque.",
+        "sourceNote": "Wizards.com, « Guilds of Ravnica Mechanics », 04/09/2018"
+      },
+      {
+        "termEn": "Jump-start",
+        "termFr": "Élan",
+        "definitionFr": "Capacité mot-clé de la guilde Izzet permettant de lancer un éphémère ou un rituel depuis son cimetière en payant son coût normal et en défaussant une carte supplémentaire ; la carte est ensuite exilée.",
+        "sourceNote": "Wizards.com, « Guilds of Ravnica Mechanics », 04/09/2018"
+      },
+      {
+        "termEn": "Mentor",
+        "termFr": "Mentor",
+        "definitionFr": "Capacité mot-clé de la guilde Boros : quand la créature avec mentor attaque, on place un marqueur +1/+1 sur une autre créature attaquante ciblée de force inférieure.",
+        "sourceNote": "Wizards.com, « Guilds of Ravnica Mechanics », 04/09/2018"
+      },
+      {
+        "termEn": "Undergrowth",
+        "termFr": "Sous-bois",
+        "definitionFr": "Mot d'ambiance (ability word) de la guilde Golgari : certains effets sont amplifiés en fonction du nombre de cartes de créature présentes dans le cimetière du joueur.",
+        "sourceNote": "Wizards.com, « Guilds of Ravnica Mechanics », 04/09/2018"
+      }
+    ],
+    "context": "Guilds of Ravnica couvre 5 des 10 guildes de Ravnica (Sélesnya, Dimir, Izzet, Golgari, Boros) ; les 5 autres (Azorius, Orzhov, Gruul, Rakdos, Simic) sont réservées au set suivant, Ravnica Allegiance — d'où l'importance de ne pas confondre les mécaniques des deux sets. Convoke (guilde Sélesnya) est une mécanique de retour, pas une nouveauté du set. Surveil est devenue par la suite une mécanique evergreen très reprise (notamment dans des decks graveyard), jump-start alimente les stratégies de récursion de sorts, mentor soutient l'agro à contre-attaquants multiples de Boros, et undergrowth récompense le remplissage du cimetière côté Golgari.",
+    "sourceNotes": [
+      "Wizards.com, « Guilds of Ravnica Mechanics » (article officiel), 04/09/2018: https://magic.wizards.com/en/news/feature/guilds-ravnica-mechanics-2018-09-04",
+      "MTG Wiki (Fandom) — page Guilds of Ravnica"
+    ],
+    "confidence": "high"
+  },
+  "m20": {
+    "code": "m20",
+    "mechanicsIntroduced": [],
+    "context": "Core Set 2020 n'introduit aucune mécanique inédite ni aucune mécanique de retour non-evergreen — le set mise entièrement sur des cartes evergreen et des réimpressions. Il reste néanmoins marquant pour le Commander : Golos, Tireless Pilgrim y a été imprimé puis banni en Commander (et en Brawl) car son identité de couleur à cinq couleurs contournait les restrictions de deckbuilding tout en générant trop de valeur (notamment via des combos avec Field of the Dead) ; Kethis, the Hidden Hand a aussi été un habilitateur de combo notable. Le set propose en outre un cycle de cinq créatures légendaires monocolores utilisables comme commandants, ainsi que des réimpressions utiles comme les temples (scry lands) et les terrains à gain de vie entrant engagés.",
+    "sourceNotes": [
+      "MTG Wiki (Fandom) — page Core Set 2020: https://mtg.fandom.com/wiki/Core_Set_2020"
+    ],
+    "confidence": "high"
+  },
+  "c19": {
+    "code": "c19",
+    "mechanicsIntroduced": [],
+    "context": "Commander 2019 n'introduit aucune nouvelle mécanique — Wizards l'indique explicitement, chaque mécanique du set étant déjà apparue dans un set précédent. Les quatre decks precon reposent chacun sur une mécanique de retour : « Faceless Menace » (Kadena, Slinking Sorcerer — morph/manifest/megamorph), « Mystic Intellect » (Sevinne, the Chronoclasm — flashback), « Primal Genesis » (Ghired, Conclave Exile — populate) et « Merciless Rage » (Anje Falkenrath — folie/madness). Chaque deck inclut la réimpression d'un planeswalker emblématique (Vraska the Unseen, Ral Zarek, Garruk Primal Hunter, Ob Nixilis Reignited), et le set propose de nouveaux commandants notables comme Pramikon, Sky Rampart (premier Mur légendaire) ou K'rrik, Son of Yawgmoth (mana phyrexian), utiles pour bâtir des identités de couleur originales en Commander.",
+    "sourceNotes": [
+      "Wizards.com, « Commander (2019 Edition) Release Notes », 09/08/2019: https://magic.wizards.com/en/news/feature/commander-2019-edition-release-notes-2019-08-09",
+      "MTG Wiki (Fandom) — page Commander 2019"
+    ],
+    "confidence": "high"
+  },
+  "eld": {
+    "code": "eld",
+    "mechanicsIntroduced": [
+      {
+        "termEn": "Adventure",
+        "termFr": "Aventure",
+        "definitionFr": "Nouveau type de carte associant une créature à un sort (éphémère ou rituel) sur la même carte : on peut lancer la moitié « aventure » d'abord (elle s'exile après résolution) puis lancer la créature plus tard depuis l'exil, ou lancer directement la créature.",
+        "sourceNote": "Wizards.com, « Throne of Eldraine Mechanics », 04/09/2019"
+      },
+      {
+        "termEn": "Adamant",
+        "termFr": "Inflexible",
+        "definitionFr": "Mot d'ambiance (ability word) récompensant le fait d'avoir payé au moins trois manas d'une même couleur pour lancer le sort, en ajoutant ou en remplaçant un effet de base.",
+        "sourceNote": "Wizards.com, « Throne of Eldraine Mechanics », 04/09/2019"
+      },
+      {
+        "termEn": "Food token",
+        "termFr": "Jeton Nourriture",
+        "definitionFr": "Nouveau type de jeton artefact incolore introduit par le set, avec la capacité « {2}, {T}, sacrifiez cet artefact : vous gagnez 3 points de vie », exploité par plusieurs cartes au-delà du simple gain de vie.",
+        "sourceNote": "Wizards.com, « Throne of Eldraine Mechanics », 04/09/2019"
+      }
+    ],
+    "context": "Throne of Eldraine adopte une esthétique de conte de fées/légende arthurienne et met fortement en avant le tribal Chevaliers (blanc, noir, rouge) ainsi que les enchantements Malédiction (Curse), déjà existants mais largement développés ici. C'est un set charnière pour le Commander : Korvold, Fae-Cursed King (deck Brawl « Feline Ferocity ») est devenu un commandant Jund incontournable pour les stratégies sacrifice/landfall, tandis qu'Oko, Thief of Crowns, bien que banni en Standard, Pioneer, Modern et Legacy, reste légal en Commander. Le thème Aventure a aussi créé un sous-archétype de valeur (créatures à deux sorts) très recherché en limité comme en construit.",
+    "sourceNotes": [
+      "Wizards.com, « Throne of Eldraine Mechanics », 04/09/2019: https://magic.wizards.com/en/news/feature/throne-eldraine-mechanics-2019-09-04",
+      "MTG Wiki (Fandom) — page Throne of Eldraine",
+      "Hipsters of the Coast, « Oko, Thief of Crowns, Mox Opal, and Mycosynth Lattice Banned in Modern », janvier 2020",
+      "Hipsters of the Coast, « Oko, Astrolabe, and Dreadhorde Arcanist Banned in Legacy », février 2021"
+    ],
+    "confidence": "high"
+  },
+  "c20": {
+    "code": "c20",
+    "mechanicsIntroduced": [],
+    "context": "Commander 2020 (C20) est sorti le même jour qu'Ikoria: Repaire des Behemoths et a été conçu comme un accompagnement thématique de ce set, sans introduire de mot-clé inédit: les mécaniques présentes (cyclisme, mutation, ristourne, corruption, monstruosité, résurgence, ténacité, partenaire) existaient déjà. Les cinq decks de 100 cartes explorent chacun un tricolore (wedge) autour d'une nouvelle créature légendaire multicolore: Jirina Kudro (Mardu, soldats/tokens), Kalamax, the Stormsire (Temur, copie de sorts), Kathril, Aspect Warper (Abzan, cimetière/compteurs +1/+1), Gavi, Nest Warden (Jeskai, cyclisme) et Otrimi, the Ever-Playful (Sultai, mutation). Avec 71 cartes inédites légales en Legacy/Vintage et de nombreuses réimpressions recherchées, c'est une bonne source de staples tricolores encore utiles en Commander aujourd'hui.",
+    "sourceNotes": [
+      "MTG Wiki (mtg.fandom.com/wiki/Commander_2020)",
+      "Wizards of the Coast, \"Ikoria: Lair of Behemoths and Commander (2020 Edition) Release Notes\", magic.wizards.com, 10/04/2020"
+    ],
+    "confidence": "high"
+  },
+  "anb": {
+    "code": "anb",
+    "mechanicsIntroduced": [],
+    "context": "L'Arena Beginner Set est un produit 100% numérique, exclusif à MTG Arena (aucun équivalent papier), sorti pour remplacer les anciens decks tutoriel et accompagner les nouveaux joueurs après leurs premiers matchs contre l'IA. Il comprend cinq decks monocolores conçus pour rester utilisables au-delà de la rotation Standard 2021, avec des cartes volontairement simples que le joueur est censé remplacer en progressant. N'introduit aucune nouvelle mécanique de jeu: son intérêt est purement pédagogique/onboarding et il n'a aucune pertinence directe pour le deckbuilding papier ou Commander. Retiré du Standard en mars 2022, il reste légal dans les formats numériques Alchemy et Historic.",
+    "sourceNotes": [
+      "MTG Wiki, \"Arena Base Set\" (mtg.fandom.com/wiki/Arena_Base_Set)",
+      "Scryfall, page du set Arena Beginner Set (scryfall.com/sets/anb) — confirme le nom officiel et la date du 13/08/2020"
+    ],
+    "confidence": "medium"
+  },
+  "znc": {
+    "code": "znc",
+    "mechanicsIntroduced": [],
+    "context": "Zendikar Rising Commander est sorti le même jour que le set principal Zendikar Rising et se contente d'exploiter les mécaniques de celui-ci (Groupe/Party, Impact/Landfall, Kicker, cartes recto-verso modales) sans en introduire de nouvelles. Le produit propose deux decks: Land's Wrath, mené par Obuun, Mul Daya Ancestor (synergies terrains/landfall, doublement de sorts de terrain), et Sneak Attack, mené par Anowon, the Ruin Thief (mill et vol de cartes noir-bleu). C'est une bonne base pour un deck Commander « lands matter » construit autour d'Obuun, ou pour un deck de pioche noire-bleue orienté sur les cartes de l'adversaire avec Anowon.",
+    "sourceNotes": [
+      "Wizards of the Coast, \"Zendikar Rising Commander Decklists\", magic.wizards.com, 09/09/2020",
+      "Wizards of the Coast, \"Zendikar Rising Mechanics\", magic.wizards.com, 01/09/2020 (confirme que Party/Groupe est introduit par le set principal ZNR)",
+      "Star City Games, \"Zendikar Rising Commander Set Review\" (Sheldon Menery)"
+    ],
+    "confidence": "high"
+  },
+  "cmr": {
+    "code": "cmr",
+    "mechanicsIntroduced": [
+      {
+        "termEn": "Encore",
+        "termFr": "Rappel",
+        "definitionFr": "Capacité activable uniquement depuis le cimetière, à vitesse rituel (seulement pendant votre phase principale, à votre tour): en payant le coût de Rappel indiqué et en exilant la carte depuis le cimetière, vous créez un jeton copie de cette créature pour chaque adversaire que vous avez. Chaque jeton gagne la célérité, doit attaquer un adversaire différent si possible, puis est sacrifié en fin de tour — une mécanique pensée pour briller en partie multijoueur.",
+        "sourceNote": "Wizards of the Coast, \"Commander Legends Mechanics\", magic.wizards.com, 26/10/2020"
+      }
+    ],
+    "context": "Commander Legends est le tout premier set Commander réellement draftable, avec des boosters de 20 cartes et des decks construits à 60 cartes en draft ou en scellé — une structure inédite pour un produit Commander. Il affiche une densité de légendaires jamais vue (71 créatures légendaires/planeswalkers parmi 165 cartes inédites, dont 40 créatures légendaires monocolores dotées de Partenaire, plus Prismatic Piper comme filet de sécurité incolore), et inaugure le traitement visuel « foil-etched » (gravure façon foil, avec un cadre de carte spécifique), une première pour Magic. Pour les joueurs de Commander, c'est une mine de réimpressions très demandées et de nouveaux commandants partenaires, ce qui en fait un set toujours pertinent pour construire ou renforcer un deck 100 cartes.",
+    "sourceNotes": [
+      "Wizards of the Coast, \"Commander Legends Mechanics\", magic.wizards.com, 26/10/2020",
+      "MTG Wiki, \"Commander Legends\" (mtg.wiki/page/Commander_Legends)"
+    ],
+    "confidence": "high"
+  },
+  "khc": {
+    "code": "khc",
+    "mechanicsIntroduced": [],
+    "context": "Kaldheim Commander est sorti le même jour que le set principal Kaldheim et n'introduit aucune mécanique inédite: il se contente d'utiliser Prédiction/Foretell (mise en avant surtout dans Phantom Premonition) et Neige/Snow (présente dans les deux decks), tandis que Fanfaronnade/Boast n'y est pas particulièrement exploitée. Les deux decks de 99 cartes sont Elven Empire, mené par Lathril, Blade of the Elves (tribal Elfes et essaim de jetons), et Phantom Premonition, mené par Ranar the Ever-Watchful (Prédiction, lancer des sorts depuis l'exil et le cimetière). Chaque deck apporte une quinzaine de cartes inédites et une accélération mana efficace (Sol Ring, Arcane Signet), ce qui en fait de bons points de départ pour un tribal Elfes noir-vert ou un contrôle Prédiction blanc-bleu.",
+    "sourceNotes": [
+      "MTG Wiki, \"Kaldheim/Commander decks\" (mtg.fandom.com/wiki/Kaldheim/Commander_decks)",
+      "Wizards of the Coast, \"Kaldheim Mechanics\", magic.wizards.com, 07/01/2021 (confirme que Foretell/Boast/Snow sont introduits par le set principal KHM)"
+    ],
+    "confidence": "high"
+  },
+  "c21": {
+    "code": "c21",
+    "mechanicsIntroduced": [
+      {
+        "termEn": "Demonstrate",
+        "termFr": "Démontrer",
+        "definitionFr": "Quand vous lancez ce sort, vous pouvez le copier et choisir de nouvelles cibles pour la copie ; si vous le faites, un adversaire de votre choix copie aussi le sort et peut à son tour choisir de nouvelles cibles pour sa copie.",
+        "sourceNote": "Notes de sortie officielles Wizards of the Coast, 'Strixhaven: School of Mages and Commander (2021 Edition) Release Notes' (magic.wizards.com, 16 avril 2021) : le mot-clé est explicitement décrit comme figurant sur cinq cartes des produits Commander de Strixhaven, distinct des mécanismes du set principal (magecraft, ward, learn/lesson) ; confirmé par Card Kingdom Blog ('Demonstrate is a new keyword that appears on sorcery cards in Commander 2021')."
+      }
+    ],
+    "context": "Commercialisé comme 'Commander (2021 Edition)', ce produit est calqué sur les cinq collèges de Strixhaven et propose cinq decks de 100 cartes : Silverquill Statement (blanc-noir, tokens/aristocrates), Prismari Performance (bleu-rouge, spells-matter autour de Veyran, Voice of Duality), Witherbloom Witchcraft (noir-vert, sacrifice/soin), Lorehold Legacies (rouge-blanc, artefacts/hâte avec Alibou, Ancient Witness) et Quantum Quandrix (vert-bleu, +1/+1 counters). C'est un excellent point d'entrée en Commander bicolore thématique, et le produit est réputé pour des réimpressions alors coûteuses (Land Tax, Emeria the Sky Ruin) qui ont democratisé plusieurs staples EDH.",
+    "sourceNotes": [
+      "Wizards of the Coast, 'Strixhaven: School of Mages and Commander (2021 Edition) Release Notes', magic.wizards.com, 16 avril 2021",
+      "Card Kingdom Blog, 'MTG Keywords Explained: Demonstrate'",
+      "MTG Wiki (Fandom), page 'Commander 2021'",
+      "Wargamer, 'The new MTG Strixhaven Commander decks are reprint heaven for dozens of pricy cards'",
+      "Card Kingdom Blog, 'Commander 2021 Has Some Seriously Cool Cards'"
+    ],
+    "confidence": "high"
+  },
+  "m21": {
+    "code": "m21",
+    "mechanicsIntroduced": [],
+    "context": "Core Set 2021 n'introduit aucun mécanisme réellement inédit : le 'mill' (mettre des cartes du dessus de la bibliothèque au cimetière), pratiqué de façon informelle depuis Millstone (1994), y devient officiellement une action mot-clé des règles ; le phasing fait son retour en Standard après plus de vingt ans d'absence ; et prowess redevient un mot-clé evergreen. Pour un bâtisseur de deck Commander, M21 reste surtout notable pour ses réimpressions fortes : Ugin, the Spirit Dragon (rampe incolore), Grim Tutor (tutorat noir) et Azusa, Lost but Seeking (rampe de terrains), aux côtés du planeswalker vedette Teferi, Master of Time.",
+    "sourceNotes": [
+      "Wizards of the Coast, 'Core Set 2021 and Jumpstart Release Notes', magic.wizards.com, 20 juin 2020",
+      "MTG Wiki (Fandom), page 'Core Set 2021'",
+      "Dot Esports, 'All returning mechanics in Core Set 2021'",
+      "MTG Arena Zone, aperçu 'Core Set 2021'"
+    ],
+    "confidence": "high"
+  },
+  "afc": {
+    "code": "afc",
+    "mechanicsIntroduced": [],
+    "context": "En tant que supplément Commander d'Adventures in the Forgotten Realms, ce produit n'introduit aucun mécanisme propre : il réutilise les donjons/'venture into the dungeon' et les jets de d20 du set principal, sans leur donner de nouvelle mécanique dédiée. Ses quatre decks incarnent un groupe d'aventuriers D&D : Aura of Courage (Bant, Galea, Kindler of Hope, auras/équipements légendaires), Dungeons of Death (Esper, Sefris of the Hidden Ways, exploration de donjons/récursion de cimetière), Draconic Rage (Gruul, Vrondiss, Rage of Ancients, dragons agressifs) et Planar Portal (Rakdos, Prosper, Tome-Bound, trésors/exil/graveyard-lite), ce dernier étant devenu un commandant culte hors précon pour son moteur de valeur autour de l'exil.",
+    "sourceNotes": [
+      "Manacurve.gg, 'Forgotten Realms Commander (AFC): Full Set Guide'",
+      "Wizards of the Coast, 'Adventures in the Forgotten Realms Commander Decklists', magic.wizards.com, 9 juillet 2021",
+      "Wargamer, 'MTG: Forgotten Realms Commander decks' D&D hero leaders revealed'",
+      "MTG Wiki (Fandom), page 'Dungeons & Dragons: Adventures in the Forgotten Realms/Commander decks'"
+    ],
+    "confidence": "high"
+  },
+  "mic": {
+    "code": "mic",
+    "mechanicsIntroduced": [],
+    "context": "Ce supplément Commander d'Innistrad: Midnight Hunt ne comporte que deux decks (contre quatre habituellement) et n'introduit aucun mécanisme propre : Coven Counters (vert-blanc, commandant Leinore, Autumn Sovereign) exploite les +1/+1 counters autour de 'coven', mais coven est un mécanisme du set principal Innistrad: Midnight Hunt, pas de ce produit Commander ; Undead Unleashed (bleu-noir, commandant Wilhelt, the Rotcleaver) mise sur les zombies, le sacrifice et la génération de tokens jetables. Le produit est surtout apprécié pour ses réimpressions de staples (Sol Ring, Arcane Signet, Swords to Plowshares, Go for the Throat, Bastion Protector).",
+    "sourceNotes": [
+      "Wizards of the Coast, 'Innistrad: Midnight Hunt Commander Decklists', magic.wizards.com, 13 septembre 2021",
+      "Draftsim, 'Innistrad Midnight Hunt Commander Decks: Are They Worth It?'",
+      "Wargamer, 'MTG Innistrad: Midnight Hunt Commander decklists revealed'",
+      "Fiches produit Amazon confirmant les couleurs (Coven Counters = vert-blanc, Undead Unleashed = bleu-noir)"
+    ],
+    "confidence": "high"
+  },
+  "afr": {
+    "code": "afr",
+    "mechanicsIntroduced": [
+      {
+        "termEn": "Dungeons / Venture into the Dungeon",
+        "termFr": "Donjons / S'aventurer dans le donjon",
+        "definitionFr": "Les donjons forment un nouveau type de carte qui vit dans la zone de commandement, hors du deck de 60/100 cartes ; l'action mot-clé 's'aventurer dans le donjon' fait entrer un joueur dans un donjon (s'il n'y est pas déjà engagé) puis fait progresser son marqueur à travers des salles aux effets déclenchés, jusqu'à atteindre la salle finale.",
+        "sourceNote": "Article officiel Wizards of the Coast, 'Adventures in the Forgotten Realms Mechanics', magic.wizards.com, 2 juillet 2021."
+      },
+      {
+        "termEn": "Roll a d20",
+        "termFr": "Lancer un d20",
+        "definitionFr": "Certaines cartes demandent de lancer un dé à 20 faces et de consulter un tableau de résultats imprimé sur la carte elle-même ; c'est la première fois que Magic intègre officiellement le lancer de dé à plusieurs faces comme mécanisme de règles récurrent (au-delà du traditionnel jet de pièce).",
+        "sourceNote": "Article officiel Wizards of the Coast, 'Adventures in the Forgotten Realms Mechanics', magic.wizards.com, 2 juillet 2021."
+      },
+      {
+        "termEn": "Class enchantments",
+        "termFr": "Enchantements de Classe",
+        "definitionFr": "Nouveau sous-type d'enchantement organisé en plusieurs niveaux de capacités ; on paie un coût additionnel pendant sa phase principale pour 'monter de niveau' et débloquer les capacités des niveaux suivants, représentant la progression d'un personnage de jeu de rôle.",
+        "sourceNote": "Article officiel Wizards of the Coast, 'Adventures in the Forgotten Realms Mechanics', magic.wizards.com, 2 juillet 2021."
+      }
+    ],
+    "context": "Premier crossover officiel entre Magic et Donjons & Dragons, ce set marque le retour de deux franchises sœurs de Wizards of the Coast (Magic ayant été conçu à l'origine comme jeu d'appoint pour les tables de D&D). Il propose 62 nouvelles cartes légales en Commander/Vintage/Legacy et quatre decks Commander d'accompagnement (voir 'afc'), avec des créatures légendaires pensées pour l'exploration de donjons, la génération de trésors et le hasard maîtrisé via les jets de dé. Pour un deckbuilder Commander, afr reste une source appréciée de terres légendaires modales ('module lands'), de cartes de donjon réutilisables dans n'importe quel deck, et de commandants multicolores orientés artefacts/trésors.",
+    "sourceNotes": [
+      "Wizards of the Coast, 'Adventures in the Forgotten Realms Mechanics', magic.wizards.com, 2 juillet 2021",
+      "Card Kingdom Blog, 'Adventures in the Forgotten Realms'",
+      "MTG Wiki / Wikipedia, 'Dungeons & Dragons: Adventures in the Forgotten Realms'",
+      "Wizards of the Coast, 'Adventures in the Forgotten Realms Commander Decklists', magic.wizards.com, 9 juillet 2021"
+    ],
+    "confidence": "high"
+  },
+  "voc": {
+    "code": "voc",
+    "mechanicsIntroduced": [],
+    "context": "Ce supplément propose deux decks 100 cartes exclusifs à Innistrad : Nuit Écarlate, chacun bâti autour d'une tribu du plan : Spirit Squadron (blanc-bleu, commandant Millicent, Restless Revenant) mise sur les Esprits et le contrôle de la table, tandis que Vampiric Bloodline (noir-rouge, commandant Strefan, Maurer Progenitor) exploite les Vampires agressifs et la perte de vie façon aristocrates. Chaque deck apporte 15 cartes inédites plus des réimpressions ciblées, ce qui en fait un excellent point d'entrée pour des decks Commander Esprits ou Vampires sans passer par un draft. Le set principal Nuit Écarlate n'introduit lui-même aucun mot-clé entièrement nouveau, et ce produit Commander se contente de mettre en scène ces thèmes tribaux au format multijoueur.",
+    "sourceNotes": [
+      "Wizards of the Coast, \"Innistrad: Crimson Vow Commander Decklists\" (magic.wizards.com, 2021-11-08)",
+      "cardgamebase.com, \"Innistrad: Crimson Vow Commander Decks and Decklists\"",
+      "MTG Wiki (mtg.wiki), \"Innistrad: Crimson Vow/Commander decks\"",
+      "Scryfall, page du set Crimson Vow Commander (voc)"
+    ],
+    "confidence": "high"
+  },
+  "nec": {
+    "code": "nec",
+    "mechanicsIntroduced": [],
+    "context": "Buckle Up (Azorius, commandant Kotori, Pilot Prodigy) est un deck Véhicules/artefacts qui les anime pour attaquer et bloquer, tandis qu'Upgrades Unleashed (Gruul, commandant Chishiro, the Shattered Blade) mise sur les auras, l'équipement et les compteurs +1/+1 pour bâtir une menace façon Voltron. Les deux commandants sont devenus des piliers EDH dans leurs archétypes respectifs, Kotori restant l'une des meilleures têtes de deck Véhicules du format. Comme les autres suppléments Commander liés à un set standard, ce produit n'introduit aucun mot-clé : il recycle les mécaniques de Kamigawa : Dynastie Néon (Ninjutsu, compteurs +1/+1, etc.) au format 100 cartes.",
+    "sourceNotes": [
+      "Wizards of the Coast, \"Kamigawa: Neon Dynasty Commander Decklists\" (magic.wizards.com, 2022-02-07)",
+      "MTG Wiki (mtg.wiki), \"Kamigawa: Neon Dynasty/Commander decks\"",
+      "Scryfall, recherche de couleurs de Kotori, Pilot Prodigy et Chishiro, the Shattered Blade (set nec)"
+    ],
+    "confidence": "high"
+  },
+  "ncc": {
+    "code": "ncc",
+    "mechanicsIntroduced": [],
+    "context": "Cinq decks, un par famille du crime de La Nouvelle-Capenna : Obscura Operation (Esper, vol/Connive), Maestros Massacre (Grixis, copie de sorts/Casualty), Riveteers Rampage (Jund, grosses créatures/Blitz), Cabaretti Cacophony (Naya, jetons et attaque massive) et Bedecked Brokers (Bant, multiplication de compteurs). Chacun fournit un commandant tricolore inédit taillé pour le thème de sa faction, un excellent moyen d'entrer directement dans une combinaison de trois couleurs sans construire depuis zéro. En tant que supplément Commander, le produit reprend les mécaniques du set principal Streets of New Capenna (Connive, Casualty, Blitz, Backup) sans en créer de nouvelles.",
+    "sourceNotes": [
+      "cardgamebase.com, \"Commander 2022: New Capenna Commander Decks and Decklists\"",
+      "MTG Wiki (mtg.wiki), \"Streets of New Capenna/Commander\" et \"/Commander decks\"",
+      "Scryfall, page du set New Capenna Commander (ncc)"
+    ],
+    "confidence": "high"
+  },
+  "clb": {
+    "code": "clb",
+    "mechanicsIntroduced": [
+      {
+        "termEn": "The Initiative",
+        "termFr": "L'initiative",
+        "definitionFr": "Statut qu'un seul joueur peut détenir à la fois, comme le Monarque : tant qu'on la possède, on s'aventure automatiquement dans le donjon exclusif Les Souterrains à chaque étape de pioche, et un adversaire peut nous voler l'initiative en nous infligeant des dégâts de combat.",
+        "sourceNote": "Wizards of the Coast, \"Commander Legends: Battle for Baldur's Gate Mechanics\" (magic.wizards.com) ; confirmé par tabletopbattles.com (ex-Goonhammer), \"Commander Legends: Battle for Baldur's Gate Review, Part 1 - The Mechanics\""
+      },
+      {
+        "termEn": "Background (card type) / Choose a Background",
+        "termFr": "Passé (type de carte) / Choisissez un Passé",
+        "definitionFr": "Nouveau type de carte : l'enchantement légendaire de sous-type Passé représente l'histoire d'un commandant. Certains commandants ont la capacité mot-clé Choisissez un Passé, ce qui permet d'associer un unique enchantement Passé légendaire à sa carte de commandant, en plus (ou à la place) du Partenariat classique.",
+        "sourceNote": "Wizards of the Coast, \"Commander Legends: Battle for Baldur's Gate Mechanics\" (le décrit comme \"le mécanisme le plus important\" du set) ; type line français vérifié sur les cartes (ex. Élevé par les géants = \"Enchantement légendaire : Passé\") via smfcorp.net et troll2jeux.com"
+      }
+    ],
+    "context": "Contrairement aux quatre autres produits de cette liste, il s'agit d'un vrai set scellé/draftable (comme son prédécesseur Commander Legends de 2020), avec deux cartes légendaires par booster pensées pour lancer une partie de Commander directement à la sortie du draft. Ce crossover Donjons & Dragons fait aussi revenir S'aventurer dans le donjon (introduit dans Aventures dans les Royaumes Oubliés, pas nouveau ici) via le donjon inédit Les Souterrains lié à l'initiative, ainsi que Myriade et Fête. Le set est une mine de réimpressions multicolores et légendaires très recherchées pour l'EDH (terrains doubles historiques, staples de commandant), et les Passés offrent une alternative légère au Partenariat pour combiner deux \"demi-commandants\" sans respecter l'identité de couleur stricte du Partenariat classique.",
+    "sourceNotes": [
+      "Wizards of the Coast, \"Commander Legends: Battle for Baldur's Gate Mechanics\" (magic.wizards.com/en/news/feature/commander-legends-battle-for-baldurs-gate-mechanics)",
+      "tabletopbattles.com (ex-Goonhammer), \"Commander Legends: Battle for Baldur's Gate Review, Part 1 - The Mechanics\"",
+      "AsiaOne, \"Commander Legends: Battle For Baldur's Gate new mechanics explained\" (titre citant Background et Undercity)",
+      "Scryfall, carte L'initiative // Les Souterrains et Élevé par les géants (Passé), set clb"
+    ],
+    "confidence": "high"
+  },
+  "dmc": {
+    "code": "dmc",
+    "mechanicsIntroduced": [],
+    "context": "Deux decks seulement (comme pour Kamigawa: Dynastie Néon) : Painbow (WUBRG, commandant Jared Carthalion) récompense l'accès aux cinq couleurs avec des effets qui montent en puissance selon le nombre de couleurs jouées, tandis que Legends' Legacy (Mardu blanc-noir-rouge, commandante Dihada, Binder of Wills) mise sur les synergies de créatures légendaires. Painbow est devenu une référence pour l'archétype Commander \"cinq couleurs bonnes actions\", apprécié en tables décontractées. Ce supplément ne modifie pas les mécaniques du set principal Dominaria Unie ; il fournit simplement 10 cartes inédites par deck plus des réimpressions adaptées aux deux thèmes.",
+    "sourceNotes": [
+      "Wizards of the Coast, \"Dominaria United Commander Decklists\" (magic.wizards.com, 2022-08-19)",
+      "cardgamebase.com, \"Dominaria United Commander Decks and Decklists\"",
+      "Scryfall, page du set Dominaria United Commander (dmc)"
+    ],
+    "confidence": "high"
+  },
+  "snc": {
+    "code": "snc",
+    "mechanicsIntroduced": [
+      {
+        "termEn": "Casualty",
+        "termFr": "Victime",
+        "definitionFr": "Coût supplémentaire optionnel : vous pouvez sacrifier une créature de force N ou plus en lançant le sort ; si ce coût est payé, le sort est copié sur la pile (la copie peut choisir de nouvelles cibles). Mécanique de la famille Maestros, liée aux stratégies de sacrifice.",
+        "sourceNote": "Article officiel « Streets of New Capenna Mechanics », magic.wizards.com (07/04/2022) ; notes de publication officielles en français (media.wizards.com, FR_MTGSNC_ReleaseNotes)"
+      },
+      {
+        "termEn": "Blitz",
+        "termFr": "Blitz",
+        "definitionFr": "Coût de lancement alternatif qui donne la célérité à la créature et « quand cette créature meurt, piochez une carte », mais oblige à la sacrifier au début de la prochaine étape de fin. Variante agressive du Fonçage (Dash), portée par la famille Riveteers.",
+        "sourceNote": "Article officiel « Streets of New Capenna Mechanics », magic.wizards.com ; notes de publication FR officielles"
+      },
+      {
+        "termEn": "Connive",
+        "termFr": "Conniver",
+        "definitionFr": "Piochez une carte puis défaussez-en une ; si la carte défaussée n'est pas un terrain, la créature reçoit un marqueur +1/+1. Combine sélection de cartes et croissance, mécanique phare de la famille Obscura.",
+        "sourceNote": "Article officiel « Streets of New Capenna Mechanics », magic.wizards.com ; notes de publication FR officielles"
+      },
+      {
+        "termEn": "Alliance",
+        "termFr": "Alliance",
+        "definitionFr": "Mot d'ambiance (sans signification de règle propre) qui regroupe des capacités déclenchées se déclenchant chaque fois qu'une autre créature arrive sur le champ de bataille sous votre contrôle. Associé à la famille Cabaretti et aux stratégies « go wide ».",
+        "sourceNote": "Article officiel « Streets of New Capenna Mechanics », magic.wizards.com ; notes de publication FR officielles"
+      },
+      {
+        "termEn": "Shield counter",
+        "termFr": "Marqueur bouclier",
+        "definitionFr": "Un permanent avec un marqueur bouclier retire ce marqueur au lieu de subir des blessures ou d'être détruit : une protection ponctuelle et à usage unique. Mécanique de la famille Brokers.",
+        "sourceNote": "Article officiel « Streets of New Capenna Mechanics », magic.wizards.com ; notes de publication FR officielles"
+      }
+    ],
+    "context": "Les Rues de la Nouvelle-Capenna est une extension Standard à part entière centrée sur cinq familles criminelles tricolores calquées sur les cinq triades de couleurs (Obscura=Esper, Maestros=Grixis, Riveteers=Jund, Cabaretti=Naya, Brokers=Bant), ce qui en fait un vivier de commandants tricolores très recherché pour l'EDH. Chaque mécanique renforce l'identité de sa famille : sacrifice/valeur (Victime), agressivité et card advantage (Blitz), sélection de cartes et compteurs (Conniver), synergies de jetons « go wide » (Alliance) et résilience (marqueur bouclier). Contrairement aux quatre autres produits de cette liste, il s'agit d'une extension principale légale en Standard, donc plus abondante et généralement moins chère à assembler pour du Commander budget.",
+    "sourceNotes": [
+      "magic.wizards.com — « Streets of New Capenna Mechanics » (07/04/2022)",
+      "media.wizards.com — Notes de publication officielles françaises SNC (FR_MTGSNC_ReleaseNotes_20220325.pdf)",
+      "magic.wizards.com — « A First Look at Streets of New Capenna: Where Family Means Business » (03/03/2022)",
+      "Hipsters of the Coast — « Mechanics in Review: Streets of New Capenna »"
+    ],
+    "confidence": "high"
+  },
+  "40k": {
+    "code": "40k",
+    "mechanicsIntroduced": [
+      {
+        "termEn": "Ravenous",
+        "termFr": "Voracité",
+        "definitionFr": "« Ce permanent arrive sur le champ de bataille avec X marqueurs +1/+1 » et, si X est supérieur ou égal à 5, vous piochez une carte à son arrivée. Une créature à coût {X} qui récompense le fait de la lancer en investissant beaucoup de mana.",
+        "sourceNote": "Notes de publication officielles FR de Warhammer 40,000 Commander (media.wizards.com) ; MTG Wiki, page « Ravenous »"
+      },
+      {
+        "termEn": "Squad",
+        "termFr": "Escouade",
+        "definitionFr": "Coût supplémentaire que vous pouvez payer un nombre illimité de fois en lançant le sort de créature ; à son arrivée, un jeton copie de la créature est créé pour chaque fois que ce coût a été payé. Reflète le concept d'escouades de troupes de l'univers Warhammer 40,000.",
+        "sourceNote": "Notes de publication officielles FR de Warhammer 40,000 Commander (media.wizards.com) ; MTG Wiki, page « Squad »"
+      }
+    ],
+    "context": "Ce produit Universes Beyond autonome (légal en Commander, Legacy et Vintage, mais pas en Standard) propose quatre decks de 100 cartes bâtis chacun autour d'une faction : Necron Dynasties (mono-noir, Szarekh, roi silencieux), Forces of the Imperium (Esper WUB, Inquisitor Greyfax), Tyranid Swarm (Temur URG, The Swarmlord) et The Ruinous Powers (Grixis UBR, Abaddon the Despoiler). Chaque deck inclut un Sol Ring à illustration exclusive par faction, un argument fort pour les joueurs Commander. Outre Voracité et Escouade, ce set marque aussi la toute première utilisation de Miracle sur des permanents (et non plus seulement des sorts), même si Miracle lui-même n'est pas une mécanique nouvelle. C'est un produit charnière pour construire des decks EDH mono ou tricolores autour d'une identité de faction forte (nécromancie noire, contrôle/valeur Esper, +1/+1 et comptes-gagnants Temur, sacrifice/agressivité Grixis).",
+    "sourceNotes": [
+      "magic.wizards.com — « Warhammer 40,000 Commander Release Notes » (19/09/2022)",
+      "media.wizards.com — Notes de publication officielles françaises 40K Commander (FR_40K Commander Release Notes_20220912.pdf)",
+      "MTG Wiki (mtg.wiki) — pages « Ravenous », « Squad », « Warhammer 40,000 »",
+      "magic.wizards.com — « Designing the Warhammer 40,000 Commander Decks »"
+    ],
+    "confidence": "high"
+  },
+  "brc": {
+    "code": "brc",
+    "mechanicsIntroduced": [],
+    "context": "Comme la plupart des suppléments Commander liés à une extension principale, The Brothers' War Commander n'introduit aucune mécanique-clé inédite : c'est un produit de complément, pas une extension mécaniquement innovante. Les deux decks de 100 cartes exploitent le thème « artefacts » de The Brothers' War : Urza's Iron Alliance (Esper WUB, commandants Urza, Chief Artificer et Tawnos, Solemn Survivor) autour des Thopters/Constructs/Servos, et Mishra's Burnished Banner (Grixis UBR, commandants Mishra, Eminent One et Ashnod the Uncaring) autour du sacrifice d'artefacts et des jetons « Scrap ». L'intérêt principal pour un deckbuilder est l'arrivée de versions commandables inédites des personnages emblématiques Urza, Mishra, Tawnos et Ashnod, plus des réimpressions utiles à l'archétype artefacts (Steel Overseer, Baleful Strix, Trading Post, Fact or Fiction, Sol Ring).",
+    "sourceNotes": [
+      "magic.wizards.com — « The Brothers' War Commander Decklists » (28/10/2022)",
+      "MTG Wiki (mtg.wiki / mtg.fandom.com) — « The Brothers' War/Commander decks »",
+      "Star City Games — « Full Contents Of MTG The Brothers' War Commander Decks Revealed »"
+    ],
+    "confidence": "high"
+  },
+  "scd": {
+    "code": "scd",
+    "mechanicsIntroduced": [],
+    "context": "Les Starter Commander Decks (disponibles à partir du 2 décembre 2022) ne sont pas la gamme annuelle « Commander YYYY » mais un produit d'initiation distinct, pensé pour être « prêt à jouer dès la sortie de la boîte » et destiné aux nouveaux joueurs (y compris ceux découvrant Magic via le format Commander pendant les fêtes de fin d'année). Contrairement aux precons Commander habituels, souvent tri- ou quadricolores, ces cinq decks de 100 cartes sont bicolores et allié (First Flight WU/Isperia, Supreme Judge ; Grave Danger UB/Gisa and Geralf ; Chaos Incarnate BR/Kardur, Doomscourge ; Draconic Destruction RG/Atarka, World Render ; Token Triumph GW/Emmara, Soul of the Accord), ce qui simplifie la gestion du mana et les interactions pour un public débutant. Aucune mécanique nouvelle n'y est introduite : le produit mise sur des cartes et interactions simples et lisibles plutôt que sur l'innovation mécanique.",
+    "sourceNotes": [
+      "magic.wizards.com — « Starter Commander Decks Available December 2, 2022 » (29/09/2022)",
+      "magic.wizards.com — « Starter Commander Decks Decklists » (20/10/2022)",
+      "MTG Wiki (mtg.fandom.com) — « Starter Commander Decks »",
+      "Draftsim — « Starter Commander Decks: Are They Worth It? »"
+    ],
+    "confidence": "high"
+  },
+  "onc": {
+    "code": "onc",
+    "mechanicsIntroduced": [],
+    "context": "Phyrexia: All Will Be One Commander n'introduit aucune mécanique inédite : Toxique et Proliférer appartiennent à l'extension principale Phyrexia: All Will Be One (ONE), pas à ce supplément Commander, qui se contente de les exploiter. Les deux decks de 100 cartes sont Corrupting Influence (Abzan WBG, commandant Vishgraz, the Doomhive), centré sur les marqueurs de poison et les stratégies infect/Toxique comme condition de victoire alternative, et Rebellion Rising (Boros RW, commandants Neyali, Suns' Vanguard et Otharri, Suns' Glory), un deck agressif de jetons Rebelles/Soldats. Utile pour un deckbuilder cherchant une base prête à l'emploi pour un deck EDH « poison » (Abzan) ou un deck de jetons agressif Boros ; les decks incluent des réimpressions comme Sol Ring, Battle Screech et Court of Grace.",
+    "sourceNotes": [
+      "MTG Wiki (mtg.wiki) — « Phyrexia: All Will Be One/Commander decks »",
+      "magic.wizards.com — « Phyrexia: All Will Be One Commander Decklists »",
+      "EDHREC — page precon « Corrupting Influence / Vishgraz, the Doomhive » (confirmation des couleurs Abzan)",
+      "Archidekt / Goonhammer — confirmation des couleurs Boros pour « Rebellion Rising »"
+    ],
+    "confidence": "high"
+  },
+  "moc": {
+    "code": "moc",
+    "mechanicsIntroduced": [],
+    "context": "March of the Machine Commander est un supplément Commander lié à l'édition principale March of the Machine (MOM) mais n'introduit aucune mécanique de mots-clés inédite : c'est MOM elle-même qui a introduit le nouveau type de carte Bataille (Battle/Siege), absent de ce produit Commander centré sur les decks préconstruits. Le produit propose cinq decks à deux commandants légendaires chacun (Growing Threat W/B Phyrexian, Cavalry Charge W/U/B Chevaliers, Divine Convocation U/R/W, Call for Backup R/G/W +1/+1, Tinker Time G/U/R artefacts), chacun accompagné de 10 cartes Planechase, 10 jetons double face et un dé planaire, ce qui en fait un bon point d'entrée pour construire autour d'archétypes tribaux ou d'artefacts sans dépendre de la mécanique Phyrexianisation du set principal. Pour un deckbuilder, l'intérêt réside surtout dans les nouvelles cartes commander imprimées ici et les réimpressions de staples Commander plutôt que dans une innovation mécanique.",
+    "sourceNotes": [
+      "March of the Machine Commander Decklists — magic.wizards.com (official WotC announcement)",
+      "March of the Machine/Commander decks — MTG Wiki (mtg.fandom.com)",
+      "Breaking Down Battles In March Of The Machine — Star City Games (confirms Battle card type introduced by MOM, not the Commander supplement)"
+    ],
+    "confidence": "high"
+  },
+  "ltr": {
+    "code": "ltr",
+    "mechanicsIntroduced": [
+      {
+        "termEn": "The Ring tempts you",
+        "termFr": "L'Anneau vous tente",
+        "definitionFr": "Un mécanisme narratif inédit : la première fois que « l'Anneau vous tente », vous désignez une créature que vous contrôlez comme votre Porteur de l'Anneau (un seul à la fois) et vous recevez un emblème qui gagne progressivement, à chaque nouvelle tentation, l'une des quatre capacités cumulatives renforçant ce porteur (imblocable par plus fort que lui, indestructible, vol de carte, etc.). Il s'agit du tout premier mécanisme de ce type dans Magic, propre à cette édition.",
+        "sourceNote": "The Lord of the Rings: Tales of Middle-earth Mechanics — magic.wizards.com ; Draftsim 'The Ring Tempts You in MTG'; play-in.com (version française) ; nom français confirmé sur Scryfall/fullset.fr : « L'Anneau vous tente »"
+      }
+    ],
+    "context": "Le Seigneur des Anneaux : Chroniques de la Terre du Milieu est le premier gros crossover Universes Beyond intégré comme extension jouable en Standard/Pioneer/Modern, et reste l'un des sets les plus importants pour le Commander à cause d'une carte : L'Anneau unique (The One Ring), identifiée dès sa sortie comme la carte la plus puissante du set (protection totale le tour où elle entre, pioche récurrente via des marqueurs de fardeau) au point d'être bannie en Modern peu après, tout en restant légale et omniprésente en Commander/Legacy/Vintage. Le set réutilise aussi « Amasser » sous la forme « Amasser des Orques » (Amass Orcs), une variante thématique du mécanisme existant plutôt qu'une nouveauté. Pour les deckbuilders EDH, LTR a apporté un vivier de commandants iconiques (Sauron, Saruman, Galadriel, Frodo, Gandalf...) et de nombreuses réimpressions utilitaires (Sol Ring, Command Tower) dans ses Collector Boosters.",
+    "sourceNotes": [
+      "The Lord of the Rings: Tales of Middle-earth Mechanics — magic.wizards.com (official)",
+      "The Lord of the Rings: Tales of Middle-earth Release Notes — magic.wizards.com",
+      "Draftsim — 'The Ring Tempts You in MTG: Rules, History, and Best Cards'",
+      "play-in.com — 'Le Seigneur des Anneaux, Chroniques de la Terre du Milieu : les mécaniques de l'édition' (French)",
+      "TheGamer — 'Magic: The Gathering – The One Ring Banned In Modern' (confirms card origin, power level, and Modern ban)",
+      "Scryfall / fullset.fr — confirms official French card name '[Emblème] L'Anneau // L'Anneau vous tente'"
+    ],
+    "confidence": "high"
+  },
+  "ltc": {
+    "code": "ltc",
+    "mechanicsIntroduced": [],
+    "context": "Tales of Middle-earth Commander est le supplément Commander de LTR et n'introduit aucune mécanique de mots-clés inédite ; il réutilise « L'Anneau vous tente » et « Amasser des Orques », mécanismes déjà introduits par l'édition principale LTR. Le produit propose quatre decks bicolores/tricolores thématiques : Riders of Rohan (U/R/W, jetons Soldats), Food and Fellowship (W/B/G, génération de Nourriture, Frodo/Sam), Elven Council (G/U, avantage de cartes elfique, Galadriel/Gandalf) et The Hosts of Mordor (U/B/R, sacrifice et contrôle, Sauron/Saruman). C'est un excellent point d'entrée pour construire des decks EDH autour des factions du Seigneur des Anneaux tout en profitant des staples de mana inclus (Sol Ring, Arcane Signet, Command Tower) ; le deck Hosts of Mordor est notamment prisé pour son commandant Sauron, Lord of the Rings, très fort en sacrifice/aristocrates.",
+    "sourceNotes": [
+      "The Lord of the Rings: Tales of Middle-earth Commander Decklists — magic.wizards.com (official)",
+      "Rankings for All 123 Lord of the Rings: Tales of Middle-earth Commanders — Draftsim",
+      "Star City Games — 'The Lord of the Rings: Tales of Middle-earth Commander Set Review'"
+    ],
+    "confidence": "medium"
+  },
+  "cmm": {
+    "code": "cmm",
+    "mechanicsIntroduced": [],
+    "context": "Commander Masters est un set draftable centré sur le format Commander, mais confirmé sans nouvelle mécanique de mots-clés : il s'agit essentiellement d'un set de réimpressions (le corps principal de 436 cartes est entièrement composé de réimpressions), avec seulement environ 40 cartes totalement nouvelles réparties sur quatre nouveaux decks Commander (2 créatures légendaires foil inédites + 8 rares inédites par deck), portées par Zhulodok (Eldrazi incolore), Anikthea (enchantements W/B/G), Commodore Guff (planeswalkers W/U/R) et Sliver Gravemother (Slivers 5 couleurs). Le format de draft reprend celui de Commander Legends (paquets de 60 cartes, possibilité d'utiliser deux créatures légendaires monocolores/incolores comme duo de commandants façon Partenaire) sans en faire une nouveauté propre à ce set. Pour un deckbuilder, l'intérêt est surtout dans les réimpressions marquantes à moindre rareté (ex. Personal Tutor, jamais réimprimé depuis Portal) et les cycles utilitaires (Médaillons, sorts modaux de Commander 2015) qui rendent le format plus accessible.",
+    "sourceNotes": [
+      "Collecting Commander Masters — magic.wizards.com (official)",
+      "Commander Masters — MTG Wiki (mtg.fandom.com)",
+      "The New Commanders Of Commander Masters — Star City Games",
+      "The Coolest Reprints (That Aren't Legendary Creatures) Of Commander Masters — Star City Games"
+    ],
+    "confidence": "high"
+  },
+  "woc": {
+    "code": "woc",
+    "mechanicsIntroduced": [],
+    "context": "Wilds of Eldraine Commander n'introduit aucune mécanique de mots-clés inédite. Le produit comprend deux decks Commander de 100 cartes conçus comme points d'entrée dans le format : Virtue and Valor (W/G, enchantements/auras, commandant Ellivere of the Wild Court) et Fae Dominion (U/B, tribal Fées et contrôle, commandant Tegwyll, Duke of Splendor). Les Set/Collector Boosters de ce produit ajoutent un cycle de cinq enchantements rares monocolores (« Court ») qui exploitent le mécanisme Monarque — mécanisme déjà existant depuis Conspiracy: Take the Crown (2016) et non inventé ici. Utile pour les deckbuilders cherchant des decks d'auras/enchantements ou tribal Fées prêts à jouer, avec des réimpressions notables comme Sol Ring, Arcane Signet, Swords to Plowshares, Sun Titan et Oona, Queen of the Fae.",
+    "sourceNotes": [
+      "Wilds of Eldraine/Commander decks — MTG Wiki (mtg.fandom.com)",
+      "Wilds of Eldraine Commander Decklists — mtggoldfish.com",
+      "Wargamer — 'MTG Wilds of Eldraine Commander decks include a faerie trickster and a casting director'"
+    ],
+    "confidence": "medium"
+  },
+  "who": {
+    "code": "who",
+    "mechanicsIntroduced": [
+      {
+        "termEn": "Time Travel",
+        "termFr": "Voyage dans le temps",
+        "definitionFr": "Action-mot-clé : quand elle se déclenche, vous pouvez ajouter ou retirer un marqueur temps sur chaque carte suspendue que vous possédez et chaque permanent que vous contrôlez portant un marqueur temps, ce qui accélère ou retarde les effets liés à la Suspension (Suspend).",
+        "sourceNote": "Wizards of the Coast, article officiel « Magic: The Gathering – Doctor Who Mechanics » (magic.wizards.com) ; MTG Wiki, page « Time travel »"
+      },
+      {
+        "termEn": "Doctor's Companion",
+        "termFr": "Compagnon du Docteur",
+        "definitionFr": "Variante du mot-clé Partenaire (Partner) : une créature dotée de cette capacité peut être jouée comme commandant binôme aux côtés de n'importe quelle créature légendaire Seigneur du Temps — Docteur, même si celle-ci n'a pas elle-même Partenaire.",
+        "sourceNote": "Wizards of the Coast, « Magic: The Gathering – Doctor Who Mechanics »"
+      },
+      {
+        "termEn": "Paradox",
+        "termFr": "Paradoxe",
+        "definitionFr": "Mot d'ambiance (non un mot-clé formel) regroupant les capacités qui se déclenchent lorsque vous lancez un sort depuis une zone autre que votre main (exil, cimetière, zone de commandement). Wizards précise qu'il s'agit d'un concept propre à ce set, sans précédent direct sous ce nom.",
+        "sourceNote": "Wizards of the Coast, « Doctor Who Mechanics » ; MTG Wiki, page « Paradox »"
+      },
+      {
+        "termEn": "Villainous Choice",
+        "termFr": "Choix de vilain",
+        "definitionFr": "Mécanique qui force l'adversaire (et non le lanceur du sort) à choisir entre deux effets défavorables ; contrairement à un sort modal classique, c'est la victime de l'effet qui tranche entre les deux issues proposées.",
+        "sourceNote": "Wizards of the Coast, « Doctor Who Mechanics » ; Draftsim, « Villainous Choice in MTG: Rules, History, and Best Cards »"
+      }
+    ],
+    "context": "Doctor Who est un produit Commander autonome de la gamme Universes Beyond, vendu sous forme de quatre decks (Timey-Wimey, Blast from the Past, Paradox Power, Masters of Evil) sans boosters de set associés. Il installe le thème du voyage temporel comme véritable sous-archétype Commander, articulé autour de la Suspension et des marqueurs temps, et permet de jouer un Docteur légendaire en commandant binôme via Compagnon du Docteur. C'est aussi l'un des crossovers Universes Beyond les plus commentés pour son identité forte et son impact sur le marché des staples Commander (nombreuses réimpressions utilitaires dans les quatre decks).",
+    "sourceNotes": [
+      "https://magic.wizards.com/en/news/feature/magic-the-gathering-doctor-who-mechanics",
+      "https://magic.wizards.com/en/news/feature/magic-the-gathering-doctor-who-release-notes",
+      "https://mtg.fandom.com/wiki/Time_travel",
+      "https://mtg.fandom.com/wiki/Paradox",
+      "https://draftsim.com/mtg-villainous-choice/",
+      "https://commandersherald.com/doctor-who-timey-wimey-and-paradox-power-the-story-behind-the-cards/"
+    ],
+    "confidence": "high"
+  },
+  "lcc": {
+    "code": "lcc",
+    "mechanicsIntroduced": [],
+    "context": "Ce supplément Commander n'introduit aucun mot-clé inédit : il réemploie Découvrir (Discover) et Fabriquer (Craft), les mécaniques phares du set principal Lost Caverns of Ixalan, ainsi que les jetons Carte. Il se compose de quatre decks aux identités tribales marquées : Ahoy Mateys (pirates/trésors), Blood Rites (vampires), Explorers of the Deep (marchefolk/exploration en bleu-vert) et Veloci-ramp-tor (dinosaures/rampe). Pour un deckbuilder Commander, l'intérêt principal tient aux commandants tribaux forts (comme Ojer Kaslem ou Saheeli, the Sun's Brilliance) et à des réimpressions utilitaires devenues des inclusions automatiques dans les decks tribaux (Roaming Throne).",
+    "sourceNotes": [
+      "https://blog.cardkingdom.com/the-lost-caverns-of-ixalan-commander-set-review/",
+      "https://www.amazon.com/Magic-Gathering-Commander-Explorers-Veloci-ramp-tor/dp/B0CGKTYJ5M",
+      "Scryfall, page du set LCC"
+    ],
+    "confidence": "high"
+  },
+  "mkc": {
+    "code": "mkc",
+    "mechanicsIntroduced": [
+      {
+        "termEn": "Duty counter",
+        "termFr": "Marqueur devoir",
+        "definitionFr": "Nouveau type de marqueur, apparu pour la première fois sur la carte Immortal Obligation : la créature qui le porte devient goadée (forcée d'attaquer si possible), ne peut ni vous attaquer ni attaquer vos permanents, et ne peut pas bloquer vos créatures tant qu'elle porte ce marqueur. Il s'agit d'un mécanisme très ponctuel, présent sur une poignée de cartes seulement, et non d'un mot-clé structurant comme Discover ou Plot.",
+        "sourceNote": "MTG Wiki (Fandom), page « Duty counter » ; Aetherhub, fiche de la carte Immortal Obligation (MKC)"
+      }
+    ],
+    "context": "Ce supplément Commander ne crée pas de nouvelle mécanique de set : il réutilise Déguisement (Disguise), Enquêter (Investigate), Soupçonner (Suspect) et les Affaires (Cases) du set principal Murders at Karlov Manor, et remet au goût du jour des mécaniques plus anciennes et rares en Commander (Ascend, Clash, Gravestorm à rétro-décalage temporel, Conseil secret, Parlementer, Suspension, Déchaîner). Les quatre decks — Deadly Disguise (déguisement/surprises), Revenant Recon (surveiller/réanimer), Deep Clue Sea (indices) et Blame Game (accusation/goad) — reprennent l'ambiance polar de Ravnica avec des illustrations exclusives sur des réimpressions comme Comeuppance, Necromancy, Twilight Prophet, Brash Taunter et Vengeful Ancestor, et jusqu'à quatre illustrations différentes pour Ransom Note.",
+    "sourceNotes": [
+      "MTG Wiki, page « Murders at Karlov Manor/Commander decks »",
+      "https://mtg.fandom.com/wiki/Duty_counter",
+      "https://aetherhub.com/Card/MKC/Immortal-Obligation/10",
+      "https://magic.wizards.com/en/news/feature/murders-at-karlov-manor-release-notes"
+    ],
+    "confidence": "medium"
+  },
+  "pip": {
+    "code": "pip",
+    "mechanicsIntroduced": [
+      {
+        "termEn": "Rad counter (Radiation)",
+        "termFr": "Marqueur radiation",
+        "definitionFr": "Marqueur qui s'accumule sur un joueur touché par la radiation : au début de sa phase principale de précombat, ce joueur défausse (mill) un nombre de cartes égal à ses marqueurs radiation ; pour chaque carte non-terrain ainsi mise au cimetière, il perd 1 point de vie et retire un marqueur radiation.",
+        "sourceNote": "Wizards of the Coast, article officiel « Magic: The Gathering – Fallout Mechanics » (magic.wizards.com)"
+      },
+      {
+        "termEn": "Junk token",
+        "termFr": "Jeton Camelote",
+        "definitionFr": "Jeton d'artefact incolore avec la capacité « {T}, sacrifiez cet artefact : exilez la carte du dessus de votre bibliothèque, vous pouvez jouer cette carte ce tour-ci (à activer comme un rituel) » — une source d'avantage de cartes calibrée sur le thème de récupération de débris post-apocalyptiques.",
+        "sourceNote": "Wizards of the Coast, « Fallout Mechanics »"
+      }
+    ],
+    "context": "Fallout est un produit Commander autonome de la gamme Universes Beyond, réparti en quatre decks : Science! (bleu-blanc-rouge, artefacts, commandant Dr. Madison Li), Hail Caesar (rouge-blanc-noir, jetons/sacrifice, commandant Caesar), Scrappy Survivors (rouge-vert-blanc, auras/équipements/Camelote, commandant Dogmeat) et Mutant Menace (noir-vert-bleu, marqueurs/prolifération/radiation, commandant The Wise Mothman). Il marque surtout le retour des marqueurs Énergie dans un produit Commander, une ressource inactive depuis Kaladesh (2016), désormais associée au thème de l'électricité rare du monde post-nucléaire — mais l'Énergie elle-même n'est pas une invention de ce set, contrairement aux marqueurs radiation et aux jetons Camelote. C'est un produit important en Commander pour ses commandants de fandom facilement splashables hors thème (Dogmeat, Preston Garvey) et pour la synergie mill/perte de vie qu'offre la radiation aux decks de cimetière ou de groupe hostile.",
+    "sourceNotes": [
+      "https://magic.wizards.com/en/news/feature/magic-the-gathering-fallout-mechanics",
+      "https://dotesports.com/mtg/news/all-mtg-fallout-commander-decks-precon-decklist-face-commanders-and-price",
+      "https://esports.gg/news/gaming/mtg-fallout-mechanics/"
+    ],
+    "confidence": "high"
+  },
+  "otc": {
+    "code": "otc",
+    "mechanicsIntroduced": [],
+    "context": "Ce supplément Commander n'apporte aucune mécanique inédite : il reprend Complot (Plot), Seller (Saddle), Crime et Spree, les mécaniques du set principal Outlaws of Thunder Junction. Il regroupe quatre decks — Quick Draw, Desert Bloom, Grand Larceny (vol/Sultai, commandant Gonti, Canny Acquisitor) et Most Wanted (hors-la-loi tribal/trésors, commandant Olivia, Opulent Outlaw) — avec des commandants notables comme Obeka, Splitter of Seconds pour les stratégies d'extra-tours et de doublage d'entretien. Sur 342 cartes au total, 266 sont des réimpressions (terrains doubles, Command Beacon, Academy Manufactor), ce qui en fait un produit surtout valorisé pour ses staples et réimpressions plutôt que pour la puissance brute des decks tels quels.",
+    "sourceNotes": [
+      "https://blog.cardkingdom.com/outlaws-of-thunder-junction-commander-set-review/",
+      "https://draftsim.com/mtg-otj-commander-decks/",
+      "https://scryfall.com/sets/otc",
+      "https://www.amazon.com/Magic-Gathering-Outlaws-Junction-Commander/dp/B0CTKX3BP1"
+    ],
+    "confidence": "high"
+  },
+  "m3c": {
+    "code": "m3c",
+    "mechanicsIntroduced": [],
+    "context": "Ce produit Commander accompagnant Modern Horizons 3 ne crée aucun mécanisme propre : il exploite les mécaniques de l'extension principale (Energy, Devoid, Lieutenant, etc.). Les quatre decks ont des identités bien distinctes et très axées « eternal-format » : Creative Energy (Jasmine/Izzet-Boros, energy), Tricky Terrain (Simic, rampe et copie de terrains, avec Dryad of the Ilysian Grove et Uro), Graveyard Overdrive (Grixis, cimetière/réanimation) et Eldrazi Incursion (incolore, tribal Eldrazi). Comme le reste de Modern Horizons 3, ces decks visent le très haut niveau de puissance (nombreuses réimpressions prisées en Modern/Legacy/cEDH) et sont sortis à tirage limité, ce qui a fait grimper leur prix au lancement.",
+    "sourceNotes": [
+      "magic.wizards.com/en/news/feature/modern-horizons-3-mechanics (article officiel des mécaniques, aucune mécanique exclusive au produit Commander)",
+      "Card Kingdom Blog — Modern Horizons 3 Commander Precon Highlights (thèmes Eldrazi/Energy/Lhurgoyf/Lands, aucune nouvelle mécanique)",
+      "Draftsim — Modern Horizons 3 Commander Decks: Are They Worth It?",
+      "Star City Games — A First Look At Modern Horizons 3 For Commander"
+    ],
+    "confidence": "high"
+  },
+  "otj": {
+    "code": "otj",
+    "mechanicsIntroduced": [
+      {
+        "termEn": "Plot",
+        "termFr": "Complot",
+        "definitionFr": "En payant un coût supplémentaire, on peut exiler un sort de sa main face visible pour le « comploter » ; lors d'un tour ultérieur, ce sort peut être lancé gratuitement depuis l'exil (à condition d'en respecter les timing/restrictions).",
+        "sourceNote": "magic.wizards.com/fr/news/feature/outlaws-of-thunder-junction-mechanics"
+      },
+      {
+        "termEn": "Spree",
+        "termFr": "Impétuosité",
+        "definitionFr": "Mécanique modale des sorts « Impétuosité » : au moment de lancer le sort, on doit choisir au moins un mode parmi ceux proposés (jamais deux fois le même), chaque mode ajoutant son propre coût additionnel au coût de base.",
+        "sourceNote": "magic.wizards.com/fr/news/feature/outlaws-of-thunder-junction-mechanics"
+      },
+      {
+        "termEn": "Saddle",
+        "termFr": "Seller",
+        "definitionFr": "Capacité activée des créatures de type Monture : en engageant des créatures dégagées dont la force totale atteint le seuil indiqué, la Monture devient « sellée » jusqu'à la fin du tour, ce qui déclenche généralement un bonus.",
+        "sourceNote": "magic.wizards.com/fr/news/feature/outlaws-of-thunder-junction-mechanics ; MTGRocks — Outlaws of Thunder Junction Mechanics Let You Mount Your Creatures"
+      },
+      {
+        "termEn": "Committing a crime",
+        "termFr": "Commettre un crime",
+        "definitionFr": "Concept qui se déclenche dès qu'un joueur cible, avec un sort ou une capacité, un adversaire, un permanent adverse, un sort/capacité adverse ou une carte du cimetière d'un adversaire ; de nombreuses cartes de l'extension récompensent le fait d'avoir commis un crime ce tour-ci.",
+        "sourceNote": "magic.wizards.com/fr/news/feature/outlaws-of-thunder-junction-mechanics"
+      },
+      {
+        "termEn": "Outlaw",
+        "termFr": "Hors-la-loi",
+        "definitionFr": "Terme désignant tout permanent possédant au moins un des types de créature Assassin, Mercenaire, Pirate, Gredin ou Psychagogue ; il sert de dénominateur commun tribal transversal utilisé par de nombreuses cartes de l'extension.",
+        "sourceNote": "magic.wizards.com/fr/news/feature/outlaws-of-thunder-junction-mechanics"
+      }
+    ],
+    "context": "Extension principale au thème western/braquage introduisant cinq mécaniques inédites qui structurent son identité de deckbuilding : le tribal transversal « Hors-la-loi » (Assassin/Mercenaire/Pirate/Gredin/Psychagogue) toutes couleurs confondues, « Commettre un crime » qui récompense le fait de cibler les adversaires (favorise les decks agressifs/pile-politique en multijoueur), les Montures avec Seller (mini-sous-thème façon Véhicules), et Complot/Impétuosité qui apportent respectivement du tempo différé et de la flexibilité modale. Attention à ne pas confondre avec le produit séparé « Outlaws of Thunder Junction Commander » (autre code que otj), qui a lui introduit le mini-jeu exclusif des cartes Bounty (Prime) — ce dernier n'appartient pas à l'extension otj elle-même.",
+    "sourceNotes": [
+      "magic.wizards.com/en/news/feature/outlaws-of-thunder-junction-mechanics",
+      "magic.wizards.com/fr/news/feature/outlaws-of-thunder-junction-mechanics",
+      "Dexerto — MTG Outlaws of Thunder Junction mechanics explained",
+      "MTGRocks — Thunder Junction Commander Decks Add A Whole New Way To Play! (confirme que Bounty est exclusif au produit Commander séparé, absent des boosters de l'extension principale)"
+    ],
+    "confidence": "high"
+  },
+  "blc": {
+    "code": "blc",
+    "mechanicsIntroduced": [],
+    "context": "Ce produit Commander n'introduit aucune mécanique propre : il exploite les mécaniques de l'extension Bloomburrow (Offspring/Progéniture, Gift/Cadeau, Expend/Dépense, Forage/Fourrager, Valiant/Vaillance). Ses quatre decks couvrent des identités variées : Animated Army (Gruul, anime artefacts/enchantements en créatures via Bello, Bard of the Brambles), Family Matters (Jeskai, jetons Progéniture et copie de jetons), Peace Offering (Bant, group hug/pillowfort) et Squirreled Away (Golgari, écureuils et trésors). Bloomburrow étant un monde entièrement peuplé d'animaux anthropomorphes (dix familles réparties sur les paires de couleurs : lapins, rats, chauve-souris, grenouilles, écureuils, loutres, ratons laveurs, oiseaux, lézards, crocodiles), ce produit est une excellente porte d'entrée pour du tribal animalier en Commander, avec des réimpressions notables comme Tendershoot Dryad, Grothama, All-Devouring, Greater Good et Kodama of the East Tree.",
+    "sourceNotes": [
+      "Draftsim — Bloomburrow Commander Decks: Are They Worth It?",
+      "MTG Cardsrealm — Bloomburrow New Mechanics: Gifts, Offspring, Forage, Expend, Valiant and Pawprints (confirme que ces mécaniques appartiennent à l'extension principale Bloomburrow)",
+      "magic.wizards.com — Bloomburrow Mechanics"
+    ],
+    "confidence": "high"
+  },
+  "dsc": {
+    "code": "dsc",
+    "mechanicsIntroduced": [],
+    "context": "Ce produit Commander n'introduit aucune mécanique propre : il met en scène les mécaniques inédites de l'extension Duskmourn (Rooms/Salles, Survival/Survie, Eerie/Inquiétant, Impending/Imminent, Manifest Dread/Manifester l'effroi), par exemple via des cartes Salle comme Secret Arcade // Dusty Parlor. L'univers d'horreur façon maison hantée des années 1980 se traduit en quatre decks aux identités marquées : Miracle Worker (Esper, enchantresses + miracle, commandée par Aminatou, Veil Piercer), Death Toll (Golgari, réanimation/cimetière, commandée par Winter, Cynical Opportunist), Jump Scare! (Dimir, sorts/cartes face cachée) et Endless Punishment (Rakdos, contrôle punitif). Un bon point d'entrée pour construire autour des Salles ou de stratégies enchantresses/réanimation en Commander.",
+    "sourceNotes": [
+      "Draftsim — Duskmourn: House of Horror Commander Decks: Are They Worth It?",
+      "magic.wizards.com/en/news/feature/duskmourn-house-of-horror-mechanics (confirme que Rooms/Survival/Eerie/Impending/Manifest Dread appartiennent à l'extension principale)"
+    ],
+    "confidence": "high"
+  },
+  "drc": {
+    "code": "drc",
+    "mechanicsIntroduced": [],
+    "context": "Ce produit Commander n'introduit aucune mécanique propre : les deux mécaniques inédites de l'extension Aetherdrift, la Vitesse/« Allumez les moteurs ! » (Speed/Start your engines!) et l'Épuisement (Exhaust), appartiennent à l'extension principale et sont simplement reprises par certaines cartes des decks. Fait notable : contrairement à l'habitude de quatre decks, Aetherdrift Commander n'a compté que deux precons : Living Energy (Temur/RUG, energy et synergies d'artefacts, commandée par Saheeli, Radiant Creator et Pia Nalaar, Chief Mechanic) et Eternal Might (Esper/WUB, jetons Zombie et rappel des mécaniques embalm/eternalize d'Amonkhet, commandée par Temmet, Naktamun's Will et Hashaton, Scarab's Fist). Le thème général de « course mortelle » à travers le multivers se retrouve dans le cycle de dix commandants légendaires bicolores/tricolores « capitaines d'équipe » de l'extension principale, dont plusieurs soutiennent le thème Vitesse/Véhicules/Montures.",
+    "sourceNotes": [
+      "magic.wizards.com/fr/news/feature/aetherdrift-mechanics (confirme que Vitesse/Allumez les moteurs ! et Épuisement appartiennent à l'extension principale)",
+      "magic.wizards.com/en/news/announcements/aetherdrift-commander-decklists",
+      "TCGPlayer — 'Aetherdrift Gets Commander Precons Very Right by Only Giving Us Two of Them' (confirme le nombre de deux decks)",
+      "Sportskeeda — All MTG Aetherdrift Commander precons",
+      "Draftsim — Rankings for All 37 Aetherdrift Commanders"
+    ],
+    "confidence": "medium"
+  },
+  "tdc": {
+    "code": "tdc",
+    "mechanicsIntroduced": [],
+    "context": "Ce produit n'introduit aucune nouvelle mécanique : ses cinq decks Commander tricolores reprennent l'arsenal du set parent Tarkir : la tempête des dragons, notamment Rafale (Flurry, qui se déclenche au deuxième sort lancé dans un tour), ainsi que les mécaniques de clan Endurer, Renouveau, Mobilisation et Harmonisation, plus Présage et Contempler liés aux dragons. Chaque deck personnifie un clan tricolore : Jeskai Striker (bleu-rouge-blanc, orienté sorts multiples/Rafale), Mardu Surge (rouge-blanc-noir), Sultai Arisen (noir-vert-bleu), Abzan Armor (blanc-noir-vert) et Temur Roar (vert-bleu-rouge). Les réimpressions restent discrètes (peu de cartes chères, bases de mana sans Triome de la bonne couleur), donc la valeur vient surtout de nouvelles cartes comme Tempest Technique (soutien Voltron) ou Caldera Pyremaw (paiement spellslinger). Pour un deckbuilder, ce produit reste une bonne porte d'entrée vers le tribal de clan tricolore et les synergies dragons/sorts multiples en Commander.",
+    "sourceNotes": [
+      "mtg.wiki – Tarkir: Dragonstorm (mécaniques du set parent)",
+      "magic.wizards.com – 'Tarkir: Dragonstorm Mechanics' (page officielle)",
+      "Draftsim – 'Tarkir: Dragonstorm Commander Decks: Are They Worth It?'",
+      "Card Kingdom Blog – 'The 15 Best New Cards from the Tarkir Dragonstorm Commander Precons'",
+      "PDF officiel Wizards FR_MTGTDM_ReleaseNotes (traductions françaises des mots-clés)"
+    ],
+    "confidence": "high"
+  },
+  "fic": {
+    "code": "fic",
+    "mechanicsIntroduced": [],
+    "context": "Ce produit n'introduit pas de nouvelle mécanique propre : Choix de job (Job Select), la mécanique la plus emblématique de la gamme Final Fantasy, a été introduite le même jour dans le set principal FIN (un équipement crée à son arrivée un jeton Héros 1/1 incolore et s'y attache automatiquement) et n'apparaît que sur 3 cartes du deck Scions & Spellcraft côté FIC. Les quatre decks trois couleurs sont thématisés par épisode : Limit Break (Naya, Cloud, Ex-SOLDIER, équipement), Revival Trance (Mardu, cimetière/réanimation, FFVI), Counter Blitz (Tidus, Yuna's Guardian, marqueurs +1/+1 et créatures-Saga représentant les invocations) et Scions & Spellcraft (Y'shtola, Night's Blessed, sorts non-créatures/contrôle, où le rebond mime les temps de recharge de FFXIV). Chaque deck regorge de légendaires inédites incarnant les personnages du jeu correspondant (environ 25 cartes inédites par deck), ce qui en fait une bonne base pour du tribal par épisode ou du Voltron autour d'un héros emblématique ; la valeur vient surtout de ces nouvelles cartes plutôt que des réimpressions, ces decks étant réputés chers par rapport à leur MSRP.",
+    "sourceNotes": [
+      "magic.wizards.com – 'Crafting Commander Decks for Magic: The Gathering—FINAL FANTASY'",
+      "Draftsim – 'Job Select in MTG: Rules, History, and Best Cards'",
+      "Draftsim – 'Final Fantasy Commander Decks: Are They Worth It?'",
+      "Tabletop Battles (republication Goonhammer) – 'Magic: the Gathering - Final Fantasy Review, Part 1 of 4: The Mechanics'",
+      "PDF officiel Wizards FR_FIN_Release_Notes (nom français 'Choix de job')"
+    ],
+    "confidence": "medium"
+  },
+  "eoc": {
+    "code": "eoc",
+    "mechanicsIntroduced": [],
+    "context": "Aucune nouvelle mécanique n'est introduite par ce supplément : il recycle l'arsenal science-fiction du set parent Edge of Eternities, à savoir Warp (payer un coût alternatif fait exiler le permanent, qui peut ensuite être lancé depuis l'exil après la fin du tour), Void (déclenchements liés au fait qu'un permanent non-terrain a quitté le champ de bataille ce tour-ci, ou qu'un sort a été warpé), Station (engager des créatures pour ajouter des marqueurs de charge à un Spacecraft qui devient une créature une fois le seuil atteint) et le nouveau sous-type de terrain Planet. Les commandants les mieux reçus par la critique incluent Sami, Wildcat Captain (réduction de coût pour artefacts/sorts, très flexible), Tannuk, Steadfast Second (synergies Warp/gros artefacts), Haliya, Guided by Light (façon 'Soul Sister', gain de vie) et Mm'menon, the Right Hand (un quasi-Urza pour les tables de puissance modérée). Le produit fournit aussi des cartes utilitaires jouables toutes couleurs confondues, comme Cosmogrand Zenith (jetons), Terrasymbiosis (pioche pour un deck à compteurs) ou The Eternity Elevator (accélération de mana), ce qui en fait une bonne pioche générique pour étoffer des decks artefacts ou +1/+1 même hors du thème spatial.",
+    "sourceNotes": [
+      "Card Kingdom Blog – 'Edge of Eternities Commander Set Review'",
+      "magic.wizards.com – 'Edge of Eternities Mechanics'",
+      "mtg.wiki – Edge of Eternities / Commander"
+    ],
+    "confidence": "high"
+  },
+  "ecc": {
+    "code": "ecc",
+    "mechanicsIntroduced": [],
+    "context": "Ce supplément n'introduit pas de nouvelle mécanique : les deux decks exploitent celles du set parent Lorwyn Éclipsé, en premier lieu Gangrène (Blight) — une action mot-clé sans cible qui consiste à mettre X marqueurs -1/-1 sur une créature que vous contrôlez, contournant ainsi la protection ou l'hexproof — ainsi que Éclatant (Vivid, compte les couleurs parmi vos permanents), De clan (Kindred, nouveau type de carte donnant des types de créature à des non-créatures) et le retour de Changelin. Gangrène Maudite (Blight Curse, noir-rouge-vert / Jund) est menée par Auntie Ool, Cursewretch et exploite les marqueurs -1/-1 (un combo infini y serait même possible, à réserver aux tables expérimentées) ; Dance of the Elements (cinq couleurs), menée par Ashling, the Limitless, mise sur le tribal Élémental. Les réimpressions sont solides pour la construction Commander en général (Sol Ring, Arcane Signet, Command Tower, Avenger of Zendikar, variantes d'Omnath, Maelstrom Wanderer), et le retour sur le plan de Lorwyn en fait un bon point d'entrée pour les archétypes tribaux classiques (Kithkin, Lutins/Boggarts, Élémentaux, Changelins).",
+    "sourceNotes": [
+      "Draftsim – 'Lorwyn Eclipsed Commander Decks: Are They Worth It?'",
+      "magic.wizards.com – 'Lorwyn Eclipsed Mechanics'",
+      "PDF officiel Wizards FR_MTGECL_ReleaseNotes (traductions françaises : Gangrène, Éclatant, De clan, Changelin)",
+      "Boutiques FR (Nevermint, Fnac, Play-in) confirmant le nom officiel 'Gangrène Maudite' pour Blight Curse"
+    ],
+    "confidence": "medium"
+  },
+  "tmc": {
+    "code": "tmc",
+    "mechanicsIntroduced": [
+      {
+        "termEn": "Sneak",
+        "termFr": "Infiltration",
+        "definitionFr": "Coût alterné présent sur certaines créatures : vous pouvez lancer la carte à vitesse instantanée pendant l'étape de déclaration des bloqueurs (une fois les bloqueurs déclarés) si vous renvoyez aussi en main un attaquant non bloqué que vous contrôlez ; la créature ainsi lancée entre engagée et attaquante.",
+        "sourceNote": "Notes de publication officielles FR de Wizards (PDF TMT_Release_Notes) ; magic.wizards.com 'Teenage Mutant Ninja Turtles Mechanics' ; Draftsim 'All 7 Mechanics from Teenage Mutant Ninja Turtles, Explained'"
+      },
+      {
+        "termEn": "Mutagen",
+        "termFr": "Mutagène",
+        "definitionFr": "Jeton d'artefact incolore doté de « {1}, {T}, sacrifiez ce jeton : mettez un marqueur +1/+1 sur une créature ciblée », activable seulement à vitesse rituel — une nouvelle monnaie de récompense pour les decks à artefacts/jetons.",
+        "sourceNote": "Notes de publication officielles FR de Wizards ; magic.wizards.com 'Teenage Mutant Ninja Turtles Mechanics'"
+      },
+      {
+        "termEn": "Disappear",
+        "termFr": "Volatilisation",
+        "definitionFr": "Mot de capacité regroupant des déclenchements liés au fait qu'un permanent que vous contrôliez a quitté le champ de bataille au cours du tour, quelle qu'en soit la façon ; l'effet regarde en arrière sur tout le tour, même si le permanent portant Volatilisation n'était pas encore sur le champ de bataille au moment du départ.",
+        "sourceNote": "Notes de publication officielles FR de Wizards ; magic.wizards.com 'Teenage Mutant Ninja Turtles Mechanics'"
+      },
+      {
+        "termEn": "Partner—Character Select",
+        "termFr": "Partenariat – Sélection du personnage",
+        "definitionFr": "Variante du mot-clé Partenaire : vous pouvez avoir deux commandants dans la zone de commandement à condition que les deux possèdent cette capacité spécifique (elle ne se combine pas avec un Partenaire classique) ; c'est la première apparition de cette variante dans Magic.",
+        "sourceNote": "Notes de publication officielles FR de Wizards ; magic.wizards.com 'Teenage Mutant Ninja Turtles Mechanics' ; article mécaniques Draftsim"
+      }
+    ],
+    "context": "Contrairement aux quatre autres produits de cette liste, TMNT Eternal n'est pas un simple supplément Commander adossé à une extension Standard : c'est une extension crossover Universes Beyond autonome, légale uniquement en formats Eternal (Commander, Legacy, Vintage — d'où son nom — mais pas en Standard), accompagnée d'un unique deck Commander prêt-à-jouer 'Puissance des tortues !' (Turtle Power!) en cinq couleurs. Ce deck met en avant les jetons et les marqueurs +1/+1 via la toute nouvelle variante Partenariat – Sélection du personnage, qui permet de jumeler Leonardo, the Balance avec n'importe quelle autre Tortue ou Splinter comme second commandant. Le produit comprend au total 31 nouveaux commandants dans l'extension (les quatre Tortues en plusieurs versions, April O'Neil, Casey Jones, Splinter, Shredder, Krang, etc.) et 20 réimpressions de classiques revêtues d'un habillage visuel TMNT. Pour un deckbuilder, l'intérêt principal est la souplesse de pairing offerte par Sélection du personnage (façon Partenaire) et les cartes de soutien go-wide/jetons/+1+1 réutilisables hors du thème TMNT.",
+    "sourceNotes": [
+      "Notes de publication officielles Wizards (PDF FR) – Magic: The Gathering | Teenage Mutant Ninja Turtles",
+      "magic.wizards.com – 'Teenage Mutant Ninja Turtles Mechanics'",
+      "Draftsim – 'All 7 Mechanics from Teenage Mutant Ninja Turtles, Explained'",
+      "Card Kingdom Blog – 'Turtle Power! Teenage Mutant Ninja Turtles Commander Precon Upgrade Guide'",
+      "edh.wiki – page de set Teenage Mutant Ninja Turtles Eternal"
+    ],
+    "confidence": "medium"
+  },
+  "soc": {
+    "code": "soc",
+    "mechanicsIntroduced": [],
+    "context": "Secrets of Strixhaven Commander est le supplément de cinq decks préconstruits bicolores (un par collège : Silverquill W/B, Prismari U/R, Witherbloom B/G, Lorehold R/W, Quandrix G/U), sorti le 24 avril 2026, deux semaines après l'édition Standard Secrets of Strixhaven (10 avril 2026) — à ne pas confondre avec le premier set Strixhaven: School of Mages de 2021, dont il s'agit d'un retour narratif sur le même plan. L'édition principale a bien introduit de nouveaux mécanismes (Prepared/Préparé, Paradigm/Paradigme et Increment/Incrément comme mots-clés ; Repartee, Opus et Infusion comme mots d'ambiance), et fait revenir Converge et Flashback, mais le supplément Commander lui-même n'ajoute aucun mécanisme inédit : il recombine ces mécanismes existants via de nouvelles cartes légendaires de collège (ex. Witherbloom, the Balancer ; Prismari, the Inspiration ; Lorehold, the Historian ; Quandrix, the Proof) qui offrent tempête, cascade ou miracle en guise de synergie transversale. Pour un deckbuilder, chaque collège pousse un archétype distinct : jetons/contrôle pour Silverquill, sorts/trésors pour Prismari, valeur/sacrifice pour Witherbloom, esprits/cimetière pour Lorehold, rampe/cascade pour Quandrix.",
+    "sourceNotes": [
+      "Wizards of the Coast — Secrets of Strixhaven Release Notes (magic.wizards.com/en/news/feature/secrets-of-strixhaven-release-notes)",
+      "Wizards of the Coast — annonce des decklists Secrets of Strixhaven Commander (magic.wizards.com/en/news/announcements/secrets-of-strixhaven-commander-decklists)",
+      "MTGRocks — 'Wizards Finally Reveals Prepared Alongside 5 New MTG Mechanics' (mtgrocks.com/secrets-of-strixhaven-mechanics-mtg)",
+      "Draftsim — article sur les decks Secrets of Strixhaven Commander (draftsim.com/mtg-sos-commander-decks)",
+      "MizouTCG — 'Secrets of Strixhaven: Breakdown of the 5 Commander Decks 2026' (mizoutcg.fr/en/secrets-of-strixhaven-commander-decks-2026)",
+      "Card Kingdom Blog — Secrets of Strixhaven Commander Set Review (blog.cardkingdom.com/secrets-of-strixhaven-commander-set-review)"
+    ],
+    "confidence": "medium"
+  },
+  "sld": {
+    "code": "sld",
+    "mechanicsIntroduced": [],
+    "context": "Le code Scryfall « sld » ne correspond pas à une édition thématique unique mais agrège l'intégralité de la gamme Secret Lair Drop, lancée par Wizards of the Coast en 2019 : des centaines de « drops » indépendants vendus en vente directe (hors boosters classiques), le plus souvent des réimpressions en illustrations ou finitions alternatives, des collaborations avec d'autres licences (jeux vidéo, films, autres univers), et occasionnellement quelques cartes totalement inédites. Il n'existe donc pas une seule « date de sortie » ni un seul thème pertinent pour ce set sur Scryfall : chaque drop a sa propre fenêtre de vente, souvent limitée dans le temps ou en quantité. Le but premier de la gamme est collector et esthétique, pas l'innovation mécanique : les rares cartes inédites qui y apparaissent sont presque toujours des réécritures fonctionnelles de cartes existantes ou des designs orientés fan-service, jamais des mots-clés destinés à structurer un nouvel environnement de jeu. Pour un deckbuilder Commander, Secret Lair reste néanmoins une source précieuse de versions alternatives premium de staples EDH et, ponctuellement, de réimpressions qui ont fait baisser le prix de cartes auparavant onéreuses.",
+    "sourceNotes": [
+      "Connaissance générale établie du fonctionnement de la gamme Secret Lair Drop (communication officielle Wizards of the Coast / secretlair.wizards.com, page MTG Wiki « Secret Lair », documentation du code de set Scryfall « sld »)",
+      "AVERTISSEMENT : aucune recherche web en direct n'a pu être effectuée pour cette entrée spécifique — le quota d'appels de recherche web/fetch de cette session a été épuisé pendant les recherches sur les deux autres produits. Le contenu ci-dessus repose sur la structure générale et stable du programme Secret Lair (inchangée depuis 2019), pas sur une vérification de drops précis publiés autour du 18/05/2026."
+    ],
+    "confidence": "medium"
+  },
+  "msc": {
+    "code": "msc",
+    "mechanicsIntroduced": [],
+    "context": "Marvel Super Heroes Commander est le produit autonome de quatre decks préconstruits accompagnant l'édition Universes Beyond Marvel Super Heroes (basée sur les comics classiques, pas le MCU), sorti le 26 juin 2026 : Avengers Assemble (Jeskai U/R/W), Wakanda Forever (Sélesnya G/W, autour de T'Challa/Black Panther), The Fantastic Four (quadricolore W/U/R/G, avec Mister Fantastic, Invisible Woman, Human Torch et The Thing comme co-commandants légendaires) et Doom Prevails (Grixis U/B/R, autour du Docteur Fatalis). Chaque deck mélange environ 30 cartes inédites et 70 réimpressions. D'après les sources disponibles, ce supplément Commander autonome n'introduit lui-même aucun nouveau mot-clé propre au jeu : les mécanismes associés au crossover Marvel semblent plutôt appartenir à l'édition de draft principale Marvel Super Heroes — mais cette attribution reste à confirmer, les sources secondaires consultées se contredisant partiellement sur ce point précis. Pour un deckbuilder, l'intérêt de ce produit tient surtout à ses nouvelles créatures légendaires jouables en commandant et à sa sélection de réimpressions, plutôt qu'à une innovation mécanique.",
+    "sourceNotes": [
+      "Wizards of the Coast — annonce des decklists Marvel Super Heroes Commander (magic.wizards.com/en/news/announcements/marvel-super-heroes-commander-decklists)",
+      "Playgroup.gg — 'Marvel Super Heroes Commander Decks (June 2026)' (playgroup.gg/sets/marvel-super-heroes)",
+      "MTG Wiki — page Marvel Super Heroes (mtg.wiki/page/Marvel_Super_Heroes)",
+      "Note : recherches complémentaires interrompues par l'épuisement du quota de recherche web/fetch de la session avant d'avoir pu lever l'ambiguïté sur l'attribution exacte des mécanismes (set principal vs. supplément Commander)."
+    ],
+    "confidence": "low"
+  }
+}

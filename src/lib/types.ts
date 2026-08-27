@@ -311,3 +311,37 @@ export interface GlossaryTerm {
   sourceNote: string;
   confidence: "high" | "medium" | "low";
 }
+
+/**
+ * Une mécanique/mot-clé effectivement INTRODUIT par ce set/produit précis
+ * — à distinguer de `SetMechanic` (src/lib/sets.ts), qui liste les
+ * mots-clés simplement PRÉSENTS dans les cartes du set, qu'il les ait
+ * introduits ou non. Contenu recherché (demande de Ben du 26/08/2026,
+ * voir README "Mécaniques introduites par set") : chaque entrée cite sa
+ * source dans `sourceNote`.
+ */
+export interface SetMechanicIntro {
+  termEn: string;
+  termFr: string;
+  definitionFr: string;
+  sourceNote: string;
+}
+
+/**
+ * Note de recherche pour un set/extension suivi (voir
+ * src/data/set-notes.json, ~58 entrées) : les mécaniques qu'il introduit
+ * réellement (liste vide = réponse honnête "aucune" — le cas de la
+ * plupart des produits Commander préconstruits, suppléments d'un set
+ * principal qui n'introduisent rien eux-mêmes), un paragraphe de
+ * contexte utile pour un choix de deckbuilding éclairé, les sources
+ * utilisées, et un niveau de confiance global de cette recherche
+ * (`"low"` = zone d'incertitude explicitement signalée par l'agent de
+ * recherche, ex. ambiguïté d'attribution non résolue).
+ */
+export interface SetNote {
+  code: string;
+  mechanicsIntroduced: SetMechanicIntro[];
+  context: string;
+  sourceNotes: string[];
+  confidence: "high" | "medium" | "low";
+}
