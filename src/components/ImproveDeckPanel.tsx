@@ -103,6 +103,7 @@ export function ImproveDeckPanel({
                     key={s.card.id}
                     suggestion={s}
                     onAddClick={() => onAddClick(s)}
+                    onAddClickPlain={() => onAddClick({ ...s, swapOut: null })}
                     addDisabled={addDisabled}
                     expanded={openSuggestionId === s.card.id}
                     onToggle={() => onToggleSuggestion(s.card.id)}

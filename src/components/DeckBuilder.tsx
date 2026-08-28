@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import type { CardSuggestion, DeckCategory, EnrichedCard } from "@/lib/types";
-import { analyzeDeck, type DeckAnalysisResult } from "@/lib/actions";
+import { analyzeDeck, resolveCardNames, type DeckAnalysisResult } from "@/lib/actions";
 import { getFormat } from "@/lib/formats";
 import { CATEGORY_LABELS, EMPTY_CATEGORY_COUNTS, classifyCard } from "@/lib/deck-score";
 import { CardTile } from "./CardTile";
@@ -10,6 +10,7 @@ import { SwapConfirmModal } from "./SwapConfirmModal";
 import { ImproveDeckPanel } from "./ImproveDeckPanel";
 import { DeckDashboard } from "./DeckDashboard";
 import { ArenaExportButton } from "./ArenaExportButton";
+import { RemovedCardsList } from "./RemovedCardsList";
 
 interface SavedSession {
   savedAt: string;
@@ -19,6 +20,14 @@ interface SavedSession {
   markedForRemoval?: string[];
   /** Carte ajoutée (clé minuscule) -> carte d'origine qu'elle a remplacée lors d'un swap confirmé. */
   swapHistory?: Record<string, string>;
+  /**
+   * Cartes retirées (dernier exemplaire) ou swappées pendant la session,
+   * pas encore remises dans le deck (28/08/2026, voir RemovedCardsList.tsx)
+   * — nom + nombre seulement, comme `cards` ci-dessus : les données Scryfall
+   * complètes sont re-résolues à la reprise (voir resumeSaved), pas stockées
+   * ici pour ne pas alourdir le localStorage.
+   */
+  removedCards?: { name: string; count: number }[];
 }
 
 function csvEscape(value: string): string {
@@ -59,7 +68,16 @@ function downloadCsv(filename: string, rows: string[][]) {
  * que de laisser un trou. Un ajout simple (sans swap) reste un simple
  * retrait, rien à restaurer.
  *
- * La session (liste de cartes + cartes ajoutées + cartes taguées) est
+ * Toute carte qui quitte complètement le deck (dernier exemplaire, via le
+ * bouton de retrait d'une carte ou via un swap confirmé) est aussi gardée
+ * dans `removedCards`, affichée sous la liste du deck par
+ * RemovedCardsList.tsx (28/08/2026, demande de Ben) : un pense-bête pour la
+ * remettre en un clic sans avoir à la rechercher à nouveau. Une carte
+ * automatiquement restaurée par l'annulation de swap ci-dessus en sort
+ * aussitôt (elle est de nouveau dans le deck, plus la peine de la lister).
+ *
+ * La session (liste de cartes + cartes ajoutées + cartes taguées + cartes
+ * retirées) est
  * sauvegardée dans le localStorage du navigateur sous `deckSlug` : pas de
  * compte ni de base de données (hors scope v1, voir README), donc la
  * sauvegarde est locale à cet appareil/navigateur et peut être vide en
@@ -92,6 +110,10 @@ export function DeckBuilder({
   // simples). Permet de restaurer automatiquement l'originale si on
   // retire ensuite la carte ajoutée.
   const [swapHistory, setSwapHistory] = useState<Record<string, string>>({});
+  // Cartes retirées (dernier exemplaire) ou swappées pendant la session,
+  // plus récente en premier — voir RemovedCardsList.tsx et le commentaire
+  // de `SavedSession.removedCards` ci-dessus (28/08/2026, demande de Ben).
+  const [removedCards, setRemovedCards] = useState<EnrichedCard[]>([]);
   const [pending, startTransition] = useTransition();
   const [transientError, setTransientError] = useState<string | null>(null);
   const [savedSession, setSavedSession] = useState<SavedSession | null>(null);
@@ -112,6 +134,7 @@ export function DeckBuilder({
   const hasChanges =
     addedNames.size > 0 ||
     markedForRemoval.size > 0 ||
+    removedCards.length > 0 ||
     result.cards.length !== initial.cards.length;
 
   // Au montage : propose de reprendre une session sauvegardée précédemment
@@ -149,12 +172,13 @@ export function DeckBuilder({
         addedNames: Array.from(addedNames),
         markedForRemoval: Array.from(markedForRemoval),
         swapHistory,
+        removedCards: removedCards.map((c) => ({ name: c.name, count: c.count })),
       };
       localStorage.setItem(storageKey, JSON.stringify(payload));
     } catch {
       // idem : pas de sauvegarde possible, on continue sans.
     }
-  }, [result, addedNames, markedForRemoval, swapHistory, hasChanges, storageKey]);
+  }, [result, addedNames, markedForRemoval, swapHistory, removedCards, hasChanges, storageKey]);
 
   function recompute(cardList: { name: string; count: number }[], newAdded: Set<string>) {
     setTransientError(null);
@@ -245,8 +269,21 @@ export function DeckBuilder({
           : newList.filter((c) => c.name.toLowerCase() !== removeKey);
     }
 
+    // Capturé avant mutation, depuis `result.cards` (état, données Scryfall
+    // complètes) plutôt que `newList`/`toRemove` (listes plates {name,count}
+    // envoyées à `analyzeDeck`) : c'est ce qui permet à RemovedCardsList
+    // d'afficher image/type/coût de mana sans requête supplémentaire.
+    const removedOriginal = result.cards.find((c) => c.name.toLowerCase() === removeKey);
+    const willFullyRemoveOriginal = (removedOriginal?.count ?? 0) <= 1;
+
     recompute(newList, new Set(addedNames).add(addKey));
     setSwapHistory((prev) => ({ ...prev, [addKey]: originalName }));
+    if (willFullyRemoveOriginal && removedOriginal) {
+      setRemovedCards((prev) => [
+        { ...removedOriginal, count: 1 },
+        ...prev.filter((e) => e.name.toLowerCase() !== removeKey),
+      ]);
+    }
     setSwapPrompt(null);
   }
 
@@ -287,13 +324,63 @@ export function DeckBuilder({
     }
 
     recompute(newList, newAdded);
+
+    setRemovedCards((prev) => {
+      let next = prev;
+      // Retrait complet du dernier exemplaire : ajoute une entrée (en tête,
+      // la plus récente) — voir RemovedCardsList.tsx. Un décrément partiel
+      // (il en reste encore en jeu) ne quitte pas vraiment le deck, rien à
+      // consigner.
+      if (willFullyRemove) {
+        next = [entry, ...next.filter((e) => e.name.toLowerCase() !== key)];
+      }
+      // La carte d'origine remplacée par un swap vient d'être remise
+      // automatiquement dans le deck (annulation de swap, voir le
+      // commentaire en tête de fichier) : si elle traînait dans cette
+      // liste suite à un retrait antérieur, elle n'a plus sa place.
+      if (restoreName) {
+        const restoreKey = restoreName.toLowerCase();
+        next = next.filter((e) => e.name.toLowerCase() !== restoreKey);
+      }
+      return next;
+    });
   }
 
-  function resumeSaved() {
+  /** Remet `name` dans le deck (1 exemplaire) et la retire de la liste "retirées" (RemovedCardsList). */
+  function restoreRemovedCard(name: string) {
+    addCardByName(name);
+    setRemovedCards((prev) => prev.filter((e) => e.name.toLowerCase() !== name.toLowerCase()));
+  }
+
+  /** Vide la liste "retirées" sans rien remettre dans le deck — juste un pense-bête, pas un historique à garder de force. */
+  function clearRemovedHistory() {
+    setRemovedCards([]);
+  }
+
+  async function resumeSaved() {
     if (!savedSession) return;
     recompute(savedSession.cards, new Set(savedSession.addedNames));
     setMarkedForRemoval(new Set(savedSession.markedForRemoval ?? []));
     setSwapHistory(savedSession.swapHistory ?? {});
+    // La liste "retirées" n'est sauvegardée qu'en nom + nombre (voir
+    // SavedSession.removedCards) : il faut re-résoudre les données Scryfall
+    // complètes (image/type/coût de mana) pour l'afficher correctement,
+    // via une Server Action dédiée plutôt que le recalcul complet
+    // d'`analyzeDeck` (inutile ici, pas de score à recalculer).
+    const savedRemoved = savedSession.removedCards ?? [];
+    if (savedRemoved.length > 0) {
+      const resolved = await resolveCardNames(savedRemoved.map((c) => c.name));
+      setRemovedCards(
+        savedRemoved.map((c) => ({
+          name: c.name,
+          count: c.count,
+          isCommander: false,
+          card: resolved[c.name] ?? null,
+        }))
+      );
+    } else {
+      setRemovedCards([]);
+    }
     setSavedSession(null);
   }
 
@@ -311,6 +398,7 @@ export function DeckBuilder({
     setAddedNames(new Set());
     setMarkedForRemoval(new Set());
     setSwapHistory({});
+    setRemovedCards([]);
     setTransientError(null);
     try {
       localStorage.removeItem(storageKey);
@@ -503,6 +591,13 @@ export function DeckBuilder({
               />
             ))}
           </div>
+
+          <RemovedCardsList
+            entries={removedCards}
+            onRestore={restoreRemovedCard}
+            onClearAll={clearRemovedHistory}
+            restoreDisabled={pending}
+          />
         </div>
 
         <aside className="order-1 space-y-6 lg:order-2 lg:sticky lg:top-6 lg:self-start">

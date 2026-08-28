@@ -591,6 +591,58 @@ via un commentaire). Comme pour le correctif précédent, cette mise à
 jour reste **non vérifiée contre une vraie réponse Scryfall** — la
 vérification en conditions réelles se fera sur le site déployé.
 
+### Recherche de carte sensible à la langue, ajout sans swap, cartes retirées (28/08/2026)
+
+Trois demandes de Ben sur la même mise à jour :
+
+**Recherche de carte selon la langue sélectionnée.** La recherche manuelle
+("Tester une carte", AddCardSearch.tsx) matche désormais le nom dans la
+langue actuellement choisie via le sélecteur FR/EN en haut du site (déjà
+utilisé jusque-là uniquement pour la traduction du texte des cartes, voir
+LanguageProvider.tsx) — taper un nom français en mode FR retrouve la carte
+via son impression française, pas seulement son nom anglais canonique. Un
+message rappelle explicitement la langue de recherche active directement
+dans le panneau, avec un raccourci pour en changer sans remonter à l'en-tête
+(`autocompleteCardNamesForLang`/`getCardByLocalizedName` dans scryfall.ts).
+Repli automatique sur la recherche anglaise si rien ne correspond en
+français (carte non traduite, ou nom anglais tapé malgré le mode FR).
+
+⚠️ Comme pour les correctifs Scryfall précédents, aucun accès réseau réel
+n'était disponible pour vérifier ceci en direct — vérifié via données
+simulées (tests de logique + Playwright sur un serveur de production avec
+Scryfall mocké). Un bug a été repéré et corrigé pendant cette implémentation
+(pas en vérifiant un signalement de Ben, qui s'est avéré être une carte mal
+orthographiée de son côté) : la requête `name:` n'était pas guillemetée,
+donc un nom français à plusieurs mots (ex. "machinations de la sorcière")
+aurait été scindé par le parseur de requête Scryfall en plusieurs termes
+de recherche distincts au lieu d'une seule recherche de sous-chaîne —
+corrigé en guillemetant systématiquement la valeur (`name:"..."`).
+
+**Bouton "+ Ajouter" séparé du swap.** Jusqu'ici, quand une suggestion (ou
+un résultat de "Tester une carte") avait une candidate au retrait, le seul
+bouton disponible ("⇄ Swap") ouvrait une popup de confirmation qui, au
+mieux, proposait d'ajouter sans retirer mais en marquant quand même l'autre
+carte "à retirer". Aucune option ne permettait un ajout complètement
+indépendant. Un second bouton "+ Ajouter" apparaît maintenant à côté du
+swap (SuggestionCard.tsx et AddCardSearch.tsx) : il ajoute la carte
+directement, sans ouvrir la popup ni toucher à aucune autre carte du deck.
+
+**Liste des cartes retirées pendant la session.** Une nouvelle section
+"Retirées pendant cette session", affichée sous la liste du deck
+(RemovedCardsList.tsx), garde une trace des cartes qui ont complètement
+quitté le deck (dernier exemplaire, via le bouton de retrait ou via un swap
+confirmé) — masquée tant qu'aucune carte n'est concernée. Chaque entrée
+propose un bouton "Remettre dans le deck" qui la restaure en un clic, sans
+avoir à la rechercher à nouveau. Ne suit que les retraits complets : un
+décrément partiel (il reste des exemplaires en jeu) n'est pas listé, la
+carte n'ayant pas vraiment quitté le deck. Une carte remise automatiquement
+suite à l'annulation d'un swap (mécanisme déjà existant, voir plus haut) est
+retirée de cette liste plutôt que d'y traîner en double. Persistée dans la
+sauvegarde locale du navigateur comme le reste de la session (nom + nombre
+seulement — les données Scryfall complètes sont re-résolues à la reprise
+via une nouvelle Server Action dédiée, `resolveCardNames`, plutôt que
+stockées telles quelles).
+
 ## Stack
 
 Next.js 16 (App Router, TypeScript, Turbopack) + Tailwind CSS v4. Pas de

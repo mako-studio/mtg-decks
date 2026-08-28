@@ -10,12 +10,19 @@ const LanguageContext = createContext<{ lang: Lang; setLang: (l: Lang) => void }
 });
 
 /**
- * Bascule FR/EN pour le texte des cartes (oracle text + type). Ne change
- * jamais les données utilisées par le moteur de score/suggestions ni les
- * noms de cartes (qui restent la clé canonique anglaise partout ailleurs
- * dans l'app — CSV, export Arena, ajout/retrait) : c'est purement
- * l'affichage dans les panneaux dépliés de CardTile/SuggestionCard qui
- * change, via une traduction récupérée à la demande (voir fetchLocalizedText).
+ * Bascule FR/EN pour le texte des cartes (oracle text + type), affiché dans
+ * les panneaux dépliés de CardTile/SuggestionCard via une traduction
+ * récupérée à la demande (voir fetchLocalizedText). Ne change jamais les
+ * données utilisées par le moteur de score/suggestions ni les noms de
+ * cartes stockés dans le deck (qui restent la clé canonique anglaise
+ * partout ailleurs dans l'app — CSV, export Arena, ajout/retrait).
+ *
+ * Depuis le 28/08/2026 (demande de Ben), cette même langue pilote aussi la
+ * recherche manuelle de carte ("Tester une carte", voir AddCardSearch.tsx) :
+ * en mode FR, taper un nom français retrouve la carte via son impression
+ * française plutôt que via son nom anglais canonique. Un message dans
+ * AddCardSearch rappelle explicitement cette dépendance à l'utilisateur,
+ * avec un raccourci pour changer de langue sans remonter jusqu'ici.
  */
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [lang, setLang] = useState<Lang>("fr");

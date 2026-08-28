@@ -166,6 +166,93 @@ export async function autocompleteCardNames(query: string): Promise<string[]> {
 }
 
 /**
+ * Autocomplétion sensible à la langue sélectionnée par l'utilisateur (voir
+ * LanguageProvider.tsx) — ajout du 28/08/2026, demande de Ben : la
+ * recherche de carte (AddCardSearch) doit matcher le nom français quand le
+ * site est en français, pas uniquement le nom anglais.
+ *
+ * `/cards/autocomplete` (autocompleteCardNames ci-dessus) ne couvre que les
+ * noms canoniques anglais — la documentation Scryfall décrit cet endpoint
+ * comme renvoyant "up to 20 full English card names"
+ * (https://scryfall.com/docs/api/cards/autocomplete). Je n'ai pas pu
+ * revérifier cette page en direct (accès à `api.scryfall.com` bloqué depuis
+ * mon environnement de dev, voir la note en haut de ce fichier) : c'est ma
+ * meilleure compréhension de la doc telle que je la connais, pas une
+ * vérification en direct. Taper un nom français dans cet endpoint ne
+ * renverrait donc rien d'utile.
+ *
+ * Pour lang="fr", on interroge donc plutôt `/cards/search` avec `lang:fr`
+ * combiné à `name:`, qui filtre sur les impressions françaises et matche le
+ * nom imprimé. D'après la syntaxe de recherche Scryfall
+ * (https://scryfall.com/docs/syntax), matcher un nom étranger nécessite de
+ * préciser `lang:` — sans lui, la recherche de nom porte sur le nom anglais
+ * canonique. Là encore, non re-vérifié en direct pour la même raison ;
+ * heuristique documentée plutôt que certitude absolue. `unique="cards"`
+ * pour dédupliquer par carte (une même carte a souvent plusieurs
+ * impressions françaises).
+ *
+ * ⚠️ `name:` est entouré de guillemets (`name:"${q}"`) plutôt que laissé
+ * brut : un nom français tapé en plusieurs mots (ex. "machinations de la
+ * sorcière") sans guillemets serait scindé par le parseur de requête
+ * Scryfall en plusieurs termes de recherche distincts (`name:machinations`
+ * PUIS des mots isolés `de`, `la`, `sorcière`), au lieu d'une seule
+ * recherche de sous-chaîne sur "machinations de la sorcière" — bug repéré
+ * en investiguant un signalement de Ben du 28/08/2026 (finalement une carte
+ * mal orthographiée de son côté, pas ce bug précis, mais le problème de
+ * fond restait réel pour toute recherche FR à plusieurs mots).
+ */
+export async function autocompleteCardNamesForLang(query: string, lang: "fr" | "en"): Promise<string[]> {
+  const q = query.trim();
+  if (!q) return [];
+  if (lang === "en") return autocompleteCardNames(q);
+
+  const results = await searchCards(`name:"${q}" lang:fr`, 1, "edhrec", "cards");
+  const seen = new Set<string>();
+  const names: string[] = [];
+  for (const card of results) {
+    const name = getDisplayLocalizedName(card);
+    if (name && !seen.has(name)) {
+      seen.add(name);
+      names.push(name);
+    }
+  }
+  return names.slice(0, 20);
+}
+
+/**
+ * Résout une carte à partir d'un nom imprimé dans une langue donnée —
+ * complète `autocompleteCardNamesForLang` ci-dessus pour la seconde étape
+ * (une fois un nom choisi/tapé) du flow "Tester une carte" (voir
+ * evaluateCardForDeck dans actions.ts).
+ *
+ * `/cards/named` (getCardByName ci-dessus, y compris son mode `fuzzy`) ne
+ * prend pas de paramètre `lang` et ne matche, à ma connaissance, que le nom
+ * canonique anglais — non plus vérifié en direct, même limite que
+ * ci-dessus. On tente donc d'abord une correspondance exacte du nom
+ * imprimé (`!"..."`, comme getLocalizedPrint plus bas dans ce fichier) —
+ * le cas normal quand le nom vient de l'autocomplétion FR — puis, si rien
+ * ne remonte (faute de frappe, nom tapé sans passer par l'autocomplétion),
+ * une recherche partielle sur le nom (`name:`), en gardant le résultat le
+ * plus pertinent (tri edhrec, comme le reste du site).
+ *
+ * Retourne `null` si aucune impression dans cette langue ne correspond —
+ * l'appelant retombe alors sur la recherche anglaise standard, un cas
+ * normal (beaucoup de cartes n'ont pas d'impression française, ou
+ * l'utilisateur a tapé un nom anglais malgré le mode FR).
+ */
+export async function getCardByLocalizedName(name: string, lang: string): Promise<ScryfallCard | null> {
+  const q = name.trim();
+  if (!q) return null;
+  const exact = await searchCards(`!"${q}" lang:${lang}`, 1);
+  if (exact[0]) return exact[0];
+  // `name:"${q}"` guillemeté pour la même raison que dans
+  // autocompleteCardNamesForLang ci-dessus (un nom à plusieurs mots non
+  // guillemeté est scindé en plusieurs termes de recherche distincts).
+  const partial = await searchCards(`name:"${q}" lang:${lang}`, 1);
+  return partial[0] ?? null;
+}
+
+/**
  * Recherche de cartes via la syntax query Scryfall (https://scryfall.com/docs/syntax).
  * `order` accepte n'importe quelle valeur documentée par
  * https://scryfall.com/docs/api/cards/search (vérifié le 26/08/2026 :

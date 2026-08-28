@@ -13,6 +13,7 @@ import { CardImageHover } from "./CardImageHover";
 export function SuggestionCard({
   suggestion,
   onAddClick,
+  onAddClickPlain,
   addDisabled = false,
   expanded,
   onToggle,
@@ -23,6 +24,14 @@ export function SuggestionCard({
    * directement ou ouvre une confirmation de swap (selon `suggestion.swapOut`).
    */
   onAddClick?: () => void;
+  /**
+   * Clic sur le bouton "+ Ajouter" additionnel affiché à côté de "⇄ Swap"
+   * (28/08/2026, demande de Ben) : ajoute la carte sans passer par la popup
+   * de swap ni marquer aucune autre carte "à retirer". N'est rendu que si
+   * `suggestion.swapOut` est présent — sans candidate au retrait, le
+   * bouton "onAddClick" fait déjà un ajout simple.
+   */
+  onAddClickPlain?: () => void;
   addDisabled?: boolean;
   /** Contrôlé par le parent pour un comportement accordéon (un seul déplié à la fois). */
   expanded: boolean;
@@ -110,15 +119,36 @@ export function SuggestionCard({
           </div>
         </button>
         {onAddClick && (
-          <button
-            type="button"
-            onClick={onAddClick}
-            disabled={addDisabled}
-            title={suggestion.swapOut ? `Swap : + ${card.name} / − ${suggestion.swapOut.name}` : undefined}
-            className="shrink-0 rounded-md bg-accent px-2.5 py-1.5 text-xs font-medium text-accent-foreground transition-colors hover:opacity-90 disabled:opacity-50"
-          >
-            {suggestion.swapOut ? "⇄ Swap" : "+ Ajouter"}
-          </button>
+          <div className="flex shrink-0 flex-col gap-1.5">
+            <button
+              type="button"
+              onClick={onAddClick}
+              disabled={addDisabled}
+              title={suggestion.swapOut ? `Swap : + ${card.name} / − ${suggestion.swapOut.name}` : undefined}
+              className="rounded-md bg-accent px-2.5 py-1.5 text-xs font-medium text-accent-foreground transition-colors hover:opacity-90 disabled:opacity-50"
+            >
+              {suggestion.swapOut ? "⇄ Swap" : "+ Ajouter"}
+            </button>
+            {/*
+              Bouton "+ Ajouter" séparé (28/08/2026, demande de Ben) : voir
+              le commentaire équivalent dans AddCardSearch.tsx — permet
+              d'ajouter la carte sans passer par la popup de swap ni marquer
+              une autre carte "à retirer", en renvoyant `onAddClickPlain`
+              (fourni par le parent, DeckBuilder.tsx) qui appelle directement
+              l'ajout simple sans jamais consulter `swapOut`.
+            */}
+            {suggestion.swapOut && onAddClickPlain && (
+              <button
+                type="button"
+                onClick={onAddClickPlain}
+                disabled={addDisabled}
+                title={`Ajouter ${card.name} sans retirer ni marquer aucune autre carte`}
+                className="rounded-md border border-border px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-surface-muted disabled:opacity-50"
+              >
+                + Ajouter
+              </button>
+            )}
+          </div>
         )}
       </div>
       {expanded && (

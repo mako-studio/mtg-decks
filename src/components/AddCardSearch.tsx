@@ -7,6 +7,7 @@ import { getDisplayImageUrl, getDisplayManaCost, getDisplayOracleText } from "@/
 import { CATEGORY_LABELS } from "@/lib/deck-score";
 import { ManaCost } from "./ManaCost";
 import { CardImageHover } from "./CardImageHover";
+import { useLanguage } from "./LanguageProvider";
 
 const VERDICT_STYLES = {
   improve: {
@@ -39,6 +40,17 @@ const VERDICT_STYLES = {
  * simplement par un badge si la carte n'est pas légale dans le format, ou
  * hors identité de couleur du commandant — sans le lui interdire (c'est son
  * deck).
+ *
+ * Recherche sensible à la langue (28/08/2026, demande de Ben) : la
+ * recherche (autocomplétion + résolution de la carte choisie) matche le
+ * nom dans la langue actuellement sélectionnée par le sélecteur en haut du
+ * site (voir LanguageProvider.tsx) — français ou anglais. Comme ce n'est
+ * pas forcément évident depuis ce panneau (le sélecteur est dans l'en-tête,
+ * potentiellement hors du champ de vision), un message rappelle
+ * explicitement la langue active et permet de basculer sans y remonter —
+ * voir autocompleteCardNamesForLang/getCardByLocalizedName dans
+ * scryfall.ts pour le détail (et les limites documentées) de la recherche
+ * en français.
  */
 export function AddCardSearch({
   formatKey,
@@ -80,6 +92,7 @@ export function AddCardSearch({
   // catégorie avec elle — voir evaluateCardCompatibility dans recommend.ts.
   const [recentSwapOuts, setRecentSwapOuts] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { lang, setLang } = useLanguage();
 
   // Autocomplétion débattue pendant la saisie. Le cas "requête trop courte"
   // est traité directement dans handleInputChange (réaction synchrone à la
@@ -89,7 +102,7 @@ export function AddCardSearch({
     if (q.length < 2) return;
     let cancelled = false;
     const timer = setTimeout(() => {
-      autocompleteCardName(q).then((names) => {
+      autocompleteCardName(q, lang).then((names) => {
         if (!cancelled) setAutocomplete(names);
       });
     }, 250);
@@ -97,14 +110,14 @@ export function AddCardSearch({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [query]);
+  }, [query, lang]);
 
   async function selectCard(name: string) {
     setQuery(name);
     setAutocomplete([]);
     setNotFound(false);
     setLoadingPreview(true);
-    const res = await evaluateCardForDeck(name, formatKey, currentCards, recentSwapOuts, commanderEntries);
+    const res = await evaluateCardForDeck(name, formatKey, currentCards, recentSwapOuts, commanderEntries, lang);
     setLoadingPreview(false);
     if (!res) {
       setPreview(null);
@@ -164,14 +177,35 @@ export function AddCardSearch({
         remplacer, avant de valider l&apos;ajout ou le swap.
       </p>
 
-      <div className="relative mt-3">
+      {/*
+        Rappel de la langue de recherche active + raccourci pour en changer
+        (28/08/2026, demande de Ben) : la recherche matche le nom dans la
+        langue sélectionnée en haut du site, ce qui n'est pas forcément
+        évident depuis ce panneau — le sélecteur est dans l'en-tête, hors du
+        champ de vision une fois qu'on a scrollé jusqu'ici.
+      */}
+      <p className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-muted">
+        <span>
+          Recherche en {lang === "fr" ? "français" : "anglais"} — tape le nom{" "}
+          {lang === "fr" ? "français" : "anglais"} de la carte.
+        </span>
+        <button
+          type="button"
+          onClick={() => setLang(lang === "fr" ? "en" : "fr")}
+          className="font-medium text-accent hover:underline"
+        >
+          Chercher en {lang === "fr" ? "anglais" : "français"} à la place
+        </button>
+      </p>
+
+      <div className="relative mt-2">
         <input
           ref={inputRef}
           type="text"
           value={query}
           onChange={(e) => handleInputChange(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Nom d'une carte…"
+          placeholder={lang === "fr" ? "Nom français de la carte…" : "Card name (English)…"}
           className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-accent"
         />
         {autocomplete.length > 0 && (
@@ -195,7 +229,16 @@ export function AddCardSearch({
 
       {notFound && !loadingPreview && (
         <p className="mt-3 text-xs text-muted">
-          Aucune carte trouvée pour « {query} ». Vérifie l&apos;orthographe.
+          Aucune carte trouvée pour « {query} » en {lang === "fr" ? "français" : "anglais"}. Vérifie
+          l&apos;orthographe, ou{" "}
+          <button
+            type="button"
+            onClick={() => setLang(lang === "fr" ? "en" : "fr")}
+            className="font-medium text-accent hover:underline"
+          >
+            essaie en {lang === "fr" ? "anglais" : "français"}
+          </button>
+          {lang === "fr" && " — certaines cartes n'ont pas d'impression française."}
         </p>
       )}
 
@@ -277,20 +320,46 @@ export function AddCardSearch({
               </p>
             )}
 
-            <button
-              type="button"
-              onClick={() => onAddClick(suggestion)}
-              disabled={addDisabled || atMaxCopies}
-              title={
-                suggestion.swapOut
-                  ? `Swap : + ${suggestion.card.name} / − ${suggestion.swapOut.name}`
-                  : undefined
-              }
-              className="mt-2 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground transition-colors hover:opacity-90 disabled:opacity-50"
-            >
-              {suggestion.swapOut ? "⇄ Swap" : "+ Ajouter"}
-              {currentCount > 0 ? ` (${currentCount}× déjà dans le deck)` : ""}
-            </button>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => onAddClick(suggestion)}
+                disabled={addDisabled || atMaxCopies}
+                title={
+                  suggestion.swapOut
+                    ? `Swap : + ${suggestion.card.name} / − ${suggestion.swapOut.name}`
+                    : undefined
+                }
+                className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground transition-colors hover:opacity-90 disabled:opacity-50"
+              >
+                {suggestion.swapOut ? "⇄ Swap" : "+ Ajouter"}
+                {currentCount > 0 ? ` (${currentCount}× déjà dans le deck)` : ""}
+              </button>
+              {/*
+                Bouton "+ Ajouter" séparé (28/08/2026, demande de Ben) :
+                quand une candidate au retrait existe, le bouton principal
+                ci-dessus ouvre la popup de swap (SwapConfirmModal), qui
+                elle-même propose soit un swap immédiat soit un ajout +
+                marquage "à retirer" — mais aucune de ces deux issues ne
+                permet un simple ajout, sans toucher à aucune autre carte.
+                Ce bouton court-circuite la popup en renvoyant une copie de
+                la suggestion sans `swapOut` : `handleAddClick` (DeckBuilder)
+                ne branche sur la popup que si `swapOut` est présent, donc
+                ceci déclenche directement un ajout simple, comme pour une
+                suggestion sans candidate au retrait.
+              */}
+              {suggestion.swapOut && (
+                <button
+                  type="button"
+                  onClick={() => onAddClick({ ...suggestion, swapOut: null })}
+                  disabled={addDisabled || atMaxCopies}
+                  title={`Ajouter ${suggestion.card.name} sans retirer ni marquer aucune autre carte`}
+                  className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-surface-muted disabled:opacity-50"
+                >
+                  + Ajouter
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}

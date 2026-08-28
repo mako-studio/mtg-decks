@@ -51,7 +51,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                   aria-hidden="true"
                 />
                 <span className="flex items-center gap-2">
-                  <span className="hidden text-xs text-muted sm:inline">Texte des cartes :</span>
+                  <span className="hidden text-xs text-muted sm:inline">Langue des cartes :</span>
                   <LanguageToggle />
                 </span>
               </nav>
