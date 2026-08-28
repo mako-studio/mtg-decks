@@ -174,14 +174,26 @@ export async function autocompleteCardNames(query: string): Promise<string[]> {
  * (pertinence pour les suggestions), "set" pour un tri par numéro de
  * collection au sein d'un set (checklist, voir getSetCards ci-dessous).
  * 175 résultats par page (maximum documenté par Scryfall).
+ *
+ * `unique` correspond au paramètre `unique` de Scryfall (même doc que
+ * ci-dessus, section "unique") : `"cards"` (comportement par défaut de
+ * Scryfall si on omet le paramètre — une entrée par carte unique,
+ * dédupliquée par nom/fonctionnalité), `"art"` (une entrée par
+ * illustration unique) ou `"prints"` (aucune déduplication — toutes les
+ * impressions correspondantes). Laissé `undefined` par défaut ici pour
+ * ne rien changer au comportement existant des appelants qui n'en ont
+ * pas besoin (recherche de suggestions, autocomplétion...) ; voir
+ * getSetCards ci-dessous pour le cas où `"prints"` est nécessaire.
  */
 export async function searchCards(
   query: string,
   maxPages = 1,
-  order: string = "edhrec"
+  order: string = "edhrec",
+  unique?: "cards" | "art" | "prints"
 ): Promise<ScryfallCard[]> {
   const results: ScryfallCard[] = [];
-  let url: string | null = `/cards/search?q=${encodeURIComponent(query)}&order=${order}`;
+  const uniqueParam = unique ? `&unique=${unique}` : "";
+  let url: string | null = `/cards/search?q=${encodeURIComponent(query)}&order=${order}${uniqueParam}`;
   let pages = 0;
 
   while (url && pages < maxPages) {
@@ -198,12 +210,19 @@ export async function searchCards(
 
 /**
  * Nombre maximum de pages Scryfall (175 cartes/page) récupérées pour la
- * checklist complète d'un set — 25 pages = jusqu'à 4375 cartes, largement
- * suffisant pour n'importe quel set/produit Commander de la liste
- * TRACKED_SETS (le plus gros tourne autour de 400-450 cartes), à
- * l'exception de "sld" (Secret Lair Drop, qui agrège des milliers de
- * cartes disparates sous un seul code) où la liste peut être tronquée —
- * voir loadSetChecklist dans sets.ts, qui expose ce cas via `truncated`.
+ * checklist complète d'un set — 25 pages = jusqu'à 4375 cartes. Depuis le
+ * correctif du 28/08/2026 (`unique=prints`, voir getSetCards ci-dessous),
+ * le nombre de cartes récupérées par set correspond au nombre
+ * d'impressions distinctes (et non plus au nombre de noms uniques) : un
+ * set avec beaucoup de variantes (art alternatif, showcase...) compte
+ * donc plus de cartes qu'avant ce correctif. Je n'ai pas de chiffre
+ * vérifié en direct pour "le plus gros set suivi" (accès à l'API non
+ * testable depuis mon environnement, voir note en haut du fichier et
+ * README), mais la marge jusqu'à 4375 reste large pour tout set/produit
+ * Commander classique de TRACKED_SETS, à l'exception de "sld" (Secret
+ * Lair Drop, qui agrège des milliers de cartes disparates sous un seul
+ * code) où la liste peut être tronquée — voir loadSetChecklist dans
+ * sets.ts, qui expose ce cas via `truncated`.
  */
 const SET_CHECKLIST_MAX_PAGES = 25;
 
@@ -218,13 +237,42 @@ export async function getSetInfo(code: string): Promise<ScryfallSet | null> {
 }
 
 /**
- * Checklist complète (anglaise) d'un set : toutes les cartes uniques
- * imprimées dans ce set, triées par numéro de collection
- * (`order=set`, mode `unique=cards` par défaut de Scryfall — une entrée
- * par carte unique, pas par variante d'illustration/finition).
+ * Checklist complète (anglaise) d'un set : TOUTES les impressions de ce
+ * set (`unique=prints`), triées par numéro de collection (`order=set`).
+ *
+ * ⚠️ Correctif du 28/08/2026 (bug remonté par Ben : un set de 132 cartes
+ * n'en affichait que 117, "checklist potentiellement incomplète"). Sans
+ * `unique=prints`, `searchCards` utilise le comportement par défaut de
+ * Scryfall (`unique=cards`, voir sa doc ci-dessus) : une seule entrée
+ * par nom de carte, même si le set contient plusieurs impressions
+ * distinctes du même nom (art alternatif, showcase, borderless...),
+ * chacune avec son propre numéro de collection et sa propre image. Le
+ * champ `card_count` du set (utilisé pour détecter une checklist
+ * tronquée, voir `truncated` dans loadSetChecklist/sets.ts) compte lui
+ * TOUTES les impressions, pas les noms uniques — d'où l'écart observé
+ * (132 imprimées vs 117 noms uniques). `unique=prints` aligne le
+ * comptage sur `card_count` : c'est aussi le comportement attendu d'une
+ * "checklist" (une entrée par carte physiquement imprimable dans le
+ * set, pas par nom).
+ *
+ * Root cause confirmée via la documentation officielle Scryfall
+ * (https://scryfall.com/docs/api/cards/search, section "unique",
+ * consultée le 28/08/2026 — cite verbatim les 3 valeurs possibles et le
+ * défaut "cards"). Non vérifiée en direct contre une réponse Scryfall
+ * réelle pour un set précis : mon environnement de dev bloque l'accès à
+ * `api.scryfall.com` (voir note en haut du fichier), et j'ai aussi
+ * essayé — à la demande de Ben — de passer par son navigateur Chrome
+ * connecté au pont vers son ordinateur pour faire la requête depuis un
+ * contexte réseau normal, mais les outils d'exécution/lecture de page
+ * de ce pont ont échoué ("Google Chrome is not running", alors que la
+ * gestion des onglets fonctionnait) — détails dans le README. Le
+ * correctif est donc vérifié via un test avec des données Scryfall
+ * simulées (plusieurs impressions du même nom dans un même set) plutôt
+ * qu'un appel réel ; à confirmer une fois déployé, où l'hébergement a un
+ * accès réseau normal.
  */
 export async function getSetCards(code: string): Promise<ScryfallCard[]> {
-  return searchCards(`set:${code}`, SET_CHECKLIST_MAX_PAGES, "set");
+  return searchCards(`set:${code}`, SET_CHECKLIST_MAX_PAGES, "set", "prints");
 }
 
 /**
@@ -240,9 +288,16 @@ export async function getSetCards(code: string): Promise<ScryfallCard[]> {
  * (set non traduit, ou impression bonus anglaise uniquement) sont
  * simplement absentes de la Map — à traiter comme "pas de traduction
  * disponible", pas comme une erreur (voir getLocalizedPrint).
+ *
+ * `unique=prints` ici aussi (même correctif du 28/08/2026 que
+ * getSetCards ci-dessus, voir son commentaire pour le détail) : sans ça,
+ * une impression FR pouvait être écartée par la déduplication par nom de
+ * Scryfall alors que sa `card` anglaise correspondante (même numéro de
+ * collection) était bien conservée côté `getSetCards`, laissant ce nom
+ * sans traduction dans l'UI alors qu'une existe réellement.
  */
 export async function getSetCardsFrNames(code: string): Promise<Map<string, string>> {
-  const frCards = await searchCards(`set:${code} lang:fr`, SET_CHECKLIST_MAX_PAGES, "set");
+  const frCards = await searchCards(`set:${code} lang:fr`, SET_CHECKLIST_MAX_PAGES, "set", "prints");
   const map = new Map<string, string>();
   for (const card of frCards) {
     const name = pickLocalized(card, "printed_name");

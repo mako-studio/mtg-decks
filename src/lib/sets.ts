@@ -69,6 +69,15 @@ export interface SetChecklist {
  * réponse "introduit par ce set, sourcée" demandée par Ben le
  * 26/08/2026, voir `SetNote`/`getSetNote` (set-notes.ts), affiché en
  * premier sur la page d'une extension.
+ *
+ * ⚠️ Depuis le correctif du 28/08/2026 sur getSetCards (unique=prints,
+ * voir scryfall.ts), `cards` contient une entrée par impression et non
+ * plus par nom unique : `cardCount` ci-dessous compte donc les
+ * impressions portant ce mot-clé, pas les cartes de noms distincts. Une
+ * carte avec plusieurs variantes dans le même set (art alternatif,
+ * showcase...) est donc comptée plusieurs fois — effet de bord mineur et
+ * honnête plutôt qu'un chiffre inventé, cohérent avec le fait que la
+ * checklist elle-même affiche désormais chaque impression séparément.
  */
 function computeMechanics(cards: ScryfallCard[]): SetMechanic[] {
   const counts = new Map<string, number>();

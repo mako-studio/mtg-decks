@@ -419,6 +419,75 @@ de sources, pas un audit exhaustif carte par carte. Chaque `sourceNote`
 mise à jour reste volontairement précise sur ce qui a été vérifié pour
 que ce soit vérifiable à nouveau plus tard.
 
+### Checklists de set incomplètes : correctif `unique=prints` (28/08/2026)
+
+Ben a remonté un exemple concret : un set de 132 cartes n'en affichait
+que 117, avec le message "checklist potentiellement incomplète" —
+jusque-là ce message n'était documenté que pour "sld" (Secret Lair
+Drop, plusieurs milliers de cartes), pas pour un set ordinaire.
+
+**Cause identifiée** : `getSetCards`/`getSetCardsFrNames`
+(`scryfall.ts`) appelaient la recherche Scryfall sans préciser le
+paramètre `unique`, qui vaut alors `"cards"` par défaut côté Scryfall —
+une seule entrée par *nom* de carte, même si le set contient plusieurs
+*impressions* distinctes de ce nom (art alternatif, showcase,
+borderless...), chacune avec son propre numéro de collection. Or le
+champ `card_count` du set (utilisé pour détecter une checklist
+tronquée) compte lui toutes les impressions, pas les noms uniques —
+d'où l'écart (132 imprimées, 117 noms uniques récupérés). Confirmé
+verbatim par la documentation officielle Scryfall
+(`https://scryfall.com/docs/api/cards/search`, section "unique").
+
+**Correctif** : `searchCards` accepte désormais un paramètre `unique`
+optionnel ; `getSetCards`/`getSetCardsFrNames` passent `"prints"`
+(toutes les impressions), ce qui aligne le nombre de cartes récupérées
+sur `card_count` et correspond à ce qu'on attend d'une "checklist" (une
+entrée par carte physiquement imprimable, pas par nom). Les autres
+appelants de `searchCards` (suggestions, autocomplétion) ne sont pas
+touchés — ils gardent le comportement par défaut de Scryfall. Effet de
+bord mineur et documenté dans le code : le comptage des mots-clés par
+set (`computeMechanics`/`SetMechanic.cardCount` dans `sets.ts`) compte
+maintenant les impressions, pas les noms uniques, pour un set avec des
+variantes.
+
+**Sur la vérification en direct** — Ben a explicitement demandé de
+trouver un moyen de se connecter réellement à l'API Scryfall plutôt que
+de rester bloqué. Tentatives, dans l'ordre :
+- `WebFetch` direct sur `api.scryfall.com` : la requête atteint bien
+  les serveurs Scryfall mais reçoit un 403 (cohérent avec l'exigence
+  Scryfall d'un header `User-Agent` personnalisé, que `WebFetch` ne
+  permet pas de définir) — pour un endpoint simple (`/sets/mkc`) comme
+  pour une recherche.
+- Un agent dédié à ce seul test de connectivité, avec pour consigne de
+  tenter plusieurs voies (WebFetch, `curl` en bash local, `curl` sur
+  l'ordinateur de Ben via le pont) : le `curl` en bash — aussi bien
+  dans le bac à sable que sur l'ordinateur de Ben — ne reçoit même pas
+  de réponse de Scryfall : la connexion est coupée avant la poignée de
+  main TLS par un proxy réseau local (403 renvoyé par le proxy
+  lui-même, `CONNECT` refusé) — restriction d'infrastructure, sans
+  rapport avec la politique de Scryfall.
+- Tentative d'utiliser le vrai navigateur Chrome de Ben (trouvé via le
+  pont vers son ordinateur — un onglet `scryfall.com/docs/api` y était
+  déjà ouvert) pour faire la requête depuis un contexte réseau normal
+  (ce qui aurait dû fonctionner : c'est exactement ainsi que le site
+  Scryfall s'alimente lui-même). L'ouverture/fermeture d'onglets a
+  fonctionné, mais les deux outils nécessaires pour lire la page ou
+  exécuter du code dans cet onglet ont échoué avec "Google Chrome is
+  not running" — alors que Chrome tournait manifestement (les onglets
+  se géraient normalement). Résultat : une limite de cet outil précis
+  côté pont, pas quelque chose de contournable en retentant.
+
+Aucune de ces voies n'a permis d'obtenir une réponse JSON réelle de
+Scryfall depuis cet environnement. Le correctif ci-dessus n'est donc
+**pas vérifié contre une réponse Scryfall réelle** — il repose sur la
+documentation officielle (citée verbatim ci-dessus) et sur un test avec
+des données Scryfall simulées (deux impressions du même nom dans un
+set fictif, confirmant que `unique=prints` récupère bien les deux et
+que `unique=cards`/défaut n'en récupère qu'une, reproduisant exactement
+le cas remonté par Ben). Le site déployé (Vercel), lui, a un accès
+réseau normal à Scryfall — une fois ce correctif en ligne, la vraie
+vérification sera la page `/extensions/<code>` d'un set à variantes.
+
 ## Stack
 
 Next.js 16 (App Router, TypeScript, Turbopack) + Tailwind CSS v4. Pas de
