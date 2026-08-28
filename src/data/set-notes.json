@@ -299,10 +299,14 @@
   "anb": {
     "code": "anb",
     "mechanicsIntroduced": [],
-    "context": "L'Arena Beginner Set est un produit 100% numérique, exclusif à MTG Arena (aucun équivalent papier), sorti pour remplacer les anciens decks tutoriel et accompagner les nouveaux joueurs après leurs premiers matchs contre l'IA. Il comprend cinq decks monocolores conçus pour rester utilisables au-delà de la rotation Standard 2021, avec des cartes volontairement simples que le joueur est censé remplacer en progressant. N'introduit aucune nouvelle mécanique de jeu: son intérêt est purement pédagogique/onboarding et il n'a aucune pertinence directe pour le deckbuilding papier ou Commander. Retiré du Standard en mars 2022, il reste légal dans les formats numériques Alchemy et Historic.",
+    "context": "L'Arena Beginner Set (aussi appelé Arena Base Set) est un produit 100% numérique exclusif à MTG Arena, sans aucun équivalent papier, sorti le 13 août 2020 dans le cadre de la refonte annuelle des decks d'initiation liés aux Color Challenges. Il regroupe cinq decks monocolores (Keep the Peace en blanc, Aerial Domination en bleu, Cold-Blooded Killers en noir, Goblins Everywhere! en rouge et Large and In Charge en vert), construits à partir d'un pool d'environ 116 à 120 cartes majoritairement composé de réimpressions et de quelques cartes exclusives à Arena remontant parfois à 2018, sans aucun nouveau mot-clé ni nouvelle mécanique. Le produit est totalement hors-jeu pour le Commander papier puisqu'il n'existe qu'en ligne et sert surtout de réservoir de decks pour les bots et les nouveaux joueurs. Un bâtisseur de decks Commander peut donc l'ignorer sans rien perdre : aucune carte ni mécanique de ce produit n'a d'incidence sur le format papier.",
     "sourceNotes": [
-      "MTG Wiki, \"Arena Base Set\" (mtg.fandom.com/wiki/Arena_Base_Set)",
-      "Scryfall, page du set Arena Beginner Set (scryfall.com/sets/anb) — confirme le nom officiel et la date du 13/08/2020"
+      "Wizards of the Coast, « MTG Arena: State of the Game – August 2020 » (4 août 2020) — page d'origine aujourd'hui hors ligne suite à la restructuration du site wizards.com ; contenu retrouvé via deux relais indépendants ci-dessous.",
+      "MTG Arena Zone, « MTG Arena: State of the Game - August 2020 » (mtgazone.com), qui cite et reproduit le texte officiel annonçant des decks « construits à partir d'un ensemble de base » pour les nouveaux joueurs.",
+      "Dot Esports, « MTG Arena August State of the Game: Full notes and updates », reproduisant les mêmes annonces officielles.",
+      "MTG Wiki (Fandom), page « Arena Base Set », citant l'annonce officielle du 4 août 2020 et confirmant la légalité en Historic/Alchemy après le retrait du Standard en mars 2022.",
+      "mtg.wiki, page « Color Challenge decks », précisant que certaines cartes exclusives à Arena de ce pool remontent à juillet 2018.",
+      "Note : la page Wizards d'origine (wizards.com) n'a pas pu être rechargée directement (404 après migration du site) ; confiance maintenue à medium faute d'une copie directement lisible de la source primaire elle-même, malgré deux citations indépendantes concordantes."
     ],
     "confidence": "medium"
   },
@@ -638,14 +642,22 @@
   },
   "ltc": {
     "code": "ltc",
-    "mechanicsIntroduced": [],
-    "context": "Tales of Middle-earth Commander est le supplément Commander de LTR et n'introduit aucune mécanique de mots-clés inédite ; il réutilise « L'Anneau vous tente » et « Amasser des Orques », mécanismes déjà introduits par l'édition principale LTR. Le produit propose quatre decks bicolores/tricolores thématiques : Riders of Rohan (U/R/W, jetons Soldats), Food and Fellowship (W/B/G, génération de Nourriture, Frodo/Sam), Elven Council (G/U, avantage de cartes elfique, Galadriel/Gandalf) et The Hosts of Mordor (U/B/R, sacrifice et contrôle, Sauron/Saruman). C'est un excellent point d'entrée pour construire des decks EDH autour des factions du Seigneur des Anneaux tout en profitant des staples de mana inclus (Sol Ring, Arcane Signet, Command Tower) ; le deck Hosts of Mordor est notamment prisé pour son commandant Sauron, Lord of the Rings, très fort en sacrifice/aristocrates.",
-    "sourceNotes": [
-      "The Lord of the Rings: Tales of Middle-earth Commander Decklists — magic.wizards.com (official)",
-      "Rankings for All 123 Lord of the Rings: Tales of Middle-earth Commanders — Draftsim",
-      "Star City Games — 'The Lord of the Rings: Tales of Middle-earth Commander Set Review'"
+    "mechanicsIntroduced": [
+      {
+        "termEn": "Secret council",
+        "termFr": "Conseil secret",
+        "definitionFr": "Le conseil secret est un nouveau mot de capacité introduit spécifiquement par les decks Commander Les Chroniques de la Terre du Milieu (LTC) et absent de l'extension principale LTR. Il s'agit d'une variante inédite du système de vote multijoueur : contrairement à la volonté du conseil ou au dilemme du conseil, mots de capacité plus anciens où le vote est ouvert, le conseil secret impose que chaque joueur choisisse son option en secret, tous les votes étant révélés simultanément. On le trouve par exemple sur Elrond du Conseil blanc, qui déclenche un vote secret entre « communauté » et « aide » lorsqu'il arrive sur le champ de bataille ; cinq cartes du produit portent ce mot de capacité.",
+        "sourceNote": "Wizards of the Coast, « The Lord of the Rings: Tales of Middle-earth Release Notes » (magic.wizards.com/en/news/feature/the-lord-of-the-rings-tales-of-middle-earth-release-notes), section « New ability word: secret council » ; confirmé par la version française officielle « Chroniques de la Terre du Milieu — Notes générales » (media.wizards.com, FR_MTGLTR_ReleaseNotes_20230505.pdf), section « Nouveau mot de capacité : conseil secret »."
+      }
     ],
-    "confidence": "medium"
+    "context": "Les quatre decks Commander de Les Chroniques de la Terre du Milieu (Riders of Rohan, Food and Fellowship, Elven Council, The Hosts of Mordor) reprennent des mécaniques de l'extension principale comme la Royauté (the Monarch) ainsi que les mots de capacité de vote plus anciens (volonté du conseil, dilemme du conseil), et The Hosts of Mordor exploite un jeton Armée d'Orcs cohérent avec la mécanique « Rassembler des Orcs ». Ce produit introduit bel et bien une mécanique inédite : le conseil secret (vote à bulletin secret), un mot de capacité exclusif à ces decks porté par exemple par Elrond du Conseil blanc. Pour un bâtisseur Commander, l'essentiel reste néanmoins l'accès à des commandants multicolores originaux (Frodo et Sam en partenaires, Sauron, etc.) et à du fixing de mana bienvenu ; le conseil secret n'ajoute pas de nouvelle règle générale mais un simple habillage de vote sur une poignée de cartes.",
+    "sourceNotes": [
+      "Wizards of the Coast, « The Lord of the Rings: Tales of Middle-earth Release Notes » — confirme : « The Lord of the Rings: Tales of Middle-earth Commander decks feature a return of the voting mechanic as well as a new twist: secret voting » et définit conseil secret, volonté du conseil et dilemme du conseil.",
+      "Version française officielle : « Chroniques de la Terre du Milieu — Notes générales » (PDF, media.wizards.com, FR_MTGLTR_ReleaseNotes_20230505.pdf), confirmant « Nouveau mot de capacité : conseil secret ».",
+      "Wizards of the Coast, « The Lord of the Rings: Tales of Middle-earth Commander Decklists » pour la composition exacte des quatre decks.",
+      "mtg.wiki, page « Secret council », confirmant que le mot de capacité a été introduit dans les decks Commander (et non dans l'extension de draft LTR) et recensant 5 cartes porteuses, dont Elrond of the White Council."
+    ],
+    "confidence": "high"
   },
   "cmm": {
     "code": "cmm",
@@ -662,13 +674,15 @@
   "woc": {
     "code": "woc",
     "mechanicsIntroduced": [],
-    "context": "Wilds of Eldraine Commander n'introduit aucune mécanique de mots-clés inédite. Le produit comprend deux decks Commander de 100 cartes conçus comme points d'entrée dans le format : Virtue and Valor (W/G, enchantements/auras, commandant Ellivere of the Wild Court) et Fae Dominion (U/B, tribal Fées et contrôle, commandant Tegwyll, Duke of Splendor). Les Set/Collector Boosters de ce produit ajoutent un cycle de cinq enchantements rares monocolores (« Court ») qui exploitent le mécanisme Monarque — mécanisme déjà existant depuis Conspiracy: Take the Crown (2016) et non inventé ici. Utile pour les deckbuilders cherchant des decks d'auras/enchantements ou tribal Fées prêts à jouer, avec des réimpressions notables comme Sol Ring, Arcane Signet, Swords to Plowshares, Sun Titan et Oona, Queen of the Fae.",
+    "context": "Les deux decks Commander de Wilds of Eldraine (Virtue and Valor en blanc/vert, Fae Dominion en bleu/noir) recyclent les mécaniques de l'extension principale : les Rôles, avec un septième jeton Rôle, Virtuous, apporté par la commandante Ellivere of the Wild Court, ainsi que la Royauté (the Monarch) via le cycle d'enchantements exclusifs « Court of... » (Court of Ardenvale, Court of Embereth, Court of Locthwain, Court of Vantress, Court of Garenbrig) qui confèrent le statut de monarque à leur arrivée sur le champ de bataille — cette mécanique de Royauté n'est pas nouvelle, elle date de Conspiracy: Take the Crown (2016). Aucune mécanique ni mot-clé réellement inédit n'est introduit par ce produit ; l'article officiel « Wilds of Eldraine Mechanics » de Wizards, qui recense exhaustivement les mécaniques de toute la gamme du set, ne mentionne pour les decks Commander qu'une simple extension du jeton Rôle existant, pas une nouvelle mécanique. Pour un bâtisseur Commander, l'intérêt de ce produit tient donc surtout à ses commandants et au cycle de Courts, de très bons habilitateurs de Royauté à intégrer dans n'importe quel deck mono ou bicolore correspondant.",
     "sourceNotes": [
-      "Wilds of Eldraine/Commander decks — MTG Wiki (mtg.fandom.com)",
-      "Wilds of Eldraine Commander Decklists — mtggoldfish.com",
-      "Wargamer — 'MTG Wilds of Eldraine Commander decks include a faerie trickster and a casting director'"
+      "Wizards of the Coast, « Wilds of Eldraine Mechanics » — article de référence recensant toutes les mécaniques du set ; confirme qu'« One card in the Commander decks adds the seventh [Role token] », soit une simple extension de la mécanique Roles déjà existante.",
+      "Wizards of the Coast, « Wilds of Eldraine Release Notes », qui cite Ellivere of the Wild Court comme source du 7e jeton Rôle Virtuous.",
+      "Wizards of the Coast, « Wilds of Eldraine Commander Decklists » pour la composition exacte des deux decks.",
+      "Gatherer, fiches des cartes du cycle « Court of... » (set WOC), confirmant le texte de mise en jeu du statut de monarque sur chacune.",
+      "Hipsters of the Coast, « Top Cards From Wilds of Eldraine Commander », qui décrit explicitement le cycle Court comme des « monarch enchantments »."
     ],
-    "confidence": "medium"
+    "confidence": "high"
   },
   "who": {
     "code": "who",
@@ -726,18 +740,20 @@
       {
         "termEn": "Duty counter",
         "termFr": "Marqueur devoir",
-        "definitionFr": "Nouveau type de marqueur, apparu pour la première fois sur la carte Immortal Obligation : la créature qui le porte devient goadée (forcée d'attaquer si possible), ne peut ni vous attaquer ni attaquer vos permanents, et ne peut pas bloquer vos créatures tant qu'elle porte ce marqueur. Il s'agit d'un mécanisme très ponctuel, présent sur une poignée de cartes seulement, et non d'un mot-clé structurant comme Discover ou Plot.",
-        "sourceNote": "MTG Wiki (Fandom), page « Duty counter » ; Aetherhub, fiche de la carte Immortal Obligation (MKC)"
+        "definitionFr": "Le marqueur devoir est un nouveau type de marqueur introduit par la seule carte Obligation perpétuelle (Immortal Obligation, MKC #10/#321), exclusive au produit Commander de Murders at Karlov Manor et absente de l'extension principale MKM. Le texte Oracle indique : « Renvoyez sur le champ de bataille, sous son contrôle, une carte de créature ciblée depuis le cimetière d'un adversaire avec un marqueur devoir sur elle. Tant que cette créature a un marqueur devoir sur elle, elle est incitée, ne peut pas vous attaquer ni attaquer un permanent que vous contrôlez, et ne peut pas bloquer vos créatures. » Ce n'est pas un mot-clé générique mais un marqueur nommé propre à cette carte, sans autre occurrence connue dans le jeu.",
+        "sourceNote": "Immortal Obligation / Obligation perpétuelle, Murders at Karlov Manor Commander (MKC #10 et #321) — texte Oracle officiel (Gatherer) et texte français officiel confirmé par le revendeur Play-in.com (« marqueur 'devoir' », deux occurrences), corroboré par la version française de Scryfall."
       }
     ],
-    "context": "Ce supplément Commander ne crée pas de nouvelle mécanique de set : il réutilise Déguisement (Disguise), Enquêter (Investigate), Soupçonner (Suspect) et les Affaires (Cases) du set principal Murders at Karlov Manor, et remet au goût du jour des mécaniques plus anciennes et rares en Commander (Ascend, Clash, Gravestorm à rétro-décalage temporel, Conseil secret, Parlementer, Suspension, Déchaîner). Les quatre decks — Deadly Disguise (déguisement/surprises), Revenant Recon (surveiller/réanimer), Deep Clue Sea (indices) et Blame Game (accusation/goad) — reprennent l'ambiance polar de Ravnica avec des illustrations exclusives sur des réimpressions comme Comeuppance, Necromancy, Twilight Prophet, Brash Taunter et Vengeful Ancestor, et jusqu'à quatre illustrations différentes pour Ransom Note.",
+    "context": "Le produit mkc recycle les mécaniques de l'extension principale Murders at Karlov Manor (Disguise, Investigate, Suspect, Cases) et remet au goût du jour d'anciennes mécaniques timeshiftées (Ascend, Clash, Gravestorm, Council's dilemma, Parley, Suspend, Unleash) sur ses quatre decks (Blame Game, Deep Clue Sea, Revenant Recon, Deadly Disguise). Sa seule contribution réellement inédite est le marqueur devoir, porté uniquement par Obligation perpétuelle, qui incite une créature ramenée du cimetière adverse et l'empêche d'attaquer ou de bloquer les permanents de son contrôleur. Pour un deckbuilder Commander, mkc s'apprécie donc surtout comme réservoir de cartes multicolores et de synergies Disguise/Suspect plutôt que comme véritable source de nouvelles mécaniques.",
     "sourceNotes": [
-      "MTG Wiki, page « Murders at Karlov Manor/Commander decks »",
-      "https://mtg.fandom.com/wiki/Duty_counter",
-      "https://aetherhub.com/Card/MKC/Immortal-Obligation/10",
-      "https://magic.wizards.com/en/news/feature/murders-at-karlov-manor-release-notes"
+      "Murders at Karlov Manor Commander Decklists (officiel) — magic.wizards.com/en/news/announcements/murders-at-karlov-manor-commander-decklists",
+      "Immortal Obligation, Gatherer officiel (Wizards of the Coast)",
+      "Immortal Obligation / Obligation perpétuelle — Scryfall (EN et FR)",
+      "Obligation perpétuelle — Play-in.com, texte français officiel de la carte",
+      "Duty counter — MTG Wiki (Fandom)",
+      "Murders at Karlov Manor Release Notes (officiel)"
     ],
-    "confidence": "medium"
+    "confidence": "high"
   },
   "pip": {
     "code": "pip",
@@ -854,15 +870,13 @@
   "drc": {
     "code": "drc",
     "mechanicsIntroduced": [],
-    "context": "Ce produit Commander n'introduit aucune mécanique propre : les deux mécaniques inédites de l'extension Aetherdrift, la Vitesse/« Allumez les moteurs ! » (Speed/Start your engines!) et l'Épuisement (Exhaust), appartiennent à l'extension principale et sont simplement reprises par certaines cartes des decks. Fait notable : contrairement à l'habitude de quatre decks, Aetherdrift Commander n'a compté que deux precons : Living Energy (Temur/RUG, energy et synergies d'artefacts, commandée par Saheeli, Radiant Creator et Pia Nalaar, Chief Mechanic) et Eternal Might (Esper/WUB, jetons Zombie et rappel des mécaniques embalm/eternalize d'Amonkhet, commandée par Temmet, Naktamun's Will et Hashaton, Scarab's Fist). Le thème général de « course mortelle » à travers le multivers se retrouve dans le cycle de dix commandants légendaires bicolores/tricolores « capitaines d'équipe » de l'extension principale, dont plusieurs soutiennent le thème Vitesse/Véhicules/Montures.",
+    "context": "Aetherdrift Commander (drc) ne compte que deux decks — Living Energy (Vert-Bleu-Rouge) et Eternal Might (Blanc-Bleu-Noir) — au lieu des quatre habituels, une réduction confirmée par l'annonce officielle des decklists. Les deux mécaniques inédites d'Aetherdrift, la Vitesse (« Start your engines! », avec la Vitesse maximale) et l'Épuisement (Exhaust), appartiennent à l'extension principale et sont seulement réutilisées par quelques cartes des decks Commander, sans y être introduites. Le deck Living Energy s'appuie plutôt sur les marqueurs d'énergie, une mécanique de retour déjà vue dans Kaladesh et explicitement traitée comme telle dans les notes officielles, et non sur une nouveauté. Pour un deckbuilder, drc reste donc un produit de support (cartes staples, synergies d'énergie et de vitesse) plutôt qu'une source de mécaniques propres.",
     "sourceNotes": [
-      "magic.wizards.com/fr/news/feature/aetherdrift-mechanics (confirme que Vitesse/Allumez les moteurs ! et Épuisement appartiennent à l'extension principale)",
-      "magic.wizards.com/en/news/announcements/aetherdrift-commander-decklists",
-      "TCGPlayer — 'Aetherdrift Gets Commander Precons Very Right by Only Giving Us Two of Them' (confirme le nombre de deux decks)",
-      "Sportskeeda — All MTG Aetherdrift Commander precons",
-      "Draftsim — Rankings for All 37 Aetherdrift Commanders"
+      "Aetherdrift Commander Decklists (officiel) — magic.wizards.com/en/news/announcements/aetherdrift-commander-decklists",
+      "Aetherdrift Mechanics (officiel) — magic.wizards.com/en/news/feature/aetherdrift-mechanics",
+      "Aetherdrift Release Notes, section notes spécifiques aux decks Commander (officiel) — la section labellise explicitement Energy comme « Returning Mechanic » pour Living Energy plutôt qu'une nouveauté."
     ],
-    "confidence": "medium"
+    "confidence": "high"
   },
   "tdc": {
     "code": "tdc",
@@ -880,15 +894,14 @@
   "fic": {
     "code": "fic",
     "mechanicsIntroduced": [],
-    "context": "Ce produit n'introduit pas de nouvelle mécanique propre : Choix de job (Job Select), la mécanique la plus emblématique de la gamme Final Fantasy, a été introduite le même jour dans le set principal FIN (un équipement crée à son arrivée un jeton Héros 1/1 incolore et s'y attache automatiquement) et n'apparaît que sur 3 cartes du deck Scions & Spellcraft côté FIC. Les quatre decks trois couleurs sont thématisés par épisode : Limit Break (Naya, Cloud, Ex-SOLDIER, équipement), Revival Trance (Mardu, cimetière/réanimation, FFVI), Counter Blitz (Tidus, Yuna's Guardian, marqueurs +1/+1 et créatures-Saga représentant les invocations) et Scions & Spellcraft (Y'shtola, Night's Blessed, sorts non-créatures/contrôle, où le rebond mime les temps de recharge de FFXIV). Chaque deck regorge de légendaires inédites incarnant les personnages du jeu correspondant (environ 25 cartes inédites par deck), ce qui en fait une bonne base pour du tribal par épisode ou du Voltron autour d'un héros emblématique ; la valeur vient surtout de ces nouvelles cartes plutôt que des réimpressions, ces decks étant réputés chers par rapport à leur MSRP.",
+    "context": "Final Fantasy Commander (fic) propose quatre decks tricolores — Limit Break (équipement et thème de puissance), Revival Trance (cimetière et réanimation), Counter Blitz (marqueurs +1/+1 liés à la Sphere Grid) et Scions & Spellcraft (contrôle et cartes non-créatures). La mécanique Job select, qui fait entrer un équipement avec la création d'un jeton Héros 1/1 incolore auquel il s'attache, a été introduite le même jour dans l'extension principale Final Fantasy (FIN) et n'est réutilisée que sur quelques cartes d'équipement du deck Scions & Spellcraft, sans y être créée. Les articles officiels consacrés au produit Commander décrivent des choix de deckbuilding (sous-thèmes, synergies de jobs, cartes signature) plutôt que des mécaniques inédites. Pour un deckbuilder, fic sert donc surtout de complément thématique et de source de commandants tricolores sans apport mécanique propre.",
     "sourceNotes": [
-      "magic.wizards.com – 'Crafting Commander Decks for Magic: The Gathering—FINAL FANTASY'",
-      "Draftsim – 'Job Select in MTG: Rules, History, and Best Cards'",
-      "Draftsim – 'Final Fantasy Commander Decks: Are They Worth It?'",
-      "Tabletop Battles (republication Goonhammer) – 'Magic: the Gathering - Final Fantasy Review, Part 1 of 4: The Mechanics'",
-      "PDF officiel Wizards FR_FIN_Release_Notes (nom français 'Choix de job')"
+      "Crafting Commander Decks for Magic: The Gathering—FINAL FANTASY (officiel) — magic.wizards.com/en/news/feature/crafting-commander-decks-for-final-fantasy",
+      "Magic: The Gathering—FINAL FANTASY Mechanics (officiel) — magic.wizards.com/en/news/feature/final-fantasy-mechanics",
+      "Magic: The Gathering—FINAL FANTASY Release Notes (officiel) — magic.wizards.com/en/news/feature/final-fantasy-release-notes",
+      "Job select — MTG Wiki"
     ],
-    "confidence": "medium"
+    "confidence": "high"
   },
   "eoc": {
     "code": "eoc",
@@ -904,14 +917,13 @@
   "ecc": {
     "code": "ecc",
     "mechanicsIntroduced": [],
-    "context": "Ce supplément n'introduit pas de nouvelle mécanique : les deux decks exploitent celles du set parent Lorwyn Éclipsé, en premier lieu Gangrène (Blight) — une action mot-clé sans cible qui consiste à mettre X marqueurs -1/-1 sur une créature que vous contrôlez, contournant ainsi la protection ou l'hexproof — ainsi que Éclatant (Vivid, compte les couleurs parmi vos permanents), De clan (Kindred, nouveau type de carte donnant des types de créature à des non-créatures) et le retour de Changelin. Gangrène Maudite (Blight Curse, noir-rouge-vert / Jund) est menée par Auntie Ool, Cursewretch et exploite les marqueurs -1/-1 (un combo infini y serait même possible, à réserver aux tables expérimentées) ; Dance of the Elements (cinq couleurs), menée par Ashling, the Limitless, mise sur le tribal Élémental. Les réimpressions sont solides pour la construction Commander en général (Sol Ring, Arcane Signet, Command Tower, Avenger of Zendikar, variantes d'Omnath, Maelstrom Wanderer), et le retour sur le plan de Lorwyn en fait un bon point d'entrée pour les archétypes tribaux classiques (Kithkin, Lutins/Boggarts, Élémentaux, Changelins).",
+    "context": "Lorwyn Éclipsé Commander n'introduit aucune mécanique inédite : il se contente de mettre en avant deux mécaniques déjà présentes dans l'extension principale Lorwyn Éclipsé, comme le confirme l'article officiel Wizards sur les decklists, qui indique que les deux decks « showcase powerful mechanics from the main set: evoke and blight ». Le deck Blight Curse, aux couleurs Jund (noir-rouge-vert), mené par Auntie Ool, Cursewretch, s'articule autour de la gangrène et de son thème de marqueurs -1/-1. Le deck Dance of the Elements, cinq couleurs, mené par Ashling, the Limitless, met en avant l'évocation (evoke), une mécanique de retour associée au tribal Élémental — pas l'éclatant comme indiqué précédemment. Un bâtisseur de deck doit donc chercher les synergies de marqueurs -1/-1 pour Blight Curse et Élémental/évocation pour Dance of the Elements.",
     "sourceNotes": [
-      "Draftsim – 'Lorwyn Eclipsed Commander Decks: Are They Worth It?'",
-      "magic.wizards.com – 'Lorwyn Eclipsed Mechanics'",
-      "PDF officiel Wizards FR_MTGECL_ReleaseNotes (traductions françaises : Gangrène, Éclatant, De clan, Changelin)",
-      "Boutiques FR (Nevermint, Fnac, Play-in) confirmant le nom officiel 'Gangrène Maudite' pour Blight Curse"
+      "Wizards of the Coast — « Lorwyn Eclipsed Commander Decklists » : cite verbatim que les deux decks « showcase powerful mechanics from the main set: evoke and blight », confirmant qu'aucune mécanique n'est propre au produit Commander.",
+      "Wizards of the Coast — « Mécaniques de l'extension Lorwyn éclipsé » : définit Blight, Vivid, Kindred et Changeling pour l'extension principale.",
+      "Notes de publication FR Lorwyn éclipsé (media.wizards.com) : confirme les traductions officielles Gangrène, Éclatant, De clan, Changelin."
     ],
-    "confidence": "medium"
+    "confidence": "high"
   },
   "tmc": {
     "code": "tmc",
@@ -919,72 +931,85 @@
       {
         "termEn": "Sneak",
         "termFr": "Infiltration",
-        "definitionFr": "Coût alterné présent sur certaines créatures : vous pouvez lancer la carte à vitesse instantanée pendant l'étape de déclaration des bloqueurs (une fois les bloqueurs déclarés) si vous renvoyez aussi en main un attaquant non bloqué que vous contrôlez ; la créature ainsi lancée entre engagée et attaquante.",
-        "sourceNote": "Notes de publication officielles FR de Wizards (PDF TMT_Release_Notes) ; magic.wizards.com 'Teenage Mutant Ninja Turtles Mechanics' ; Draftsim 'All 7 Mechanics from Teenage Mutant Ninja Turtles, Explained'"
+        "definitionFr": "L'infiltration est un mot-clé qui permet de lancer un sort de créature pendant l'étape de déclaration des bloqueurs, une fois les bloqueurs déjà déclarés. Le coût additionnel exige de renvoyer dans sa main un attaquant non bloqué que l'on contrôle. La créature ainsi lancée entre sur le champ de bataille engagée et attaquante, ce qui permet de surprendre l'adversaire en pleine phase de combat.",
+        "sourceNote": "Wizards of the Coast, « Teenage Mutant Ninja Turtles Mechanics », qui qualifie explicitement Sneak de « new keyword » ; traduction confirmée par les Notes de publication FR (media.wizards.com, FR_MTGTMT_ReleaseNotes_20251001.pdf)."
       },
       {
         "termEn": "Mutagen",
         "termFr": "Mutagène",
-        "definitionFr": "Jeton d'artefact incolore doté de « {1}, {T}, sacrifiez ce jeton : mettez un marqueur +1/+1 sur une créature ciblée », activable seulement à vitesse rituel — une nouvelle monnaie de récompense pour les decks à artefacts/jetons.",
-        "sourceNote": "Notes de publication officielles FR de Wizards ; magic.wizards.com 'Teenage Mutant Ninja Turtles Mechanics'"
+        "definitionFr": "Le mutagène est un nouveau type de jeton d'artefact dont l'unique capacité est : « {1}, {T}, sacrifiez ce jeton : mettez un marqueur +1/+1 sur une créature ciblée. N'activez cette capacité que si vous pourriez lancer un rituel. » Il offre une source répétable de marqueurs +1/+1 pour les stratégies de croissance de créatures.",
+        "sourceNote": "Wizards of the Coast, « Teenage Mutant Ninja Turtles Mechanics », qui qualifie explicitement Mutagen de « new kind of token » ; traduction confirmée par les Notes de publication FR."
       },
       {
         "termEn": "Disappear",
         "termFr": "Volatilisation",
-        "definitionFr": "Mot de capacité regroupant des déclenchements liés au fait qu'un permanent que vous contrôliez a quitté le champ de bataille au cours du tour, quelle qu'en soit la façon ; l'effet regarde en arrière sur tout le tour, même si le permanent portant Volatilisation n'était pas encore sur le champ de bataille au moment du départ.",
-        "sourceNote": "Notes de publication officielles FR de Wizards ; magic.wizards.com 'Teenage Mutant Ninja Turtles Mechanics'"
+        "definitionFr": "La volatilisation est un mot de capacité qui regroupe les capacités déclenchées s'intéressant au fait qu'un permanent a quitté le champ de bataille sous votre contrôle pendant le tour en cours, quelle qu'en soit la raison. Elle récompense les decks qui font entrer et sortir rapidement des permanents.",
+        "sourceNote": "Wizards of the Coast, « Teenage Mutant Ninja Turtles Mechanics », qui qualifie explicitement Disappear de « new ability word » ; traduction confirmée par les Notes de publication FR."
       },
       {
         "termEn": "Partner—Character Select",
-        "termFr": "Partenariat – Sélection du personnage",
-        "definitionFr": "Variante du mot-clé Partenaire : vous pouvez avoir deux commandants dans la zone de commandement à condition que les deux possèdent cette capacité spécifique (elle ne se combine pas avec un Partenaire classique) ; c'est la première apparition de cette variante dans Magic.",
-        "sourceNote": "Notes de publication officielles FR de Wizards ; magic.wizards.com 'Teenage Mutant Ninja Turtles Mechanics' ; article mécaniques Draftsim"
+        "termFr": "Partenariat — Sélection du personnage",
+        "definitionFr": "Cette variante du mot-clé partenaire permet d'avoir deux commandants si les deux possèdent cette capacité, sans pouvoir la combiner avec d'autres variantes de partenaire (comme « Partenaire avec »). Dans Turtle Power!, elle relie Leonardo, the Balance à Donatello, the Brains, Raphael, the Muscle, Michelangelo, the Heart ou Splinter, the Mentor, permettant plusieurs configurations de binôme de commandants.",
+        "sourceNote": "Wizards of the Coast, « Teenage Mutant Ninja Turtles Mechanics » : « Partner—Character select is a new variant of the partner keyword » ; deck confirmé par « Teenage Mutant Ninja Turtles Commander Decklist » ; traduction confirmée par les Notes de publication FR."
       }
     ],
-    "context": "Contrairement aux quatre autres produits de cette liste, TMNT Eternal n'est pas un simple supplément Commander adossé à une extension Standard : c'est une extension crossover Universes Beyond autonome, légale uniquement en formats Eternal (Commander, Legacy, Vintage — d'où son nom — mais pas en Standard), accompagnée d'un unique deck Commander prêt-à-jouer 'Puissance des tortues !' (Turtle Power!) en cinq couleurs. Ce deck met en avant les jetons et les marqueurs +1/+1 via la toute nouvelle variante Partenariat – Sélection du personnage, qui permet de jumeler Leonardo, the Balance avec n'importe quelle autre Tortue ou Splinter comme second commandant. Le produit comprend au total 31 nouveaux commandants dans l'extension (les quatre Tortues en plusieurs versions, April O'Neil, Casey Jones, Splinter, Shredder, Krang, etc.) et 20 réimpressions de classiques revêtues d'un habillage visuel TMNT. Pour un deckbuilder, l'intérêt principal est la souplesse de pairing offerte par Sélection du personnage (façon Partenaire) et les cartes de soutien go-wide/jetons/+1+1 réutilisables hors du thème TMNT.",
+    "context": "Teenage Mutant Ninja Turtles est un crossover Universes Beyond autonome, légal uniquement dans les formats Eternal (Commander, Legacy, Vintage) et absent de Standard. Le produit ne comporte qu'un seul deck Commander prêt-à-jouer, Turtle Power!, entièrement cinq couleurs (WUBRG). Son commandant vedette, Leonardo, the Balance, utilise le mot-clé Partenariat — Sélection du personnage pour former un binôme avec Donatello, the Brains, Raphael, the Muscle, Michelangelo, the Heart ou Splinter, the Mentor, chacun orientant la stratégie du deck différemment. Ce produit introduit véritablement quatre mécaniques inédites, comme le confirme l'article officiel Wizards « Teenage Mutant Ninja Turtles Mechanics » : Infiltration, Mutagène, Volatilisation et cette variante de partenariat.",
     "sourceNotes": [
-      "Notes de publication officielles Wizards (PDF FR) – Magic: The Gathering | Teenage Mutant Ninja Turtles",
-      "magic.wizards.com – 'Teenage Mutant Ninja Turtles Mechanics'",
-      "Draftsim – 'All 7 Mechanics from Teenage Mutant Ninja Turtles, Explained'",
-      "Card Kingdom Blog – 'Turtle Power! Teenage Mutant Ninja Turtles Commander Precon Upgrade Guide'",
-      "edh.wiki – page de set Teenage Mutant Ninja Turtles Eternal"
+      "Wizards of the Coast — « Teenage Mutant Ninja Turtles Mechanics » : article officiel qui qualifie explicitement Sneak, Mutagen et Disappear de nouvelles mécaniques, et Partner—Character Select de « new variant of the partner keyword ».",
+      "Wizards of the Coast — « Teenage Mutant Ninja Turtles Commander Decklist » : confirme le deck unique Turtle Power!, cinq couleurs, avec Leonardo, the Balance en commandant vedette et Donatello/Raphael/Michelangelo/Splinter en partenaires alternatifs.",
+      "Notes de publication FR (media.wizards.com, FR_MTGTMT_ReleaseNotes_20251001.pdf) : traductions officielles Infiltration, Mutagène, Volatilisation, Partenariat — Sélection du personnage."
     ],
-    "confidence": "medium"
+    "confidence": "high"
   },
   "soc": {
     "code": "soc",
     "mechanicsIntroduced": [],
-    "context": "Secrets of Strixhaven Commander est le supplément de cinq decks préconstruits bicolores (un par collège : Silverquill W/B, Prismari U/R, Witherbloom B/G, Lorehold R/W, Quandrix G/U), sorti le 24 avril 2026, deux semaines après l'édition Standard Secrets of Strixhaven (10 avril 2026) — à ne pas confondre avec le premier set Strixhaven: School of Mages de 2021, dont il s'agit d'un retour narratif sur le même plan. L'édition principale a bien introduit de nouveaux mécanismes (Prepared/Préparé, Paradigm/Paradigme et Increment/Incrément comme mots-clés ; Repartee, Opus et Infusion comme mots d'ambiance), et fait revenir Converge et Flashback, mais le supplément Commander lui-même n'ajoute aucun mécanisme inédit : il recombine ces mécanismes existants via de nouvelles cartes légendaires de collège (ex. Witherbloom, the Balancer ; Prismari, the Inspiration ; Lorehold, the Historian ; Quandrix, the Proof) qui offrent tempête, cascade ou miracle en guise de synergie transversale. Pour un deckbuilder, chaque collège pousse un archétype distinct : jetons/contrôle pour Silverquill, sorts/trésors pour Prismari, valeur/sacrifice pour Witherbloom, esprits/cimetière pour Lorehold, rampe/cascade pour Quandrix.",
+    "context": "Secrets of Strixhaven Commander regroupe cinq decks bicolores, un par collège (Silverquill, Prismari, Witherbloom, Lorehold, Quandrix). Le produit sort en même temps que l'extension principale, le 24 avril 2026 (et non deux semaines plus tard comme indiqué précédemment — l'annonce officielle Wizards précise « head to campus when Secrets of Strixhaven releases on April 24, 2026 »). Le produit Commander n'introduit aucune mécanique propre : il recycle les mots-clés Préparation/Paradigme/Incrémentation et les mots de capacité Riposte/Opus/Apport de l'extension principale, ainsi que Convergence et Flashback en mécaniques de retour. Les dix cartes « inédites pour Magic » de chaque deck exploitent exclusivement ces mécaniques existantes. Un bâtisseur de deck peut donc s'appuyer directement sur les mécaniques de l'extension principale pour comprendre chaque precon de collège.",
     "sourceNotes": [
-      "Wizards of the Coast — Secrets of Strixhaven Release Notes (magic.wizards.com/en/news/feature/secrets-of-strixhaven-release-notes)",
-      "Wizards of the Coast — annonce des decklists Secrets of Strixhaven Commander (magic.wizards.com/en/news/announcements/secrets-of-strixhaven-commander-decklists)",
-      "MTGRocks — 'Wizards Finally Reveals Prepared Alongside 5 New MTG Mechanics' (mtgrocks.com/secrets-of-strixhaven-mechanics-mtg)",
-      "Draftsim — article sur les decks Secrets of Strixhaven Commander (draftsim.com/mtg-sos-commander-decks)",
-      "MizouTCG — 'Secrets of Strixhaven: Breakdown of the 5 Commander Decks 2026' (mizoutcg.fr/en/secrets-of-strixhaven-commander-decks-2026)",
-      "Card Kingdom Blog — Secrets of Strixhaven Commander Set Review (blog.cardkingdom.com/secrets-of-strixhaven-commander-set-review)"
+      "Wizards of the Coast — « Secrets of Strixhaven Commander Decklists » : confirme une sortie simultanée avec l'extension principale, le 24 avril 2026.",
+      "Wizards of the Coast — « Secrets of Strixhaven Release Notes » : confirme la légalité des cartes SOC en Commander/Legacy/Vintage.",
+      "Wizards of the Coast — « Secrets of Strixhaven Mechanics » : définit Prepared, Paradigm, Increment, Repartee, Opus, Infusion, Converge et Flashback pour l'extension principale.",
+      "Flipside Gaming — « Every New Card from the Secrets of Strixhaven Commander Decks » : passe en revue toutes les cartes inédites des cinq decks et ne relève aucune mécanique hors de celles de l'extension principale.",
+      "Capyquest — « Secrets of Strixhaven: Release Dates, Full Product Guide » : confirme indépendamment la sortie simultanée du 24 avril 2026.",
+      "Note : aucune phrase officielle Wizards équivalente à « no new mechanics » n'a été trouvée explicitement pour ce produit (contrairement à ecc) — la conclusion s'appuie sur l'absence de toute mécanique nouvelle mentionnée dans les Release Notes et sur un passage en revue indépendant de toutes les cartes inédites, d'où une confiance medium plutôt que high malgré des sources solides."
     ],
     "confidence": "medium"
   },
   "sld": {
     "code": "sld",
     "mechanicsIntroduced": [],
-    "context": "Le code Scryfall « sld » ne correspond pas à une édition thématique unique mais agrège l'intégralité de la gamme Secret Lair Drop, lancée par Wizards of the Coast en 2019 : des centaines de « drops » indépendants vendus en vente directe (hors boosters classiques), le plus souvent des réimpressions en illustrations ou finitions alternatives, des collaborations avec d'autres licences (jeux vidéo, films, autres univers), et occasionnellement quelques cartes totalement inédites. Il n'existe donc pas une seule « date de sortie » ni un seul thème pertinent pour ce set sur Scryfall : chaque drop a sa propre fenêtre de vente, souvent limitée dans le temps ou en quantité. Le but premier de la gamme est collector et esthétique, pas l'innovation mécanique : les rares cartes inédites qui y apparaissent sont presque toujours des réécritures fonctionnelles de cartes existantes ou des designs orientés fan-service, jamais des mots-clés destinés à structurer un nouvel environnement de jeu. Pour un deckbuilder Commander, Secret Lair reste néanmoins une source précieuse de versions alternatives premium de staples EDH et, ponctuellement, de réimpressions qui ont fait baisser le prix de cartes auparavant onéreuses.",
+    "context": "Le code Scryfall « sld » continue en août 2026 d'agréger l'intégralité de la gamme Secret Lair Drop sous un seul et même set : plus de 330 drops distincts ont été publiés depuis fin 2019, soit plusieurs milliers d'impressions individuelles, chaque drop contenant typiquement entre trois et sept cartes/jetons. Il s'agit très majoritairement de réimpressions ou de nouvelles cartes utilisant des mécaniques déjà existantes ; malgré une recherche approfondie (rétrospective dédiée aux « cartes mécaniquement uniques » de Secret Lair, wiki du produit, annonce du tout dernier produit en date), aucun drop n'a jamais introduit de mot-clé véritablement inédit pour le jeu — même le « Zeta Set » (premier produit façon boosters aléatoires de Secret Lair, sorti le 2 septembre 2026 à 19,92 $ les sept cartes) n'est composé que de réimpressions (Sol Ring, Brainstorm, Birds of Paradise...) avec un simple traitement visuel façon carte de playtest. Les cartes Secret Lair sont légales en Commander sauf mention contraire explicite, ce qui en fait une source appréciée de « bling » et de versions alternatives pour les decks EDH. Deux controverses notables marquent le produit : la sortie The Walking Dead (accueil très négatif des joueurs malgré un record de ventes) et le passage à des tirages limités en janvier 2024, qui a provoqué une revente massive à prix gonflé et poussé Wizards à supprimer les dates de fin fixes en novembre 2024. Sorties marquantes de l'été 2026 à connaître pour un bâtisseur Commander : le superdrop Stardew Valley (27 juillet 2026, terrains utilitaires inédits), le precon Commander Hatsune Miku (10 août 2026) et le superdrop Masters of the Universe (14 septembre 2026).",
     "sourceNotes": [
-      "Connaissance générale établie du fonctionnement de la gamme Secret Lair Drop (communication officielle Wizards of the Coast / secretlair.wizards.com, page MTG Wiki « Secret Lair », documentation du code de set Scryfall « sld »)",
-      "AVERTISSEMENT : aucune recherche web en direct n'a pu être effectuée pour cette entrée spécifique — le quota d'appels de recherche web/fetch de cette session a été épuisé pendant les recherches sur les deux autres produits. Le contenu ci-dessus repose sur la structure générale et stable du programme Secret Lair (inchangée depuis 2019), pas sur une vérification de drops précis publiés autour du 18/05/2026."
+      "Scryfall — Secret Lair Drop (SLD) Card Gallery, scryfall.com/sets/sld (recherche set:sld year:2026 confirmant l'usage continu du code en 2026)",
+      "MTG Wiki — Secret Lair/Drop Series, mtg.wiki/page/Secret_Lair/Drop_Series (plus de 330 drops recensés, format 3-7 cartes par drop)",
+      "MTG Wiki — Secret Lair, mtg.wiki/page/Secret_Lair (controverse The Walking Dead ; controverse des tirages limités 2024 et abandon des dates de fin en novembre 2024)",
+      "TheGamer — Every Mechanically Unique Secret Lair Card That Hasn't Been Reprinted, thegamer.com (aucune carte recensée n'introduit un mot-clé inédit, seulement des combinaisons uniques de mécaniques existantes)",
+      "Draftsim — MTG Drops Cryptic 'Zeta Set', draftsim.com/mtg-secret-lair-zeta-set (premier produit booster de Secret Lair, 2 septembre 2026, entièrement composé de réimpressions, aucune nouvelle mécanique)",
+      "MTGRocks — MagicCon Amsterdam 2026 Secret Lair Reveal-a-thon, mtgrocks.com (superdrop Stardew Valley 27/07/2026, precon Hatsune Miku 10/08/2026, superdrop Masters of the Universe 14/09/2026)",
+      "Note de méthode : l'absence de nouvelle mécanique est établie par convergence de plusieurs sources secondaires indépendantes et par l'examen direct du dernier produit en date, non par un audit officiel exhaustif carte-par-carte des 330+ drops — aucun index canonique de ce type n'existe côté Wizards."
     ],
-    "confidence": "medium"
+    "confidence": "high"
   },
   "msc": {
     "code": "msc",
-    "mechanicsIntroduced": [],
-    "context": "Marvel Super Heroes Commander est le produit autonome de quatre decks préconstruits accompagnant l'édition Universes Beyond Marvel Super Heroes (basée sur les comics classiques, pas le MCU), sorti le 26 juin 2026 : Avengers Assemble (Jeskai U/R/W), Wakanda Forever (Sélesnya G/W, autour de T'Challa/Black Panther), The Fantastic Four (quadricolore W/U/R/G, avec Mister Fantastic, Invisible Woman, Human Torch et The Thing comme co-commandants légendaires) et Doom Prevails (Grixis U/B/R, autour du Docteur Fatalis). Chaque deck mélange environ 30 cartes inédites et 70 réimpressions. D'après les sources disponibles, ce supplément Commander autonome n'introduit lui-même aucun nouveau mot-clé propre au jeu : les mécanismes associés au crossover Marvel semblent plutôt appartenir à l'édition de draft principale Marvel Super Heroes — mais cette attribution reste à confirmer, les sources secondaires consultées se contredisant partiellement sur ce point précis. Pour un deckbuilder, l'intérêt de ce produit tient surtout à ses nouvelles créatures légendaires jouables en commandant et à sa sélection de réimpressions, plutôt qu'à une innovation mécanique.",
-    "sourceNotes": [
-      "Wizards of the Coast — annonce des decklists Marvel Super Heroes Commander (magic.wizards.com/en/news/announcements/marvel-super-heroes-commander-decklists)",
-      "Playgroup.gg — 'Marvel Super Heroes Commander Decks (June 2026)' (playgroup.gg/sets/marvel-super-heroes)",
-      "MTG Wiki — page Marvel Super Heroes (mtg.wiki/page/Marvel_Super_Heroes)",
-      "Note : recherches complémentaires interrompues par l'épuisement du quota de recherche web/fetch de la session avant d'avoir pu lever l'ambiguïté sur l'attribution exacte des mécanismes (set principal vs. supplément Commander)."
+    "mechanicsIntroduced": [
+      {
+        "termEn": "Plan (enchantment subtype)",
+        "termFr": "Plan (sous-type d'enchantement — traduction française non confirmée par une source francophone officielle)",
+        "definitionFr": "Plan est un nouveau sous-type d'enchantement introduit par le crossover Marvel Super Heroes en juin 2026 : ces enchantements accumulent des marqueurs plan lorsqu'une condition définie se réalise (par exemple, à chaque fois qu'une créature contrôlée « connive »), puis se sacrifient pour déclencher une récompense majeure une fois un seuil de marqueurs atteint. Cette mécanique inédite du set principal se retrouve dans l'un des quatre decks Commander précons : Doom Prevails contient la carte Glorious Purpose (Enchantement — Plan), qui combine Plan et le mot-clé recyclé Connive.",
+        "sourceNote": "Wizards — Marvel Super Heroes Mechanics (magic.wizards.com/en/news/feature/marvel-super-heroes-mechanics) ; oracle text de Glorious Purpose (MSC #31) confirmé via scryfall.com/card/msc/31/glorious-purpose ; présence confirmée dans la décklist complète de Doom Prevails via commanderev.com/decks/doom-prevails et la liste officielle dupliquée sur Moxfield (moxfield.com/decks/MCCfAfSh6n-8cmMXZAGJdw)"
+      }
     ],
-    "confidence": "low"
+    "context": "Marvel Super Heroes Commander (code Scryfall « msc ») regroupe les quatre decks Commander précons du crossover sorti en juin 2026 — Avengers Assemble (Captain America, RWU), Wakanda Forever (T'Challa/Shuri, GW), The Fantastic Four (quatre commandants en un, RGWU) et Doom Prevails (Docteur Fatalis/Loki, UBR) —, chacun mêlant environ 70 réimpressions et une trentaine de cartes inédites Marvel. Doom Prevails, à lui seul parmi les quatre decks, exploite une mécanique authentiquement nouvelle du set principal grâce à Glorious Purpose (Plan + Connive) : les précons ne sont donc pas purement composés de réimpressions et de nouvelles créatures légendaires. Les deux autres mécaniques neuves du crossover Marvel restent en revanche cantonnées ailleurs : Power-up n'apparaît que sur des cartes du set de draft principal « msh », et Teamwork n'a été retrouvé que sur des cartes portant le code « msc » mais absentes des quatre décklists Commander (probablement issues du produit Jumpstart associé). Un bâtisseur EDH doit donc retenir que Doom Prevails est le seul des quatre precons à s'appuyer sur une mécanique de set inédite, tandis qu'Avengers Assemble, Wakanda Forever et The Fantastic Four se distinguent surtout par leurs synergies thématiques classiques plutôt que par des mots-clés nouveaux.",
+    "sourceNotes": [
+      "Wizards of the Coast — Marvel Super Heroes Mechanics (magic.wizards.com/en/news/feature/marvel-super-heroes-mechanics)",
+      "Wizards of the Coast — Marvel Super Heroes Commander Decklists (magic.wizards.com/en/news/announcements/marvel-super-heroes-commander-decklists)",
+      "Wizards of the Coast — Marvel Super Heroes Release Notes (magic.wizards.com/en/news/feature/marvel-super-heroes-release-notes)",
+      "Scryfall — pages carte msc/31 (Glorious Purpose), msc/597 (Heroic Teamwork), msc/684 (Crossover Collaboration) et msh/43 (Aerial Doombot)",
+      "CommanderEV — décklists complètes des 4 decks (commanderev.com)",
+      "Moxfield — décklist Doom Prevails dupliquée depuis la source officielle Wizards (moxfield.com/decks/MCCfAfSh6n-8cmMXZAGJdw)",
+      "Note : aucune source francophone officielle n'a été localisée pour confirmer la traduction française exacte du sous-type « Plan » ; à vérifier auprès de l'impression française du set une fois disponible."
+    ],
+    "confidence": "high"
   }
 }

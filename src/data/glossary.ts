@@ -66,9 +66,10 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     termFr: "Équipement",
     category: "keyword-evergreen",
     definitionFr:
-      "Capacité activée des cartes d'Équipement : en payant son coût, elle attache l'artefact à une créature ciblée que vous contrôlez (uniquement en tant que rituel). Permet de faire circuler un bonus d'une créature à une autre.",
-    sourceNote: "Texte « Équipement {coût} » imprimé sur les cartes d'artefact-équipement françaises.",
-    confidence: "medium",
+      "Capacité activée imprimée sur la plupart des cartes d'équipement, sous la forme « Équipement [coût] ». En payant ce coût, vous attachez l'artefact à une créature ciblée que vous contrôlez ; cette capacité ne peut être activée qu'à un moment où vous pourriez lancer un rituel.",
+    sourceNote:
+      "Texte « Équipement {1} » imprimé sur Scinde-os (Bonesplitter), Mirrodin, 2003 (également confirmé sur Épée des Ténèbres et de la Lumière et Épée d'âtre et de foyer, Horizons du Modern 2, 2021) ; confirmé par le glossaire officiel des mots-clés de Wizards en français, entrée « Équipement » (magic.wizards.com/fr/keyword-glossary).",
+    confidence: "high",
   },
   {
     termEn: "First Strike",
@@ -255,18 +256,20 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     termFr: "Convocation",
     category: "keyword-other",
     definitionFr:
-      "Chaque créature que vous engagez en lançant ce sort paie {1} ou un mana de la couleur de cette créature. Permet de lancer de gros sorts en avance en « payant » avec ses créatures.",
-    sourceNote: "Entrée lexique dédiée, terminologie communautaire francophone stable.",
-    confidence: "medium",
+      "Capacité imprimée sur certains sorts signifiant que vous pouvez engager n'importe quel nombre de créatures dégagées que vous contrôlez comme coût supplémentaire pour le lancer. Chaque créature ainsi engagée paie {1} ou un mana de la couleur de cette créature.",
+    sourceNote:
+      "Texte « Convocation » imprimé sur Corde d'adjuration (Chord of Calling), Ravnica Remastered #134, 2023 (mécanique parue initialement dans Ravnica, 2005) ; confirmé par les notes de publication officielles FR de Ravnica Remastered.",
+    confidence: "high",
   },
   {
     termEn: "Disturb",
     termFr: "Perturbation",
     category: "keyword-other",
     definitionFr:
-      "Capacité des cartes recto-verso permettant de lancer la carte depuis le cimetière, mais uniquement sous sa face transformée (dos), en payant son coût de perturbation. Une deuxième vie sous une forme différente.",
-    sourceNote: "mtga.untapped.gg/fr et entrée lexique dédiée.",
-    confidence: "medium",
+      "Mot-clé imprimé sur la face verso de certaines cartes recto-verso, apparu dans Innistrad : Chasse de minuit / Noce écarlate (2021). « Perturbation [coût] » signifie que vous pouvez lancer cette carte transformée depuis votre cimetière en payant ce coût à la place de son coût de mana ; le permanent obtenu arrive sur le champ de bataille verso visible.",
+    sourceNote:
+      "Texte « Perturbation {4}{B} » imprimé sur Geist cupide (verso de Coupe-bourse caché // Geist cupide), Innistrad : Chasse de minuit, 2021 ; confirmé par les notes de publication officielles FR (media.wizards.com, FR_MTGMID_ReleaseNotes_08022021.pdf).",
+    confidence: "high",
   },
   {
     termEn: "Explore",
@@ -291,18 +294,20 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     termFr: "Kick",
     category: "keyword-other",
     definitionFr:
-      "Vous pouvez payer un coût supplémentaire (le « coût de kick ») en lançant ce sort pour obtenir un effet bonus. Une carte flexible, jouable tôt pour pas cher ou plus tard avec plus d'impact.",
-    sourceNote: "Entrée lexique dédiée ; terme confirmé sur mtga.untapped.gg/fr (« Kick »).",
-    confidence: "medium",
+      "Coût supplémentaire facultatif imprimé sur certains sorts depuis Invasion (2000). « Kick [coût] » signifie que vous pouvez payer ce coût en plus au moment où vous lancez le sort, ce qui déclenche un effet renforcé ou additionnel décrit sur la carte si le sort a été kické.",
+    sourceNote:
+      "Texte « Kick {4} » imprimé sur Feu shivân (Shivan Fire), Dominaria, 2018 ; confirmé par les notes de publication officielles FR de Dominaria unie (« Kick {1}{U} »). Confirme que le terme français est bien l'anglicisme non traduit « Kick », pas « Kicker ».",
+    confidence: "high",
   },
   {
     termEn: "Mutate",
     termFr: "Mutation",
     category: "keyword-other",
     definitionFr:
-      "Vous pouvez lancer ce sort pour son coût de mutation en le fusionnant avec une créature non-humaine que vous contrôlez ; la carte fusionnée devient une seule créature, cumulant généralement les capacités. Permet de combiner un gros corps avec de bonnes capacités.",
-    sourceNote: "Entrée lexique dédiée, terminologie communautaire francophone stable.",
-    confidence: "medium",
+      "Mot-clé imprimé sur certaines cartes de créature d'Ikoria : la terre des Béhémoths (2020). « Mutation [coût] » signifie que vous pouvez lancer le sort pour ce coût à la place de son coût de mana ; s'il cible une créature non-Humaine que vous contrôlez, il fusionne avec elle (au-dessus ou en dessous, à votre choix), formant une créature mutante qui cumule toutes les capacités des cartes fusionnées.",
+    sourceNote:
+      "Texte « Mutation {3}{R} » imprimé sur Perce-nuages (Cloudpiercer), Ikoria : la terre des Béhémoths, 2020 ; confirmé par l'article officiel FR des mécaniques d'Ikoria sur magic.wizards.com/fr.",
+    confidence: "high",
   },
   {
     termEn: "Proliferate",
@@ -324,13 +329,13 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
   },
   {
     termEn: "Bracket system",
-    termFr: "Paliers (Brackets)",
+    termFr: "Catégories",
     category: "commander",
     definitionFr:
-      "Système officiel (introduit en 2025) qui classe les decks Commander en niveaux de puissance (1 à 5) pour faciliter l'appariement entre joueurs aux tables. Utile pour annoncer le niveau de son deck avant une partie.",
+      "Échelle officielle de niveaux de puissance du format Commander (introduite début 2025, toujours en vigueur en août 2026) : cinq catégories numérotées, chacune associée à un nom — Catégorie 1 (Exhibition), Catégorie 2 (Basique), Catégorie 3 (Amélioré), Catégorie 4 (Optimisé) et Catégorie 5 (cEDH) — définies notamment par le nombre de Cartes à impact autorisées (voir ce terme). Utile pour annoncer le niveau de son deck avant une partie.",
     sourceNote:
-      "Terminologie française encore en stabilisation (système récent) ; « paliers » est employé par des médias MTG francophones, mais « brackets » reste aussi très utilisé tel quel. Aucun terme officiel Wizards en français confirmé.",
-    confidence: "low",
+      "Wizards traduit systématiquement « Brackets » par « Catégories » sur sa page officielle magic.wizards.com/fr/formats/commander (section « CATÉGORIES »), jamais par « Paliers » ni en gardant l'anglais — vérifié le 28/08/2026.",
+    confidence: "high",
   },
   {
     termEn: "Color identity",
@@ -346,8 +351,9 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     termFr: "Taxe de commandant",
     category: "commander",
     definitionFr:
-      "Chaque fois que vous lancez votre commandant depuis la zone de commandement, son coût augmente de {2} générique, cumulatif à chaque relance durant la partie. À prendre en compte dans sa courbe de mana si l'on recaste souvent son commandant.",
-    sourceNote: "Terme communautaire standard désignant une règle officielle du format Commander (surcoût {2} par relance).",
+      "Chaque fois que vous lancez votre commandant depuis la zone de commandement, son coût augmente de {2} générique, cumulatif à chaque relance durant la partie (règle 903.8 des Règles Complètes). À prendre en compte dans sa courbe de mana si l'on recaste souvent son commandant. Ni les Règles Complètes anglaises ni leur traduction française officielle ne nomment cette règle — « taxe de commandant » est un terme communautaire, mais quasi universel sur les forums francophones.",
+    sourceNote:
+      "Règles Complètes FR/EN (règle 903.8, décrivent le coût sans le nommer) ; usage confirmé sur magiccorporation.com (fils de discussion dédiés « taxe de commandant ») — vérifié le 28/08/2026, aucun terme concurrent significatif trouvé.",
     confidence: "medium",
   },
   {
@@ -361,12 +367,13 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
   },
   {
     termEn: "Game Changers (list)",
-    termFr: "Game Changers",
+    termFr: "Cartes à impact",
     category: "commander",
     definitionFr:
-      "Liste officielle de cartes jugées particulièrement puissantes ou déterminantes, utilisée dans le système de paliers pour distinguer les decks les plus optimisés (paliers 4-5) des decks plus décontractés.",
-    sourceNote: "Terme laissé tel quel en anglais dans les sources francophones consultées ; aucune traduction officielle trouvée (liste introduite en 2025).",
-    confidence: "low",
+      "Traduction officielle française de « Game Changers » : liste de cartes particulièrement puissantes utilisée pour définir les Catégories de puissance du format Commander (voir ce terme). Les Catégories 1 et 2 les interdisent totalement, la Catégorie 3 en autorise jusqu'à trois par deck, et les Catégories 4 et 5 n'ont aucune limite. La liste précise des cartes concernées est révisée périodiquement par Wizards.",
+    sourceNote:
+      "Wizards, page officielle magic.wizards.com/fr/formats/commander (section « CARTES À IMPACT ») : « Les catégories une et deux excluent les Cartes à impact. La catégorie trois autorise jusqu'à trois Cartes à impact. » — vérifié le 28/08/2026.",
+    confidence: "high",
   },
   {
     termEn: "Precon",
@@ -382,18 +389,20 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     termFr: "Singleton",
     category: "commander",
     definitionFr:
-      "Règle de construction imposant un seul exemplaire de chaque carte (hors terrains de base) dans le deck. C'est la contrainte fondamentale du format Commander, qui pousse à diversifier les effets plutôt qu'à jouer des cartes en plusieurs copies.",
-    sourceNote: "Terme anglais conservé tel quel dans l'usage francophone ; aucune traduction officielle distincte identifiée.",
-    confidence: "medium",
+      "Règle de construction imposant un seul exemplaire de chaque carte (hors terrains de base) dans le deck. C'est la contrainte fondamentale du format Commander, qui pousse à diversifier les effets plutôt qu'à jouer des cartes en plusieurs copies. Le terme anglais est repris tel quel en français, y compris dans des documents officiels Wizards.",
+    sourceNote:
+      "Confirmé dans un document officiel Wizards en français (Notes de publication Commander 2013) : « Commander est un format « singleton ». Autrement dit, excepté les terrains de base, chaque carte doit avoir un nom anglais différent. » — confirmé aussi par 3 sources communautaires françaises indépendantes (magiccorporation.com, ratemydecks.com/fr, jeuxonline.info).",
+    confidence: "high",
   },
   {
     termEn: "Social contract",
     termFr: "Contrat social",
     category: "commander",
     definitionFr:
-      "Ensemble non écrit d'attentes partagées entre joueurs de Commander (éviter certaines stratégies trop oppressives en partie décontractée, par exemple) pour que la partie reste amusante pour tous. Sert de base philosophique au format.",
-    sourceNote: "Traduction littérale du terme communautaire anglais ; pas un terme de règle officiel.",
-    confidence: "medium",
+      "Ensemble non écrit d'attentes partagées entre joueurs de Commander (éviter certaines stratégies trop oppressives en partie décontractée, par exemple) pour que la partie reste amusante pour tous. Sert de base philosophique au format. ⚠ Traduction proposée par ce site plutôt que terme réellement observé : une recherche ciblée sur plusieurs sites Commander francophones dédiés n'a trouvé aucun usage réel de « contrat social » (ni de l'anglais « social contract ») — le concept y est systématiquement décrit en langage courant plutôt que nommé.",
+    sourceNote:
+      "Recherche du 28/08/2026 sur magic-casual.fr, nofastmana.fr, La Tour de Commandement (EDHREC France) et les forums magic-ville.com/magiccorporation.com : aucune occurrence du terme trouvée, le concept y est expliqué sans étiquette fixe.",
+    confidence: "low",
   },
   {
     termEn: "Combo",
@@ -418,26 +427,29 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     termFr: "Mana dork",
     category: "deckbuilding",
     definitionFr:
-      "Petite créature (souvent à 1 mana) qui peut être engagée pour produire du mana, généralement un elfe vert. Permet d'accélérer son développement, mais reste vulnérable au retrait de créatures.",
-    sourceNote: "Expression anglaise familière conservée telle quelle ; aucune traduction officielle ou communautaire fixe identifiée — argot de joueurs.",
+      "Petite créature (souvent à 1 mana) qui peut être engagée pour produire du mana, généralement un elfe vert. Permet d'accélérer son développement, mais reste vulnérable au retrait de créatures. L'expression anglaise est utilisée telle quelle dans les sources françaises consultées.",
+    sourceNote:
+      "Confirmé utilisé tel quel (anglicisme direct dans une phrase française) sur magic-casual.fr et ratemydecks.com/fr ; aucune traduction alternative (« elfe de mana », etc.) trouvée en usage réel sur magiccorporation.com ou magic-ville.com — vérifié le 28/08/2026.",
     confidence: "low",
   },
   {
     termEn: "Mana rock",
-    termFr: "Mana rock",
+    termFr: "Caillou (de mana) / Mana rock",
     category: "deckbuilding",
     definitionFr:
-      "Artefact (souvent à 2 ou 3 manas) qui peut être engagé pour produire du mana, comme Anneau de Sol ou Sceau arcanique. Accélère le développement sans dépendre de la survie d'une créature.",
-    sourceNote: "Expression anglaise conservée telle quelle ; aucune traduction officielle ou communautaire fixe identifiée — argot de joueurs.",
-    confidence: "low",
+      "Artefact (souvent à 2 ou 3 manas) qui peut être engagé pour produire du mana, comme Anneau de Sol ou Sceau arcanique. Accélère le développement sans dépendre de la survie d'une créature. Le site francophone magic-casual.fr utilise le terme familier « caillou » pour ces artefacts, mais l'anglais « mana rock » ou une description neutre restent tout aussi courants ailleurs.",
+    sourceNote:
+      "« Caillou » utilisé de façon répétée sur magic-casual.fr (« privilégier autant que possible les cailloux à 2 manas ») ; par contraste, ratemydecks.com/fr et magiccorporation.com n'emploient ni « caillou » ni « mana rock » de façon fixe — un seul site fort attestant le terme, d'où une confiance medium plutôt que high. Vérifié le 28/08/2026.",
+    confidence: "medium",
   },
   {
     termEn: "Ramp",
-    termFr: "Rampe (de mana)",
+    termFr: "Accélération de mana / Ramp",
     category: "deckbuilding",
     definitionFr:
-      "Terme générique pour les cartes qui accélèrent la production de mana disponible avant le tour attendu, via des terrains, mana rocks ou mana dorks. Essentiel en Commander pour arriver plus vite à jouer ses grosses cartes.",
-    sourceNote: "Terme communautaire francisé de l'anglais « ramp », usage répandu dans la communauté FR.",
+      "Terme générique pour les cartes qui accélèrent la production de mana disponible avant le tour attendu, via des terrains, mana rocks ou mana dorks. Essentiel en Commander pour arriver plus vite à jouer ses grosses cartes. « Accélération de mana » est l'équivalent formel le plus utilisé à l'écrit, mais l'anglicisme « ramp » (« le ramp », « jouer du ramp ») domine largement à l'oral et dans les guides.",
+    sourceNote:
+      "« Accélération de mana » utilisé sur magiccorporation.com et magic-casual.fr ; « ramp » employé comme nom masculin dans tout le guide de ratemydecks.com/fr (« Le ramp est la colonne vertébrale de chaque deck Commander ») ; « rampe de mana » (variante précédemment retenue) ne s'est trouvée que dans un seul titre de deck isolé, donc écartée comme terme dominant. Vérifié le 28/08/2026.",
     confidence: "medium",
   },
   {
@@ -460,12 +472,13 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
   },
   {
     termEn: "Board wipe",
-    termFr: "Balayage (de table) / Board wipe",
+    termFr: "Board wipe / Rase-board",
     category: "gameplay",
     definitionFr:
-      "Sort qui détruit, exile ou neutralise la plupart ou la totalité des créatures (parfois d'autres permanents) sur le champ de bataille. Une carte clé en Commander multijoueur pour réinitialiser une partie qui tourne mal.",
-    sourceNote: "Expression anglaise très utilisée telle quelle dans la communauté francophone ; « balayage » est parfois employé mais aucun terme unique dominant confirmé.",
-    confidence: "low",
+      "Sort qui détruit, exile ou neutralise la plupart ou la totalité des créatures (parfois d'autres permanents) sur le champ de bataille. Une carte clé en Commander multijoueur pour réinitialiser une partie qui tourne mal. L'anglicisme « board wipe » est très largement utilisé tel quel ; le néologisme « rase-board » existe aussi dans certains guides francophones. La traduction littérale « balayage (de table) » précédemment retenue ici s'est révélée introuvable en usage réel et a été abandonnée.",
+    sourceNote:
+      "« Board wipe(s) » confirmé en usage sur ratemydecks.com/fr ; « rase-board » utilisé de façon répétée (9 occurrences) dans le guide de deckbuilding EDH de magic-casual.fr. Une recherche ciblée de « balayage de table » sur magiccorporation.com et magic-ville.com n'a donné aucun résultat pertinent lié à Magic. Vérifié le 28/08/2026.",
+    confidence: "medium",
   },
   {
     termEn: "ETB (Enters the battlefield)",

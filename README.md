@@ -348,6 +348,77 @@ pour les cartes multi-faces). `getSetInfo`/`getSetCards`/
   données de cartes fictives via Playwright — pas avec de vraies cartes
   en conditions réelles.
 
+### Deuxième passe de vérification, réduction de l'incertitude (28/08/2026)
+
+Demande de Ben, après la livraison de ce qui précède : "il y a beaucoup
+d'incertitude dans tes informations et analyses. Trouve un moyen de
+réduire au maximum ces incertitudes", précisée en "avec pour seul
+objectif de limiter l'incertitude à travers tout le site". Plutôt que de
+supposer le périmètre, j'ai ciblé les deux jeux de données du site qui
+portent un champ `confidence` explicite (le glossaire et les mécaniques
+par set) — c'est là que se concentre l'incertitude déclarée du site ; je
+n'ai pas touché aux heuristiques de scoring (`deck-score.ts`), qui sont
+des choix de conception documentés comme des approximations, pas des
+faits à vérifier.
+
+**Méthode** : 7 lots de recherche indépendants (agents avec accès web
+réel, sans mémoire de session), chacun chargé de retrouver une **source
+primaire directement citable** — texte réellement imprimé sur une carte
+française, article officiel "[Produit] Mechanics"/"Release Notes" de
+Wizards, ou glossaire officiel des règles — plutôt que de se contenter de
+confirmer la formulation existante. Consigne explicite : remonter la
+confiance seulement si une source de ce niveau est trouvée, et sinon
+documenter précisément ce qui a été vérifié et ce qui reste incertain
+(jamais une simple reformulation de l'incertitude).
+
+**Résultat côté glossaire** (14 entrées `medium`/`low` sur 55
+réexaminées) : 9 entrées passées à `high` (Équipement, Convocation,
+Perturbation, Kick, Mutation, Singleton — toutes confirmées par du texte
+de carte française réel ou un document Wizards officiel). Deux
+corrections factuelles notables, pas seulement des changements de
+confiance : le système de paliers Commander se traduit officiellement
+par **« Catégories »** (pas « Paliers ») et la liste "Game Changers" par
+**« Cartes à impact »** — les deux confirmés sur la page officielle
+`magic.wizards.com/fr/formats/commander`, que la première recherche
+n'avait pas su localiser. Deux entrées légitimement dégradées après
+recherche plus poussée : "Contrat social" (`medium` → `low`, aucun usage
+réel trouvé sur les sites Commander francophones consultés — juste décrit
+en langage courant, jamais nommé) confirme que la confiance initiale
+était trop généreuse. "Mana rock" et "Board wipe" remontent à `medium`
+avec un terme français réel trouvé (« caillou », « rase-board »)
+mais porté par une seule source forte, insuffisant pour `high`. "Ramp"
+voit son terme français corrigé ("Accélération de mana / Ramp" plutôt que
+"Rampe (de mana)", cette dernière variante s'étant révélée quasi
+inexistante en usage réel).
+
+**Résultat côté mécaniques par set** (11 entrées `medium`/`low` sur 58
+réexaminées) : 9 passées à `high` via une source primaire directement
+citable (texte de carte, article officiel). Deux corrections factuelles
+importantes qui changent le contenu, pas juste le niveau de confiance —
+`ltc` (Tales of Middle-earth Commander) introduit en réalité un mot de
+capacité inédit, **le conseil secret** (vote à bulletin secret,
+exclusif aux decks Commander et absent du set principal LTR), manqué par
+la première recherche ; `msc` (Marvel Super Heroes Commander) a vu son
+ambiguïté d'attribution explicitement levée — le deck Doom Prevails
+introduit bel et bien le sous-type d'enchantement **Plan** via Glorious
+Purpose, alors que les trois autres precons n'utilisent aucune mécanique
+neuve. Deux entrées restent `medium` après recherche complète,
+honnêtement : `anb` (page Wizards d'origine introuvable après migration
+du site, seulement des citations indépendantes concordantes) et `soc`
+(aucune phrase officielle "aucune nouvelle mécanique" trouvée, seulement
+une absence cohérente dans plusieurs sources — la recherche a quand même
+corrigé une erreur de date de sortie initiale). Plus aucune entrée en
+confiance `low` côté mécaniques par set (58/58 en `high` ou `medium`).
+
+**Ce que cette passe ne prétend pas** : "confiance élevée" signifie
+"source primaire directement citable trouvée", pas "vérité absolue" — un
+document Wizards peut lui-même comporter une erreur, et l'absence de
+preuve du contraire (ex. sld : aucune des 330+ Secret Lair Drop n'a
+jamais introduit de mot-clé inédit) reste une conclusion par convergence
+de sources, pas un audit exhaustif carte par carte. Chaque `sourceNote`
+mise à jour reste volontairement précise sur ce qui a été vérifié pour
+que ce soit vérifiable à nouveau plus tard.
+
 ## Stack
 
 Next.js 16 (App Router, TypeScript, Turbopack) + Tailwind CSS v4. Pas de
