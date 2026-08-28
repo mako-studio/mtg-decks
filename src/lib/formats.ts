@@ -18,20 +18,33 @@ const COMMANDER_LIKE: CategoryConfig = {
     finisher: 6,
     disruption: 5,
   },
-  // Poids rééquilibrés pour ajouter "disruption" (9e pilier, 26/08/2026)
-  // en gardant un total de 100 : les 8 poids précédents sont réduits
-  // d'environ 8% chacun pour faire de la place à "disruption" (8).
+  // Poids rééquilibrés une 2e fois le 28/08/2026 pour faire de la place à
+  // curveWeight/landWeight (16 points au total, voir CategoryConfig dans
+  // types.ts) : les 9 poids ci-dessous (déjà rééquilibrés le 26/08/2026
+  // pour "disruption") sont réduits d'environ 16% chacun, avec un
+  // arrondi qui garde un total de 84 — même méthode que le
+  // rééquilibrage précédent.
   weights: {
-    ramp: 17,
-    removal: 17,
-    wipe: 8,
-    draw: 17,
-    tutor: 8,
-    protection: 8,
-    landfix: 8,
-    finisher: 9,
-    disruption: 8,
+    ramp: 14,
+    removal: 14,
+    wipe: 6,
+    draw: 14,
+    tutor: 7,
+    protection: 7,
+    landfix: 7,
+    finisher: 8,
+    disruption: 7,
   },
+  curveWeight: 8,
+  landWeight: 8,
+  // ≈2.9 : repère communautaire répandu pour un deck Commander "moteur
+  // moyen" (ni aggro pur, ni contrôle/ramp pur) — voir le caveat sur
+  // CategoryConfig.idealAvgCmc.
+  idealAvgCmc: 2.9,
+  // ≈37 terrains sur 99 cartes (hors commandant) — le repère le plus
+  // couramment cité dans le deckbuilding Commander communautaire ; voir
+  // le caveat sur CategoryConfig.idealLandRatio.
+  idealLandRatio: 37 / 99,
 };
 
 /**
@@ -53,20 +66,31 @@ const CONSTRUCTED_60: CategoryConfig = {
     finisher: 4,
     disruption: 3,
   },
-  // Poids rééquilibrés pour ajouter "disruption" (9e pilier, 26/08/2026)
-  // en gardant un total de 100 (removal reste le poste le plus lourd,
-  // cohérent avec un format 60 cartes où l'interaction prime).
+  // Même rééquilibrage du 28/08/2026 que COMMANDER_LIKE ci-dessus (voir
+  // son commentaire) : removal reste le poste le plus lourd (cohérent
+  // avec un format 60 cartes où l'interaction prime), total ramené à 84
+  // pour laisser 16 points à curveWeight/landWeight.
   weights: {
-    ramp: 9,
-    removal: 19,
-    wipe: 9,
-    draw: 18,
-    tutor: 5,
-    protection: 14,
-    landfix: 9,
-    finisher: 9,
-    disruption: 8,
+    ramp: 8,
+    removal: 16,
+    wipe: 8,
+    draw: 14,
+    tutor: 4,
+    protection: 11,
+    landfix: 8,
+    finisher: 8,
+    disruption: 7,
   },
+  curveWeight: 8,
+  landWeight: 8,
+  // ≈2.4 : un format 60 cartes vise en général une courbe plus basse
+  // qu'en Commander (parties plus courtes, plus de pression directe) —
+  // repère communautaire, pas une règle officielle.
+  idealAvgCmc: 2.4,
+  // ≈17 terrains sur 60 cartes — repère communautaire répandu pour un
+  // deck 60 cartes classique (un peu en dessous du "40% de terrains"
+  // parfois cité, plus proche de l'usage réel avec du fixing/ramp).
+  idealLandRatio: 17 / 60,
 };
 
 export const FORMATS: Record<FormatKey, FormatConfig> = {

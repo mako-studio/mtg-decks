@@ -27,6 +27,7 @@ export function ImproveDeckPanel({
   hasCommander,
   colorIdentity,
   currentCards,
+  commanderEntries,
   existingCounts,
 }: {
   suggestions: CardSuggestion[];
@@ -43,6 +44,8 @@ export function ImproveDeckPanel({
   colorIdentity: string[];
   /** Cartes actuelles du deck (hors commandant), pour évaluer la compatibilité de la carte cherchée. */
   currentCards: EnrichedCard[];
+  /** Commandant·s du deck — sert à la détection d'archétype (voir AddCardSearch.tsx). */
+  commanderEntries: EnrichedCard[];
   /** Nombre d'exemplaires déjà dans le deck, par nom en minuscule. */
   existingCounts: Map<string, number>;
 }) {
@@ -116,6 +119,7 @@ export function ImproveDeckPanel({
             hasCommander={hasCommander}
             colorIdentity={colorIdentity}
             currentCards={currentCards}
+            commanderEntries={commanderEntries}
             existingCounts={existingCounts}
             onAddClick={onAddClick}
             addDisabled={addDisabled}

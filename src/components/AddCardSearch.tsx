@@ -47,6 +47,7 @@ export function AddCardSearch({
   hasCommander,
   colorIdentity,
   currentCards,
+  commanderEntries = [],
   existingCounts,
   onAddClick,
   addDisabled = false,
@@ -59,6 +60,8 @@ export function AddCardSearch({
   colorIdentity: string[];
   /** Cartes actuelles du deck (hors commandant), pour évaluer la compatibilité de la carte cherchée. */
   currentCards: EnrichedCard[];
+  /** Commandant·s du deck — sert à la détection d'archétype (voir evaluateCardForDeck). */
+  commanderEntries?: EnrichedCard[];
   /** Nombre d'exemplaires déjà dans le deck, par nom en minuscule. */
   existingCounts: Map<string, number>;
   /** Clic sur "Ajouter"/"Swap" — au parent de décider (ajout direct ou popup de swap), comme pour les suggestions automatiques. */
@@ -101,7 +104,7 @@ export function AddCardSearch({
     setAutocomplete([]);
     setNotFound(false);
     setLoadingPreview(true);
-    const res = await evaluateCardForDeck(name, formatKey, currentCards, recentSwapOuts);
+    const res = await evaluateCardForDeck(name, formatKey, currentCards, recentSwapOuts, commanderEntries);
     setLoadingPreview(false);
     if (!res) {
       setPreview(null);
@@ -227,7 +230,7 @@ export function AddCardSearch({
             )}
             <p className="mt-1.5 text-xs text-muted">{suggestion.reason}</p>
 
-            {suggestion.categories.length > 0 && (
+            {(suggestion.categories.length > 0 || suggestion.archetypeMatch) && (
               <div className="mt-2 flex flex-wrap gap-1">
                 {suggestion.categories.map((cat) => (
                   <span
@@ -237,6 +240,14 @@ export function AddCardSearch({
                     {CATEGORY_LABELS[cat] ?? cat}
                   </span>
                 ))}
+                {suggestion.archetypeMatch && (
+                  <span
+                    title="Correspond au thème détecté de ton deck, pas à un pilier générique — voir archetype.ts"
+                    className="rounded-full bg-synergy-soft px-2 py-0.5 text-[10px] font-semibold text-synergy"
+                  >
+                    ✦ {suggestion.archetypeMatch.label}
+                  </span>
+                )}
               </div>
             )}
 

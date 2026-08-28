@@ -488,6 +488,109 @@ le cas remonté par Ben). Le site déployé (Vercel), lui, a un accès
 réseau normal à Scryfall — une fois ce correctif en ligne, la vraie
 vérification sera la page `/extensions/<code>` d'un set à variantes.
 
+### Refonte du scoring et des suggestions, détection d'archétype (28/08/2026)
+
+Ben a demandé d'améliorer l'algorithme de suggestion de cartes et le
+scoring des decks — "le cœur du site" — en le rendant "le plus solide
+possible et pertinent". Trois faiblesses ont été identifiées et
+soumises à Ben (qui a choisi l'option la plus ambitieuse, combinant les
+trois) :
+
+1. Le score ignorait complètement la courbe de mana et le nombre de
+   terrains — `avgCmc` et `landCount` étaient calculés mais jamais
+   utilisés ni affichés.
+2. Le choix de la carte à retirer lors d'une suggestion (swap-out)
+   ignorait la qualité individuelle des cartes — le site pouvait
+   suggérer de retirer la meilleure carte du deck si elle ne couvrait
+   qu'un pilier déjà bien pourvu.
+3. Aucune détection d'archétype/stratégie : deux decks très différents
+   avec le même commandant recevaient des suggestions génériques
+   identiques.
+
+Deux demandes annexes ont été intégrées à la même mise à jour : un
+correctif visuel du bouton d'import CSV, et une visualisation de la
+courbe de mana sur la page de deck.
+
+**Santé de courbe de mana et de terrains.** Deux nouveaux signaux
+(`curveHealth`, `landHealth` dans `deck-score.ts`) suivent le même
+mécanisme que les 9 piliers existants : un ratio 0-1 multiplié par un
+poids, ajouté au score total sur 100. Le ratio utilise une bande de
+tolérance (± une marge autour de l'idéal) puis une décroissance
+linéaire au-delà — pas un seuil brutal. Les valeurs "idéales"
+(`idealAvgCmc`, `idealLandRatio` dans `formats.ts`, ex. CMC moyen 2.9
+et ~37 terrains/99 en Commander) sont des heuristiques de construction
+de deck courantes, **pas une vérité absolue** — un deck délibérément
+agressif (courbe basse) ou très contrôlant (courbe haute) s'écartera
+de cet idéal sans que ce soit un défaut. Pour faire de la place à ces
+deux nouveaux signaux (16 points au total) sans dépasser 100, les
+poids des 9 piliers existants ont été réduits proportionnellement
+d'environ 16 %, selon la même méthode déjà utilisée lors de l'ajout du
+pilier "disruption".
+
+**Swap-out sensible à la qualité.** `buildRemovalCandidates` applique
+désormais des pénalités qui protègent les cartes fortes d'être
+proposées au retrait : -5 pour une carte marquée `game_changer` par
+Scryfall, -3/-1.5 selon que son `edhrec_rank` est très bas (carte très
+jouée) ou modérément bas, et -3 si elle correspond à un archétype
+détecté du deck. Ces pénalités restent volontairement plus petites que
+l'écart ±3 lié à la couverture de pilier, pour qu'un vrai trou dans un
+pilier continue de dominer la décision — la qualité de la carte
+affine le choix, elle ne l'écrase pas.
+
+**Détection d'archétype.** Nouveau fichier `archetype.ts` : détection
+par motifs de texte + part du type de créature pour 6 archétypes
+(sacrifice, +1/+1 counters, spellslinging, artefacts, gain de vie,
+tribal). Le choix de ces 6-là est volontaire — des archétypes à signal
+faible ou ambigu (stax, group hug...) ont été exclus plutôt que
+détectés à moitié. Deux niveaux de confiance ("high" si le commandant
+confirme le thème, "medium" sinon, sur la seule part de composition du
+deck) ; en dessous de 6 cartes non-terrain le detecteur ne renvoie
+aucun signal (échantillon trop petit). **C'est une heuristique, pas une
+analyse garantie** : un deck peut avoir un vrai thème que ces 6
+catégories ne couvrent pas, ou déclencher un faux positif sur un
+thème mineur. Les archétypes détectés alimentent : un budget dédié de
+suggestions ciblées (3 sur les 10 maximum) via des requêtes Scryfall
+par archétype revalidées carte par carte, l'affichage d'un badge "✦
+Archétype" sur le dashboard et les suggestions, et une meilleure
+évaluation dans "tester une carte" (une carte qui ne correspond à
+aucun pilier mais matche un archétype détecté n'est plus classée
+"indéterminée").
+
+**Correctif UI import CSV.** Le bouton natif `<input type="file">`
+stylé via le pseudo-élément Tailwind `file:` débordait de son
+conteneur (signalé par Ben, captures à l'appui). Remplacé par un motif
+plus robuste : input natif masqué (`sr-only`, toujours accessible au
+clavier/lecteur d'écran) déclenché par un bouton personnalisé
+cohérent avec le design system du site.
+
+**Visualisation de la courbe de mana.** Nouveau composant
+`ManaCurveChart.tsx` (histogramme par CMC, 0 à "7+", terrains exclus),
+sans dépendance externe, sur la page de deck aux côtés des messages de
+santé courbe/terrains — construit en suivant les recommandations d'une
+compétence interne de visualisation de données (une seule teinte pour
+une série unique, étiquettes de valeur directes plutôt qu'une légende,
+pas de survol nécessaire vu le faible nombre de barres).
+
+**Sur la vérification** — comme pour le correctif `unique=prints`
+ci-dessus, aucun accès réseau réel à Scryfall n'était disponible dans
+cet environnement. La vérification s'est donc faite en deux temps :
+des tests de logique métier avec des données Scryfall simulées
+(fixtures écrites à la main couvrant les 6 archétypes et plusieurs
+profils de deck), puis un serveur Next.js de production complet avec
+les mêmes appels Scryfall interceptés, capturé visuellement via
+Playwright (formulaire CSV, dashboard, panneau de suggestions,
+galerie de decks). Cette deuxième passe a révélé un vrai bug avant
+livraison : le score projeté après application des suggestions ne
+comptait que les 9 poids de piliers, oubliant les 16 points de
+courbe/terrains — le dashboard affichait un score qui *baissait* après
+des suggestions pourtant bénéfiques (16,1 → 7,6). Corrigé en ajoutant
+la contribution des deux nouveaux signaux au score projeté (en
+réutilisant les ratios courbe/terrains *actuels* comme approximation,
+plutôt que de re-simuler le deck après échange — précisé dans le code
+via un commentaire). Comme pour le correctif précédent, cette mise à
+jour reste **non vérifiée contre une vraie réponse Scryfall** — la
+vérification en conditions réelles se fera sur le site déployé.
+
 ## Stack
 
 Next.js 16 (App Router, TypeScript, Turbopack) + Tailwind CSS v4. Pas de

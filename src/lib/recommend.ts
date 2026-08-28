@@ -1,4 +1,6 @@
 import type {
+  Archetype,
+  ArchetypeSignal,
   CardSuggestion,
   CardVerdict,
   DeckCategory,
@@ -10,6 +12,7 @@ import type {
 } from "./types";
 import { searchCards } from "./scryfall";
 import { CATEGORY_LABELS, classifyCard, computeDeckStats } from "./deck-score";
+import { cardMatchesArchetype, detectArchetypes } from "./archetype";
 
 /**
  * Requêtes Scryfall (syntaxe : https://scryfall.com/docs/syntax) utilisées
@@ -40,24 +43,119 @@ function colorIdentityQuery(identity: string[]): string {
 }
 
 /**
+ * Requêtes Scryfall de point de départ pour chaque archétype détecté
+ * (voir archetype.ts) — même esprit que CATEGORY_QUERIES ci-dessus : pas
+ * des filtres parfaits, les résultats sont reconfirmés par
+ * `cardMatchesArchetype` avant d'être proposés (voir suggestForArchetype
+ * ci-dessous). "tribal" n'a pas d'entrée fixe ici : sa requête dépend du
+ * type de créature détecté, construite à la volée par `archetypeQueryFor`.
+ */
+const ARCHETYPE_QUERIES: Partial<Record<Archetype, string>> = {
+  sacrifice:
+    '(o:"sacrifice a creature" or o:"whenever a creature you control dies" or o:"you may sacrifice a creature")',
+  counters: '(o:"+1/+1 counter" (o:proliferate or o:"double the number of" or o:"puts a +1/+1 counter"))',
+  spellslinging: '(o:"whenever you cast an instant or sorcery spell" or o:magecraft or t:instant or t:sorcery)',
+  artifacts: '(o:"whenever an artifact" or o:"artifacts you control get" or t:artifact) -t:land',
+  lifegain: '(o:"whenever you gain life" or o:"gain life equal to")',
+};
+
+function archetypeQueryFor(signal: ArchetypeSignal): string | null {
+  if (signal.archetype === "tribal") {
+    const type = signal.label.replace(/^Tribal — /, "");
+    return `(t:"${type}" or o:"${type}s")`;
+  }
+  return ARCHETYPE_QUERIES[signal.archetype] ?? null;
+}
+
+/** Nombre maximum de suggestions réservées à la synergie thématique (voir suggestImprovements) sur le total demandé — le reste va aux piliers génériques sous leur cible. */
+const ARCHETYPE_SUGGESTION_BUDGET = 3;
+
+/**
+ * Cherche des cartes en synergie avec un archétype détecté du deck
+ * (voir archetype.ts) — complète les suggestions par pilier, qui ne
+ * mesurent que des rôles génériques (ramp/removal/...) indépendants de
+ * la stratégie précise du deck. Même structure que la boucle par pilier
+ * de suggestImprovements : requête Scryfall de point de départ, puis
+ * confirmation carte par carte (ici via `cardMatchesArchetype` plutôt
+ * que `classifyCard`) avant de proposer.
+ */
+async function suggestForArchetype(
+  signal: ArchetypeSignal,
+  colorIdentity: string[],
+  format: FormatConfig,
+  seen: Set<string>,
+  currentCounts: Map<string, number>,
+  maxCount: number
+): Promise<CardSuggestion[]> {
+  const query = archetypeQueryFor(signal);
+  if (!query || maxCount <= 0) return [];
+
+  const legalityClause = `f:${format.scryfallLegality}`;
+  const gameClause = format.arenaOnly ? "game:arena" : "-is:digital";
+  const fullQuery = `${query} ${legalityClause} ${colorIdentityQuery(colorIdentity)} ${gameClause}`;
+
+  let results: ScryfallCard[] = [];
+  try {
+    results = await searchCards(fullQuery, 1);
+  } catch {
+    return [];
+  }
+
+  const out: CardSuggestion[] = [];
+  for (const card of results) {
+    if (out.length >= maxCount) break;
+    const key = card.name.toLowerCase();
+    const isBasicLand = card.type_line?.includes("Basic Land");
+    const have = currentCounts.get(key) ?? 0;
+    if (seen.has(key) || (!isBasicLand && have >= format.maxCopies)) continue;
+    if (!cardMatchesArchetype(card, signal)) continue;
+
+    seen.add(key);
+    out.push({
+      card,
+      categories: classifyCard(card),
+      reason: `Synergie thématique avec ton deck (${signal.label}), détectée d'après ton commandant et/ou la composition actuelle.`,
+      // Signal qualitatif de synergie, pas dérivé d'un poids de pilier
+      // (voir DeckCategory) : valeur arbitraire mais basse pour rester
+      // cohérente avec les impacts "impact/target" des suggestions de
+      // pilier, qui tournent generalement autour de 0.02-0.06.
+      impact: 0.04,
+      archetypeMatch: { archetype: signal.archetype, label: signal.label },
+    });
+  }
+  return out;
+}
+
+/**
  * Propose des cartes pour combler les catégories les plus faibles du deck,
  * dans les couleurs du deck (identité du commandant pour les formats
  * singleton, couleurs cumulées des cartes sinon), légales dans le format
  * choisi (et sur Arena si `format.arenaOnly`), en respectant le nombre
  * d'exemplaires maximum autorisé (`format.maxCopies`).
+ *
+ * `commanders` (28/08/2026, optionnel/vide par défaut) sert à détecter
+ * l'archétype du deck (voir archetype.ts) : quand un archétype est
+ * détecté, une partie du budget de suggestions (`ARCHETYPE_SUGGESTION_BUDGET`)
+ * est réservée à des cartes en synergie thématique plutôt qu'à des
+ * piliers génériques — correctif du problème remonté par Ben ("deux
+ * decks très différents avec le même commandant reçoivent les mêmes
+ * suggestions génériques").
  */
 export async function suggestImprovements(
   currentCards: EnrichedCard[],
   colorIdentity: string[],
   format: FormatConfig,
+  commanders: ScryfallCard[] = [],
   maxSuggestions = 10
 ): Promise<{
   currentStats: DeckStats;
   projectedStats: DeckStats;
   improvementPct: number;
   suggestions: CardSuggestion[];
+  archetypes: ArchetypeSignal[];
 }> {
   const currentStats = computeDeckStats(currentCards, format.categories);
+  const archetypes = detectArchetypes(currentCards, commanders);
 
   const currentCounts = new Map<string, number>();
   for (const c of currentCards) {
@@ -79,8 +177,13 @@ export async function suggestImprovements(
   const suggestions: CardSuggestion[] = [];
   const seen = new Set<string>();
 
+  // Budget réservé à la synergie thématique quand un archétype est
+  // détecté (voir doc ci-dessus) — le reste va aux piliers génériques.
+  const archetypeBudget = archetypes.length > 0 ? Math.min(ARCHETYPE_SUGGESTION_BUDGET, maxSuggestions) : 0;
+  const pillarBudget = maxSuggestions - archetypeBudget;
+
   for (const { cat } of weakestFirst) {
-    if (suggestions.length >= maxSuggestions) break;
+    if (suggestions.length >= pillarBudget) break;
 
     const legalityClause = `f:${format.scryfallLegality}`;
     const gameClause = format.arenaOnly ? "game:arena" : "-is:digital";
@@ -96,7 +199,7 @@ export async function suggestImprovements(
     }
 
     for (const card of results) {
-      if (suggestions.length >= maxSuggestions) break;
+      if (suggestions.length >= pillarBudget) break;
       const key = card.name.toLowerCase();
       const isBasicLand = card.type_line?.includes("Basic Land");
       const have = currentCounts.get(key) ?? 0;
@@ -114,6 +217,24 @@ export async function suggestImprovements(
     }
   }
 
+  // Suggestions de synergie thématique (voir suggestForArchetype
+  // ci-dessus) : réparties entre les archétypes détectés (les plus
+  // confiants d'abord, `archetypes` est déjà trié par detectArchetypes),
+  // jusqu'au budget réservé ou à maxSuggestions au total.
+  for (const signal of archetypes) {
+    const remaining = Math.min(archetypeBudget, maxSuggestions - suggestions.length);
+    if (remaining <= 0) break;
+    const archSuggestions = await suggestForArchetype(
+      signal,
+      colorIdentity,
+      format,
+      seen,
+      currentCounts,
+      remaining
+    );
+    suggestions.push(...archSuggestions);
+  }
+
   // Pour chaque suggestion, propose une carte du deck actuel à retirer en
   // échange ("swap"), plutôt que de laisser le deck grossir indéfiniment
   // (les decks Commander/Brawl/constructed visés ont tous une taille
@@ -124,7 +245,8 @@ export async function suggestImprovements(
   const removalCandidates = buildRemovalCandidates(
     currentCards,
     currentStats.categoryCounts,
-    targets
+    targets,
+    archetypes
   );
   const usedRemovals = new Set<string>();
   for (const s of suggestions) {
@@ -149,6 +271,19 @@ export async function suggestImprovements(
     const ratio = Math.min(projectedCategoryCounts[cat] / targets[cat], 1);
     projectedScore += ratio * weights[cat];
   }
+  // ⚠️ Correctif du 28/08/2026 : le score (voir computeDeckStats,
+  // deck-score.ts) inclut désormais curveHealth/landHealth en plus des 9
+  // piliers — sans les rajouter ici aussi, currentStats.score (sur 100)
+  // et projectedScore (qui ne comptait que les piliers, sur 84) étaient
+  // sur des échelles différentes, ce qui pouvait afficher un score
+  // "projeté" plus bas que l'actuel après avoir pourtant ajouté des
+  // cartes utiles. Cette simulation n'essaie pas de réévaluer la courbe/
+  // les terrains après ajout (les suggestions ne remplacent pas encore
+  // réellement les cartes swap-out dans ce calcul) : on reprend tel
+  // quel le ratio actuel, une approximation raisonnable pour quelques
+  // cartes ajoutées sur un deck de ~99.
+  projectedScore += currentStats.curveHealth.ratio * format.categories.curveWeight;
+  projectedScore += currentStats.landHealth.ratio * format.categories.landWeight;
   projectedScore = Math.round(projectedScore * 10) / 10;
 
   const projectedStats: DeckStats = {
@@ -164,7 +299,7 @@ export async function suggestImprovements(
         ? 100
         : 0;
 
-  return { currentStats, projectedStats, improvementPct, suggestions };
+  return { currentStats, projectedStats, improvementPct, suggestions, archetypes };
 }
 
 /**
@@ -183,25 +318,43 @@ export async function suggestImprovements(
  * ressort identique pour toute recherche qui ne partage aucune catégorie
  * avec elle, ce qui donne l'impression d'un outil qui répète toujours la
  * même réponse plutôt que d'analyser vraiment chaque carte.
+ *
+ * `commanders` (28/08/2026, optionnel/vide par défaut) sert à détecter
+ * l'archétype du deck (voir archetype.ts) : une carte qui ne remplit
+ * aucun des 9 piliers mais correspond au thème détecté du deck (ex: un
+ * gobelin dans un deck tribal Gobelin) n'est plus classée "rôle non
+ * identifié" — voir ci-dessous.
  */
 export function evaluateCardCompatibility(
   card: ScryfallCard,
   currentCards: EnrichedCard[],
   format: FormatConfig,
-  excludeFromSwap: string[] = []
+  excludeFromSwap: string[] = [],
+  commanders: ScryfallCard[] = []
 ): CardSuggestion {
   const currentStats = computeDeckStats(currentCards, format.categories);
   const targets = format.categories.targets;
   const categories = classifyCard(card);
+  const archetypes = detectArchetypes(currentCards, commanders);
+  const archetypeMatches = archetypes.filter((a) => cardMatchesArchetype(card, a));
 
   let verdict: CardVerdict;
   let reason: string;
+  let archetypeMatch: CardSuggestion["archetypeMatch"];
 
-  if (categories.length === 0) {
+  if (categories.length === 0 && archetypeMatches.length === 0) {
     verdict = "unclear";
     reason =
       "Aucun rôle clé détecté dans le texte de cette carte (rampe, removal, pioche, …) selon notre heuristique interne — elle peut malgré tout apporter une synergie que cette analyse ne mesure pas (voir les limites décrites dans le README)." +
       popularitySignal(card);
+  } else if (categories.length === 0) {
+    // Aucun pilier générique, mais correspond au thème détecté du deck
+    // (voir archetype.ts) — plus utile à annoncer que "rôle non
+    // identifié", même si ce n'est pas un pilier au sens strict.
+    verdict = "improve";
+    const match = archetypeMatches[0];
+    archetypeMatch = { archetype: match.archetype, label: match.label };
+    reason = `Correspond au thème détecté de ton deck (${match.label}) — aucun des 9 piliers génériques ne la classe, mais elle est en synergie avec ta stratégie.`;
   } else {
     const underTarget = categories.filter((cat) => currentStats.categoryCounts[cat] < targets[cat]);
     if (underTarget.length > 0) {
@@ -211,9 +364,14 @@ export function evaluateCardCompatibility(
       verdict = "marginal";
       reason = `Catégorie${categories.length > 1 ? "s" : ""} déjà bien couverte${categories.length > 1 ? "s" : ""} dans le deck (${categories.map((c) => CATEGORY_LABELS[c]).join(", ")}) — ajout possible mais impact limité selon notre heuristique.`;
     }
+    if (archetypeMatches.length > 0) {
+      const match = archetypeMatches[0];
+      archetypeMatch = { archetype: match.archetype, label: match.label };
+      reason += ` Correspond aussi au thème détecté de ton deck (${match.label}).`;
+    }
   }
 
-  const removalCandidates = buildRemovalCandidates(currentCards, currentStats.categoryCounts, targets);
+  const removalCandidates = buildRemovalCandidates(currentCards, currentStats.categoryCounts, targets, archetypes);
   const pseudoSuggestion: CardSuggestion = { card, categories, reason, impact: 0 };
   const swapOut = pickSwapCandidate(
     pseudoSuggestion,
@@ -223,7 +381,7 @@ export function evaluateCardCompatibility(
     targets
   );
 
-  return { card, categories, reason, impact: 0, swapOut, verdict };
+  return { card, categories, reason, impact: 0, swapOut, verdict, archetypeMatch };
 }
 
 function reasonFor(cat: DeckCategory): string {
@@ -290,13 +448,29 @@ interface RemovalCandidate {
  * toutes les catégories sont déjà à/au-dessus de la cible est redondante
  * et donc elle aussi sacrifiable ; à l'inverse, une carte qui contribue à
  * une catégorie encore sous sa cible est pénalisée (on évite de la
- * proposer, elle comble un manque réel). Ce n'est pas une mesure de
- * puissance individuelle de la carte — juste un signal relatif.
+ * proposer, elle comble un manque réel).
+ *
+ * ⚠️ Correctif du 28/08/2026 (remonté par Ben : "ça peut proposer de
+ * retirer ma meilleure carte juste parce que son pilier est plein, et
+ * protéger une carte faible juste parce que son pilier est vide") : deux
+ * signaux supplémentaires, tous deux volontairement plus légers que
+ * l'écart de catégorie ci-dessus (±3/±2), pour NUANCER sans inverser le
+ * critère principal — piliers sous leur cible restent toujours prioritaires
+ * à protéger :
+ * - qualité individuelle de la carte (`card.game_changer`/`edhrec_rank`,
+ *   champs officiels Scryfall — voir popularitySignal ci-dessus) : une
+ *   carte notoirement puissante ou très jouée est protégée même si son
+ *   pilier est "plein" ;
+ * - synergie thématique (`archetypes`, voir archetype.ts) : une carte sur
+ *   le thème détecté du deck est protégée même si elle ne remplit aucun
+ *   des 9 piliers génériques.
+ * Toujours pas une mesure de puissance absolue — un signal relatif de plus.
  */
 function buildRemovalCandidates(
   currentCards: EnrichedCard[],
   categoryCounts: Record<DeckCategory, number>,
-  targets: Record<DeckCategory, number>
+  targets: Record<DeckCategory, number>,
+  archetypes: ArchetypeSignal[] = []
 ): RemovalCandidate[] {
   const list: RemovalCandidate[] = [];
   for (const entry of currentCards) {
@@ -315,6 +489,23 @@ function buildRemovalCandidates(
     // Léger bonus aux cartes chères à lancer : à sacrifice égal, autant
     // garder les cartes les moins gourmandes en mana.
     removability += (entry.card.cmc ?? 0) * 0.1;
+
+    // Qualité individuelle (voir doc ci-dessus) : protège les cartes
+    // notoirement puissantes/populaires, sans jamais l'emporter à elle
+    // seule sur un vrai manque de pilier (±5 max, contre ±3 par pilier
+    // manquant — une carte qui comble 2 piliers sous leur cible reste
+    // protégée quelle que soit sa popularité).
+    if (entry.card.game_changer) removability -= 5;
+    if (typeof entry.card.edhrec_rank === "number" && entry.card.edhrec_rank > 0) {
+      if (entry.card.edhrec_rank <= 300) removability -= 3;
+      else if (entry.card.edhrec_rank <= 1500) removability -= 1.5;
+    }
+
+    // Synergie thématique (voir doc ci-dessus) : protège les cartes sur
+    // le thème détecté du deck, y compris celles sans catégorie/pilier.
+    if (archetypes.some((a) => cardMatchesArchetype(entry.card!, a))) {
+      removability -= 3;
+    }
 
     list.push({ name: entry.name, categories, cmc: entry.card.cmc ?? 0, removability });
   }

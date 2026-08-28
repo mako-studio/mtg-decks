@@ -90,6 +90,14 @@ export function SuggestionCard({
                   {CATEGORY_LABELS[cat] ?? cat}
                 </span>
               ))}
+              {suggestion.archetypeMatch && (
+                <span
+                  title="Correspond au thème détecté de ton deck, pas à un pilier générique"
+                  className="rounded-full bg-synergy-soft px-2 py-0.5 text-[10px] font-semibold text-synergy"
+                >
+                  ✦ {suggestion.archetypeMatch.label}
+                </span>
+              )}
             </div>
             {suggestion.swapOut && (
               <p className="mt-1.5 flex items-center gap-1 truncate text-[11px] text-muted">

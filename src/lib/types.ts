@@ -169,12 +169,69 @@ export type DeckCategory =
   | "finisher"
   | "disruption";
 
+/** Une tranche de la courbe de mana : nombre de cartes (hors terrains) à ce coût converti. `cmc: 7` regroupe "7 et plus". */
+export interface ManaCurveBucket {
+  cmc: number;
+  label: string;
+  count: number;
+}
+
+/**
+ * Signal de santé "structurel" du deck (courbe de mana ou nombre de
+ * terrains) — même échelle que les ratios de piliers (`ratio` 0-1,
+ * contribue au score final avec son propre poids, voir `curveWeight`/
+ * `landWeight` dans CategoryConfig et computeDeckStats dans
+ * deck-score.ts). `status` est dérivé du ratio pour l'affichage
+ * (même trichotomie que PillarCoverage.tsx : bon / à surveiller /
+ * hors cible). Basé sur des repères de deckbuilding communautaires
+ * répandus (ex : ~37 terrains sur 99 cartes en Commander), pas une
+ * règle officielle — voir README et le commentaire sur
+ * `idealLandRatio`/`idealAvgCmc` dans formats.ts.
+ */
+export interface HealthSignal {
+  ratio: number;
+  status: "good" | "watch" | "off";
+  message: string;
+}
+
 export interface DeckStats {
   totalNonLandCards: number;
   landCount: number;
   avgCmc: number;
   categoryCounts: Record<DeckCategory, number>;
+  manaCurve: ManaCurveBucket[];
+  curveHealth: HealthSignal;
+  landHealth: HealthSignal;
   score: number; // 0-100
+}
+
+/**
+ * Archétypes/stratégies de deck détectables par `detectArchetypes`
+ * (archetype.ts, 28/08/2026) : un signal complémentaire aux 9 piliers,
+ * qui eux mesurent des RÔLES de carte (ramp, removal...) indépendamment
+ * de la stratégie du deck. Périmètre volontairement limité à des
+ * archétypes à signal textuel/structurel fort et bien standardisé dans
+ * le templating Magic (voir ARCHETYPE_DEFS dans archetype.ts) — pas de
+ * tentative de couvrir "tous les archétypes possibles" (stax, group
+ * hug... ont des signaux trop diffus pour une détection fiable par
+ * heuristique, voir README).
+ */
+export type Archetype = "tribal" | "sacrifice" | "counters" | "spellslinging" | "artifacts" | "lifegain";
+
+/**
+ * Détection d'un archétype pour CE deck précis. `confidence` reflète la
+ * force du signal (commandant qui confirme explicitement > forte part
+ * du deck seulement) — même esprit de transparence que `GlossaryTerm`/
+ * `SetNote`, appliqué ici à une inférence algorithmique plutôt qu'à une
+ * recherche documentaire. `matchedCount`/`matchedShare` exposent le
+ * calcul plutôt que de le cacher derrière un simple label.
+ */
+export interface ArchetypeSignal {
+  archetype: Archetype;
+  label: string;
+  confidence: "high" | "medium";
+  matchedCount: number;
+  matchedShare: number;
 }
 
 /**
@@ -212,6 +269,13 @@ export interface CardSuggestion {
   /** Carte du deck actuel qu'on pourrait retirer pour faire de la place. `null` si aucune candidate trouvée. */
   swapOut?: SwapCandidate | null;
   verdict?: CardVerdict;
+  /**
+   * Présent si cette suggestion vient de la détection d'archétype
+   * (synergie thématique avec le deck précis, voir archetype.ts) plutôt
+   * que d'un pilier générique sous sa cible — permet à l'UI de
+   * distinguer visuellement les deux raisons (SuggestionCard.tsx).
+   */
+  archetypeMatch?: { archetype: Archetype; label: string };
 }
 
 /**
@@ -233,6 +297,35 @@ export type FormatKey =
 export interface CategoryConfig {
   targets: Record<DeckCategory, number>;
   weights: Record<DeckCategory, number>;
+  /**
+   * Poids (points sur 100, même échelle que `weights`) de la santé de la
+   * courbe de mana et du nombre de terrains dans le score global —
+   * correctif du 28/08/2026 : ces deux données étaient déjà calculées
+   * (`avgCmc`/`landCount` dans DeckStats) mais n'entraient jamais dans le
+   * score, qui pouvait donc être à 100 avec une courbe ou un nombre de
+   * terrains problématique. `weights` (les 9 piliers) a été réduit
+   * proportionnellement pour laisser la place à ces deux poids, en
+   * gardant un total de 100 — même méthode que l'ajout du pilier
+   * "disruption" (voir deck-score.ts).
+   */
+  curveWeight: number;
+  landWeight: number;
+  /**
+   * Coût de mana moyen (hors terrains) jugé sain pour ce type de deck —
+   * repère de deckbuilding communautaire répandu, pas une règle
+   * officielle (aucune source primaire vérifiée en direct, voir README).
+   * Sert de centre à une bande de tolérance (voir curveHealthRatio dans
+   * deck-score.ts), pas un objectif strict.
+   */
+  idealAvgCmc: number;
+  /**
+   * Part de terrains jugée saine dans le deck (hors commandant) — même
+   * caveat que `idealAvgCmc` : repère communautaire, pas une règle
+   * officielle. Exprimée en ratio plutôt qu'en nombre absolu pour
+   * s'appliquer aux formats de tailles différentes (99 cartes en
+   * Commander, 59 en Brawl, 60 en constructed...).
+   */
+  idealLandRatio: number;
 }
 
 export interface FormatConfig {

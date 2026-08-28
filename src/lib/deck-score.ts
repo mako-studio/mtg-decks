@@ -1,4 +1,12 @@
-import type { CategoryConfig, DeckCategory, DeckStats, EnrichedCard, ScryfallCard } from "./types";
+import type {
+  CategoryConfig,
+  DeckCategory,
+  DeckStats,
+  EnrichedCard,
+  HealthSignal,
+  ManaCurveBucket,
+  ScryfallCard,
+} from "./types";
 import { getDisplayOracleText } from "./scryfall";
 
 /**
@@ -21,6 +29,16 @@ import { getDisplayOracleText } from "./scryfall";
  * (ex: une carte qui "détruit" un artéfact sans être un removal de
  * créature). Le score sert d'indicateur relatif "avant / après", pas
  * de mesure de puissance certifiée.
+ *
+ * ⚠️ Correctif du 28/08/2026 (remonté par Ben : "le score ignore la
+ * courbe de mana et le nombre de terrains") : le score intègre
+ * désormais deux signaux structurels en plus des 9 piliers — santé de
+ * la courbe de mana et santé du nombre de terrains (voir
+ * curveHealthFor/landHealthFor ci-dessous) — avec leur propre poids
+ * (config.curveWeight/landWeight), en gardant le même total de 100
+ * points (voir le rééquilibrage dans formats.ts). Avant ce correctif,
+ * un deck pouvait afficher 100/100 avec une courbe ou un nombre de
+ * terrains problématique tant que les 9 piliers étaient couverts.
  */
 
 // Beaucoup de removal/wipe réels intercalent un ou plusieurs qualificatifs
@@ -237,6 +255,102 @@ export const EMPTY_CATEGORY_COUNTS: Record<DeckCategory, number> = {
   disruption: 0,
 };
 
+/**
+ * Répartition du nombre de cartes (hors terrains) par coût de mana
+ * converti, arrondi à l'entier le plus proche (les coûts fractionnaires
+ * n'existent pas côté cartes jouables normales) et plafonné à 7 ("7 et
+ * plus") — convention d'affichage standard d'une courbe de mana MTG.
+ * Exporté pour être réutilisé tel quel par ManaCurveChart.tsx (une seule
+ * source de vérité pour la courbe, calculée ici avec le reste des stats).
+ */
+export function computeManaCurve(cards: EnrichedCard[]): ManaCurveBucket[] {
+  const counts = new Map<number, number>();
+  for (let cmc = 0; cmc <= 7; cmc++) counts.set(cmc, 0);
+
+  for (const entry of cards) {
+    if (!entry.card) continue;
+    const { card } = entry;
+    if (card.type_line?.includes("Land")) continue;
+    const cmc = Math.min(Math.max(Math.round(card.cmc ?? 0), 0), 7);
+    counts.set(cmc, (counts.get(cmc) ?? 0) + entry.count);
+  }
+
+  return Array.from(counts.entries()).map(([cmc, count]) => ({
+    cmc,
+    label: cmc === 7 ? "7+" : String(cmc),
+    count,
+  }));
+}
+
+/**
+ * Convertit un écart à une cible en ratio de santé 0-1 (même échelle que
+ * les ratios de piliers) via une bande de tolérance (`tolerance` : écart
+ * jusqu'auquel c'est considéré optimal) puis une dégradation linéaire
+ * jusqu'à 0 sur `falloff` d'écart supplémentaire. Utilisé pour la courbe
+ * de mana et le nombre de terrains (voir computeDeckStats ci-dessous) :
+ * factorisé ici plutôt que dupliqué, la logique est identique, seules
+ * les unités (CMC vs ratio de terrains) et les constantes changent.
+ */
+function healthRatio(actual: number, ideal: number, tolerance: number, falloff: number): number {
+  const diff = Math.abs(actual - ideal);
+  if (diff <= tolerance) return 1;
+  return Math.max(0, 1 - (diff - tolerance) / falloff);
+}
+
+function statusFor(ratio: number): HealthSignal["status"] {
+  if (ratio >= 0.8) return "good";
+  if (ratio >= 0.4) return "watch";
+  return "off";
+}
+
+/**
+ * Santé de la courbe de mana : compare `avgCmc` (hors terrains) à la
+ * cible du format (`config.idealAvgCmc`). Bande de tolérance ±0.4 (une
+ * courbe "normale" varie facilement de ça d'un deck à l'autre sans que
+ * ce soit un problème), dégradation jusqu'à 0 à ±1.8 d'écart. Retourne
+ * `ratio: 1` si le deck n'a aucune carte hors terrain (rien à évaluer,
+ * pas la peine de signaler un problème sur un deck vide/en construction).
+ */
+function curveHealthFor(avgCmc: number, nonLandCount: number, config: CategoryConfig): HealthSignal {
+  if (nonLandCount === 0) {
+    return { ratio: 1, status: "good", message: "Pas encore de carte hors terrain à évaluer." };
+  }
+  const ratio = healthRatio(avgCmc, config.idealAvgCmc, 0.4, 1.4);
+  const status = statusFor(ratio);
+  const message =
+    status === "good"
+      ? `Courbe de mana cohérente avec le repère habituel de ce format (coût moyen ~${config.idealAvgCmc}).`
+      : `Coût moyen actuel : ${Math.round(avgCmc * 100) / 100} — repère habituel de ce format : ~${config.idealAvgCmc}. Écart notable mais pas forcément un problème selon la stratégie du deck (voir archétype détecté).`;
+  return { ratio, status, message };
+}
+
+/**
+ * Santé du nombre de terrains : compare la part réelle de terrains dans
+ * le deck (landCount / total, hors commandant) à la cible du format
+ * (`config.idealLandRatio`), en ratio plutôt qu'en nombre absolu pour
+ * s'appliquer à des tailles de deck différentes. Tolérance ±3% (~3
+ * cartes sur un deck de 99), dégradation jusqu'à 0 à ±13% d'écart.
+ */
+function landHealthFor(
+  landCount: number,
+  nonLandCount: number,
+  config: CategoryConfig
+): HealthSignal {
+  const total = landCount + nonLandCount;
+  if (total === 0) {
+    return { ratio: 1, status: "good", message: "Pas encore de carte à évaluer." };
+  }
+  const actualRatio = landCount / total;
+  const ratio = healthRatio(actualRatio, config.idealLandRatio, 0.03, 0.1);
+  const status = statusFor(ratio);
+  const idealCount = Math.round(config.idealLandRatio * total);
+  const message =
+    status === "good"
+      ? `Nombre de terrains cohérent avec le repère habituel de ce format (${landCount} terrains, cible ~${idealCount}).`
+      : `${landCount} terrains sur ${total} cartes — repère habituel de ce format : ~${idealCount} (${Math.round(config.idealLandRatio * 100)}%).`;
+  return { ratio, status, message };
+}
+
 export function computeDeckStats(cards: EnrichedCard[], config: CategoryConfig): DeckStats {
   const categoryCounts: Record<DeckCategory, number> = { ...EMPTY_CATEGORY_COUNTS };
 
@@ -262,18 +376,25 @@ export function computeDeckStats(cards: EnrichedCard[], config: CategoryConfig):
   }
 
   const avgCmc = nonLandCount > 0 ? cmcTotal / nonLandCount : 0;
+  const curveHealth = curveHealthFor(avgCmc, nonLandCount, config);
+  const landHealth = landHealthFor(landCount, nonLandCount, config);
 
   let score = 0;
   for (const cat of Object.keys(config.targets) as DeckCategory[]) {
     const ratio = Math.min(categoryCounts[cat] / config.targets[cat], 1);
     score += ratio * config.weights[cat];
   }
+  score += curveHealth.ratio * config.curveWeight;
+  score += landHealth.ratio * config.landWeight;
 
   return {
     totalNonLandCards: nonLandCount,
     landCount,
     avgCmc: Math.round(avgCmc * 100) / 100,
     categoryCounts,
+    manaCurve: computeManaCurve(cards),
+    curveHealth,
+    landHealth,
     score: Math.round(score * 10) / 10,
   };
 }

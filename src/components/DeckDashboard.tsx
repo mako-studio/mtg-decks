@@ -1,8 +1,15 @@
 "use client";
 
-import type { DeckCategory, EnrichedCard } from "@/lib/types";
+import type { ArchetypeSignal, DeckCategory, EnrichedCard, HealthSignal, ManaCurveBucket } from "@/lib/types";
 import { CATEGORY_LABELS } from "@/lib/deck-score";
 import { PillarCoverage } from "./PillarCoverage";
+import { ManaCurveChart } from "./ManaCurveChart";
+
+const HEALTH_TEXT_CLASS: Record<HealthSignal["status"], string> = {
+  good: "text-success",
+  watch: "text-warning",
+  off: "text-warning",
+};
 
 /**
  * Tableau de bord du deck builder : score (actuel → avec les cartes
@@ -16,6 +23,15 @@ import { PillarCoverage } from "./PillarCoverage";
  * des cartes du deck qui matchent ce pilier juste en dessous, et filtre la
  * liste principale du deck (gérée par le parent, DeckBuilder) sur la même
  * catégorie.
+ *
+ * Extension du 28/08/2026 : badges d'archétype détecté (voir
+ * archetype.ts) juste sous le score — contexte utile pour comprendre les
+ * suggestions ci-dessous avant même de voir la liste — puis, après les 9
+ * piliers, une section "Courbe de mana & terrains" (ManaCurveChart +
+ * signaux de santé courbe/terrains, voir HealthSignal dans types.ts) :
+ * ces deux données étaient déjà calculées (avgCmc/landCount) mais
+ * n'étaient affichées nulle part et n'entraient pas dans le score (voir
+ * deck-score.ts).
  */
 export function DeckDashboard({
   currentScore,
@@ -26,6 +42,12 @@ export function DeckDashboard({
   selectedCategory,
   onSelectCategory,
   matchingCards,
+  archetypes,
+  manaCurve,
+  avgCmc,
+  totalNonLandCards,
+  curveHealth,
+  landHealth,
 }: {
   currentScore: number;
   projectedScore: number;
@@ -36,6 +58,12 @@ export function DeckDashboard({
   onSelectCategory: (cat: DeckCategory) => void;
   /** Cartes du deck correspondant au pilier sélectionné — vide si aucun pilier sélectionné. */
   matchingCards: EnrichedCard[];
+  archetypes: ArchetypeSignal[];
+  manaCurve: ManaCurveBucket[];
+  avgCmc: number;
+  totalNonLandCards: number;
+  curveHealth: HealthSignal;
+  landHealth: HealthSignal;
 }) {
   return (
     <div className="rounded-xl border border-border bg-surface p-5">
@@ -57,11 +85,31 @@ export function DeckDashboard({
         </div>
         <p className="max-w-sm text-right text-xs text-muted">
           Score heuristique interne (0-100) basé sur la présence de rampe, removal, pioche, board
-          wipes, tutors, protection, fixing de mana, finishers et disruption — pas une donnée
-          EDHREC officielle. À droite : le score projeté si les cartes suggérées ci-dessous
-          étaient ajoutées.
+          wipes, tutors, protection, fixing de mana, finishers, disruption, et la santé de la
+          courbe de mana/du nombre de terrains — pas une donnée EDHREC officielle. À droite : le
+          score projeté si les cartes suggérées ci-dessous étaient ajoutées.
         </p>
       </div>
+
+      {archetypes.length > 0 && (
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+          <span className="text-[11px] text-muted">Archétype détecté :</span>
+          {archetypes.map((a) => (
+            <span
+              key={a.archetype}
+              title={
+                a.confidence === "high"
+                  ? "Signal fort (confirmé par le commandant ou une large part du deck)"
+                  : "Signal modéré — détecté d'après la composition du deck"
+              }
+              className="rounded-full bg-synergy-soft px-2.5 py-1 text-[11px] font-medium text-synergy"
+            >
+              ✦ {a.label}
+              {a.confidence === "medium" ? " ?" : ""}
+            </span>
+          ))}
+        </div>
+      )}
 
       <PillarCoverage
         categoryCounts={categoryCounts}
@@ -69,6 +117,27 @@ export function DeckDashboard({
         selected={selectedCategory}
         onSelect={onSelectCategory}
       />
+
+      <div className="mt-5 border-t border-border pt-4">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">
+            Courbe de mana &amp; terrains
+          </h3>
+          <span className="text-[11px] text-muted">
+            Coût moyen {avgCmc} · {totalNonLandCards} carte{totalNonLandCards > 1 ? "s" : ""} hors
+            terrains
+          </span>
+        </div>
+
+        <div className="mt-3">
+          <ManaCurveChart buckets={manaCurve} />
+        </div>
+
+        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <p className={`text-[11px] ${HEALTH_TEXT_CLASS[curveHealth.status]}`}>{curveHealth.message}</p>
+          <p className={`text-[11px] ${HEALTH_TEXT_CLASS[landHealth.status]}`}>{landHealth.message}</p>
+        </div>
+      </div>
 
       {selectedCategory && (
         <div className="mt-4 rounded-lg border border-border bg-surface-muted p-3">

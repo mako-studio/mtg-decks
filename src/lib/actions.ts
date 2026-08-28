@@ -1,6 +1,6 @@
 "use server";
 
-import type { CardSuggestion, DeckStats, EnrichedCard, FormatKey, PreconDeck } from "./types";
+import type { ArchetypeSignal, CardSuggestion, DeckStats, EnrichedCard, FormatKey, PreconDeck } from "./types";
 import { parseArenaDeck, serializeArenaDeck } from "./arena-format";
 import { arenaImportToPreconDeck } from "./arena-import";
 import { parseDeckCsv } from "./csv-import";
@@ -28,6 +28,8 @@ export interface DeckAnalysisResult {
   projectedStats: DeckStats | null;
   improvementPct: number;
   suggestions: CardSuggestion[];
+  /** Archétype(s)/stratégie(s) détectés pour ce deck (voir archetype.ts) — tableau vide si aucun signal clair. */
+  archetypes: ArchetypeSignal[];
   exportText: string;
   /**
    * Renseignés uniquement par `analyzeCsvImport` : cartes à remettre dans
@@ -52,6 +54,7 @@ function emptyResult(formatKey: FormatKey, deckName: string, error: string): Dec
     projectedStats: null,
     improvementPct: 0,
     suggestions: [],
+    archetypes: [],
     exportText: "",
   };
 }
@@ -90,8 +93,8 @@ export async function analyzeDeck(input: {
     const nonCommanderCards = cards.filter((c) => !c.isCommander);
     const commanderEntries = cards.filter((c) => c.isCommander);
 
-    const { currentStats, projectedStats, improvementPct, suggestions } =
-      await suggestImprovements(nonCommanderCards, colorIdentity, format, 10);
+    const { currentStats, projectedStats, improvementPct, suggestions, archetypes } =
+      await suggestImprovements(nonCommanderCards, colorIdentity, format, commanderCards, 10);
 
     const exportText = format.arenaOnly
       ? serializeArenaDeck({
@@ -116,6 +119,7 @@ export async function analyzeDeck(input: {
       projectedStats,
       improvementPct,
       suggestions,
+      archetypes,
       exportText,
     };
   } catch {
@@ -258,12 +262,19 @@ export interface CardEvaluationResult {
  * manuelle ne filtre PAS par légalité ni par identité de couleur : c'est le
  * deck de l'utilisateur, on l'informe (badge d'avertissement côté UI) sans
  * lui interdire d'ajouter une carte hors format ou hors couleurs.
+ *
+ * `commanderEntries` (28/08/2026, optionnel) : renvoyé tel quel par le
+ * client (déjà résolu via analyzeDeck) comme `currentCards`, sert à la
+ * détection d'archétype (voir evaluateCardCompatibility dans
+ * recommend.ts) — même raisonnement que `commanders` dans
+ * suggestImprovements.
  */
 export async function evaluateCardForDeck(
   query: string,
   formatKey: string,
   currentCards: EnrichedCard[],
-  excludeFromSwap: string[] = []
+  excludeFromSwap: string[] = [],
+  commanderEntries: EnrichedCard[] = []
 ): Promise<CardEvaluationResult | null> {
   const q = query.trim();
   if (!q) return null;
@@ -272,6 +283,7 @@ export async function evaluateCardForDeck(
   if (!card) return null;
   const legalityStatus = card.legalities?.[format.scryfallLegality] ?? "not_legal";
   const legal = legalityStatus === "legal" || legalityStatus === "restricted";
-  const suggestion = evaluateCardCompatibility(card, currentCards, format, excludeFromSwap);
+  const commanders = commanderEntries.map((c) => c.card).filter((c): c is NonNullable<typeof c> => c !== null);
+  const suggestion = evaluateCardCompatibility(card, currentCards, format, excludeFromSwap, commanders);
   return { suggestion, legalityStatus, legal };
 }

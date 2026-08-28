@@ -14,6 +14,12 @@
   --success-soft: #dcfce7;
   --warning: #b45309;
   --warning-soft: #fef3c7;
+  /* Signal "synergie/archétype" (28/08/2026, voir archetype.ts) : violet,
+     distinct de accent/success/warning pour ne pas se confondre avec un
+     statut (bon/attention) — c'est une raison différente de suggestion,
+     pas un niveau de qualité. */
+  --synergy: #7c3aed;
+  --synergy-soft: #ede9fe;
 }
 
 @theme inline {
@@ -30,6 +36,8 @@
   --color-success-soft: var(--success-soft);
   --color-warning: var(--warning);
   --color-warning-soft: var(--warning-soft);
+  --color-synergy: var(--synergy);
+  --color-synergy-soft: var(--synergy-soft);
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial,
     sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -50,6 +58,8 @@
     --success-soft: #14291c;
     --warning: #fbbf24;
     --warning-soft: #3a2a0a;
+    --synergy: #c4b5fd;
+    --synergy-soft: #2e1f4d;
   }
 }
 

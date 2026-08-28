@@ -15,6 +15,7 @@ const INITIAL_STATE: DeckAnalysisResult = {
   projectedStats: null,
   improvementPct: 0,
   suggestions: [],
+  archetypes: [],
   exportText: "",
 };
 

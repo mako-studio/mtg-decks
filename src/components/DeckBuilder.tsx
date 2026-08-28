@@ -413,6 +413,14 @@ export function DeckBuilder({
           selectedCategory={categoryFilter}
           onSelectCategory={(cat) => setCategoryFilter((prev) => (prev === cat ? null : cat))}
           matchingCards={matchingCards}
+          archetypes={result.archetypes}
+          manaCurve={result.currentStats?.manaCurve ?? []}
+          avgCmc={result.currentStats?.avgCmc ?? 0}
+          totalNonLandCards={result.currentStats?.totalNonLandCards ?? 0}
+          curveHealth={
+            result.currentStats?.curveHealth ?? { ratio: 1, status: "good", message: "" }
+          }
+          landHealth={result.currentStats?.landHealth ?? { ratio: 1, status: "good", message: "" }}
         />
       </div>
 
@@ -511,6 +519,7 @@ export function DeckBuilder({
             hasCommander={format.hasCommander}
             colorIdentity={deckColorIdentity}
             currentCards={result.cards}
+            commanderEntries={result.commanderEntries}
             existingCounts={existingCounts}
           />
 
