@@ -1,11 +1,22 @@
 "use server";
 
-import type { ArchetypeSignal, CardSuggestion, DeckStats, EnrichedCard, FormatKey, PreconDeck, ScryfallCard } from "./types";
+import type {
+  ArchetypeSignal,
+  CardSuggestion,
+  DeckStats,
+  EnrichedCard,
+  FormatConfig,
+  FormatKey,
+  PreconDeck,
+  ScryfallCard,
+} from "./types";
 import { parseArenaDeck, serializeArenaDeck } from "./arena-format";
 import { arenaImportToPreconDeck } from "./arena-import";
 import { parseDeckCsv } from "./csv-import";
 import { loadEnrichedDeck } from "./deck-loader";
-import { evaluateCardCompatibility, suggestImprovements } from "./recommend";
+import { buildRemovalCandidates, evaluateCardCompatibility, suggestImprovements } from "./recommend";
+import { computeDeckStats } from "./deck-score";
+import { detectArchetypes } from "./archetype";
 import { getFormat } from "./formats";
 import {
   autocompleteCardNamesForLang,
@@ -344,6 +355,172 @@ export async function resolveCardNames(names: string[]): Promise<Record<string, 
  */
 const SUPER_OPTIMIZE_MAX_ROUNDS = 4;
 
+/** Construit l'objet `PreconDeck` minimal attendu par `loadEnrichedDeck` à partir d'une liste plate {name,count} — factorisé ici car répété à chaque tour/étape de `superOptimizeDeck` et `topUpLandCount`. */
+function sessionDeckFrom(
+  cardsList: { name: string; count: number }[],
+  deckName: string,
+  commanders: string[]
+): PreconDeck {
+  return {
+    id: "session",
+    name: deckName,
+    setCode: "",
+    setName: "",
+    releaseDate: "",
+    commanders,
+    cardCount: cardsList.reduce((sum, c) => sum + c.count, 0) + commanders.length,
+    cards: cardsList,
+    source: null,
+  };
+}
+
+/**
+ * Score actuel (sur 100, avec landHealth/curveHealth) d'une liste plate
+ * {name,count} — calcul direct via `computeDeckStats` (pas de recherche
+ * Scryfall de suggestions, contrairement à `suggestImprovements`), utilisé
+ * uniquement pour comparer des états successifs de `working` dans
+ * `superOptimizeDeck` (voir `bestWorking`/`bestScore` ci-dessous). `null`
+ * si le deck ne peut pas être résolu (Scryfall indisponible).
+ */
+async function scoreOfWorking(
+  cardsList: { name: string; count: number }[],
+  format: FormatConfig,
+  deckName: string,
+  commanders: string[]
+): Promise<number | null> {
+  try {
+    const { cards } = await loadEnrichedDeck(sessionDeckFrom(cardsList, deckName, commanders), format);
+    const nonCommanderCards = cards.filter((c) => !c.isCommander);
+    return computeDeckStats(nonCommanderCards, format.categories).score;
+  } catch {
+    return null;
+  }
+}
+
+/** Une couleur de terrain de base par lettre WUBRG — pour choisir quel terrain ajouter dans `topUpLandCount`. */
+const BASIC_LAND_BY_COLOR: Record<string, string> = {
+  W: "Plains",
+  U: "Island",
+  B: "Swamp",
+  R: "Mountain",
+  G: "Forest",
+};
+
+/**
+ * Plafond de sécurité pour `topUpLandCount` (voir sa doc) : en pratique
+ * l'écart typique de quelques terrains se comble en 2-3 itérations et la
+ * tolérance de `landHealthFor` (±3 terrains sur 99, voir deck-score.ts)
+ * arrête la boucle bien avant ce plafond dans l'immense majorité des cas —
+ * juste là pour ne jamais boucler indéfiniment si quelque chose se passe
+ * mal (ex: candidates au retrait qui s'épuisent sans jamais satisfaire la
+ * cible de terrains sur un très petit deck).
+ */
+const LAND_TOPUP_MAX_STEPS = 12;
+
+/**
+ * Comble un manque de terrains persistant, en aval des tours de
+ * suggestions par pilier (29/08/2026, correctif demandé par Ben : "Super
+ * Opti n'atteint pas le score maximal possible pour ce deck, et le nombre
+ * de terrains reste très bas").
+ *
+ * Pourquoi c'est un passage à part et pas juste "plus de tours" :
+ * `suggestImprovements` (recommend.ts) ne peut structurellement JAMAIS
+ * combler un manque de terrains tout seul, quel que soit le nombre de
+ * tours — les requêtes Scryfall de ramp/draw/tutor/finisher excluent
+ * explicitement les terrains (`-t:land` dans `CATEGORY_QUERIES`), et
+ * "landfix" ne vise que le fixing multicolore (produire plusieurs
+ * couleurs), pas le compte total de terrains. Le choix de la catégorie la
+ * plus faible à combler (`weakestFirst`, dans `suggestImprovements`) ne
+ * regarde d'ailleurs que les 9 piliers, jamais `landHealth`. Sans ce
+ * passage dédié, un deck avec trop peu de terrains n'atteint donc jamais
+ * son score maximal, même avec un plafond de tours infini — ce n'était pas
+ * volontaire, c'est un angle mort du moteur de suggestions par pilier.
+ *
+ * Un terrain de base (couleur cyclée parmi celles de `colorIdentity`, déjà
+ * triée WUBRG par `loadEnrichedDeck` ; "Wastes" si le deck est incolore)
+ * est échangé contre la carte hors-terrain la plus "sacrifiable" du deck
+ * actuel — même heuristique `buildRemovalCandidates` que les swaps de
+ * pilier (recommend.ts), juste filtrée pour ne jamais proposer de retirer
+ * un terrain en échange d'un terrain (ce qui ne changerait rien au
+ * problème) — une paire à la fois, jusqu'à ce que `landHealth` atteigne
+ * son ratio maximal (dans la bande de tolérance de `landHealthFor`) ou que
+ * `LAND_TOPUP_MAX_STEPS` soit atteint.
+ *
+ * ⚠️ Ne traite que le manque (trop peu de terrains), pas l'excès : retirer
+ * un terrain en trop demande de décider QUOI ajouter à la place, une
+ * décision qui appartient au moteur de suggestions par pilier plutôt qu'à
+ * ce passage dédié — limitation connue et assumée, pas un oubli. Le cas
+ * remonté par Ben (30 terrains sur 99, cible ~37) est un manque, donc
+ * couvert.
+ */
+async function topUpLandCount(
+  working: { name: string; count: number }[],
+  format: FormatConfig,
+  deckName: string,
+  commanders: string[]
+): Promise<{ working: { name: string; count: number }[]; stepsApplied: number }> {
+  let current = working;
+  let stepsApplied = 0;
+
+  for (let step = 0; step < LAND_TOPUP_MAX_STEPS; step++) {
+    let loaded;
+    try {
+      loaded = await loadEnrichedDeck(sessionDeckFrom(current, deckName, commanders), format);
+    } catch {
+      break; // Scryfall indisponible : on s'arrête là où on en est, comme le reste de superOptimizeDeck.
+    }
+    const { commanderCards, cards, colorIdentity } = loaded;
+    const nonCommanderCards = cards.filter((c) => !c.isCommander);
+    const stats = computeDeckStats(nonCommanderCards, format.categories);
+
+    const total = stats.landCount + stats.totalNonLandCards;
+    const idealLandCount = Math.round(format.categories.idealLandRatio * total);
+    // On s'arrête dès que le ratio de santé est déjà maximal (dans la
+    // tolérance) OU que le compte a rejoint/dépassé la cible — le second
+    // test est une garde-fou supplémentaire pour ne jamais continuer à
+    // ajouter des terrains une fois la cible atteinte, même si le ratio
+    // mettait un instant à refléter l'arrondi.
+    if (stats.landHealth.ratio >= 1 || stats.landCount >= idealLandCount) break;
+
+    const landName =
+      colorIdentity.length > 0 ? BASIC_LAND_BY_COLOR[colorIdentity[step % colorIdentity.length]] : "Wastes";
+    if (!landName) break;
+
+    const resolved = await getCardsByNames([landName]);
+    const landCard = resolved.get(landName.toLowerCase());
+    if (!landCard) break; // Terrain introuvable (réseau/Scryfall) : on s'arrête sans planter le reste de l'optimisation.
+
+    const archetypes = detectArchetypes(nonCommanderCards, commanderCards);
+    const removalCandidates = buildRemovalCandidates(
+      nonCommanderCards,
+      stats.categoryCounts,
+      format.categories.targets,
+      archetypes
+    ).filter((candidate) => {
+      // `buildRemovalCandidates` n'exclut que les terrains de base — un
+      // terrain non-basique (dual land de fixing, etc.) resterait sinon
+      // une candidate valide, et l'échanger contre un terrain de base ne
+      // changerait rien au compte de terrains (le problème qu'on essaie
+      // justement de résoudre ici).
+      const entry = nonCommanderCards.find((e) => e.name.toLowerCase() === candidate.name.toLowerCase());
+      return !entry?.card?.type_line?.includes("Land");
+    });
+    const swapOut = removalCandidates[0];
+    if (!swapOut) break; // Plus aucune carte hors-terrain sacrifiable identifiée : on s'arrête plutôt que de retirer une pièce clé.
+
+    current = applyOneSuggestion(current, {
+      card: landCard,
+      categories: [],
+      reason: "Comble le manque de terrains du deck (voir landHealth).",
+      impact: 0,
+      swapOut: { name: swapOut.name, reason: "Cède sa place à un terrain pour combler le manque de terrains du deck." },
+    });
+    stepsApplied++;
+  }
+
+  return { working: current, stepsApplied };
+}
+
 /** Applique une suggestion (ajout, et retrait de `swapOut` si présent) à une liste plate {name,count} — même logique que confirmSwap dans DeckBuilder.tsx, reproduite ici côté serveur pour enchaîner les tours sans aller-retour réseau avec le client. */
 function applyOneSuggestion(
   working: { name: string; count: number }[],
@@ -386,6 +563,14 @@ export interface SuperOptimizeResult extends DeckAnalysisResult {
   /** Nombre de tours réellement exécutés avant convergence ou le plafond `SUPER_OPTIMIZE_MAX_ROUNDS`. */
   roundsApplied: number;
   /**
+   * Nombre de terrains de base ajoutés par le passage dédié `topUpLandCount`
+   * (29/08/2026, voir sa doc) — distinct de `roundsApplied` car ce n'est pas
+   * un tour de suggestions par pilier, juste un ajustement du nombre de
+   * terrains. `0` si le deck avait déjà assez de terrains ou si aucune
+   * candidate au retrait n'a été trouvée.
+   */
+  landAdjustments: number;
+  /**
    * Message informatif (PAS une erreur, voir `error`) sur l'issue :
    * `null` si l'optimisation a amélioré le deck normalement ; un message à
    * afficher tel quel si le deck était déjà au maximum de ce que
@@ -405,7 +590,10 @@ export interface SuperOptimizeResult extends DeckAnalysisResult {
  * retrait de la candidate au swap si une a été trouvée) avant de relancer
  * l'analyse sur le nouveau deck pour le tour suivant. S'arrête dès qu'un
  * tour ne renvoie plus aucune suggestion (deck déjà au maximum de ce que
- * l'heuristique sait proposer) ou au bout de `SUPER_OPTIMIZE_MAX_ROUNDS`.
+ * l'heuristique sait proposer) ou au bout de `SUPER_OPTIMIZE_MAX_ROUNDS`,
+ * puis lance un passage dédié `topUpLandCount` (voir sa doc) pour combler
+ * un manque de terrains que les tours par pilier ne savent structurellement
+ * jamais corriger.
  *
  * Fonctionne aussi bien sur un deck précon que sur un deck importé (CSV ou
  * Arena) — c'est juste `DeckBuilder` qui l'appelle avec l'état courant du
@@ -417,11 +605,24 @@ export interface SuperOptimizeResult extends DeckAnalysisResult {
  * du deck — voir les limites déjà documentées pour `suggestImprovements`
  * (classification heuristique des piliers, `buildRemovalCandidates` qui ne
  * tient pas compte de la santé courbe/terrains lors du choix d'une carte à
- * retirer). Filet de sécurité : si le score final calculé est malgré tout
- * inférieur au score de départ (cas limite, pas censé arriver mais jamais
- * exclu avec une heuristique gloutonne), le deck N'EST PAS modifié — la
- * fonction renvoie l'analyse du deck d'origine inchangé avec un message
- * explicite plutôt que de livrer un résultat pire que le point de départ.
+ * retirer).
+ *
+ * ⚠️ Correctif du 29/08/2026 (remonté par Ben : "ça optimise mais ce n'est
+ * pas le score maximal possible pour ce deck") : le filet de sécurité
+ * antérieur ne comparait QUE le score de départ et le score final après
+ * `SUPER_OPTIMIZE_MAX_ROUNDS` tours — si un tour tardif (ou le passage
+ * terrains) faisait légèrement reculer le score global d'une heuristique
+ * gloutonne, TOUT le parcours était jeté, y compris les gains bien réels
+ * des tours précédents, et le deck revenait inchangé avec le message
+ * "aucune amélioration nette trouvée" alors qu'un état intermédiaire était
+ * strictement meilleur que le point de départ. Désormais, le meilleur état
+ * (`bestWorking`/`bestScore`) est suivi à chaque étape (chaque tour par
+ * pilier, puis après le passage terrains) et c'est CET état qui est retenu
+ * en sortie — pas seulement le tout premier ou le tout dernier. Le filet de
+ * sécurité en fin de fonction reste en place par prudence (si même le
+ * meilleur état retrouvé était pire que le départ, cas qui ne devrait plus
+ * arriver avec ce suivi mais jamais totalement exclu), pas comme mécanisme
+ * principal.
  *
  * Non vérifié contre une vraie réponse Scryfall (même limite que le reste
  * du site dans cet environnement, voir README) — vérifié via données
@@ -439,25 +640,35 @@ export async function superOptimizeDeck(input: {
     initialCounts.set(key, (initialCounts.get(key) ?? 0) + c.count);
   }
 
-  let working = input.cards.map((c) => ({ name: c.name, count: c.count }));
+  const format = getFormat(input.formatKey);
+  const originalWorking = input.cards.map((c) => ({ name: c.name, count: c.count }));
+  let working = originalWorking;
   let startingScore: number | null = null;
   let roundsApplied = 0;
 
+  // Meilleur état rencontré au fil du parcours, et son "coût" affiché
+  // (voir le correctif du 29/08/2026 dans la doc ci-dessus) — `bestScore`
+  // volontairement à `-Infinity` tant qu'aucune mesure réelle n'a encore
+  // été prise (évite de traiter arbitrairement le départ comme "meilleur"
+  // avant même la première mesure). `bestRoundsApplied`/`bestLandAdjustments`
+  // sont snapshotés EN MÊME TEMPS que `bestWorking`, pas juste incrémentés
+  // au fil de l'eau : sans ça, si un tour ou le passage terrains est
+  // tenté mais pas retenu (parce qu'il fait reculer le score), les
+  // compteurs renvoyés au client annonceraient des changements qui ne
+  // sont en réalité pas dans le deck final — voir aussi le diff
+  // `addedNames`/`removedNames` plus bas, qui lui est calculé directement
+  // sur `bestWorking` et fait foi en cas de doute.
+  let bestWorking = originalWorking;
+  let bestScore = -Infinity;
+  let bestRoundsApplied = 0;
+  let bestLandAdjustments = 0;
+
   try {
-    const format = getFormat(input.formatKey);
     for (let round = 0; round < SUPER_OPTIMIZE_MAX_ROUNDS; round++) {
-      const deck: PreconDeck = {
-        id: "session",
-        name: input.deckName,
-        setCode: "",
-        setName: "",
-        releaseDate: "",
-        commanders: input.commanders,
-        cardCount: working.reduce((sum, c) => sum + c.count, 0) + input.commanders.length,
-        cards: working,
-        source: null,
-      };
-      const { commanderCards, cards, colorIdentity } = await loadEnrichedDeck(deck, format);
+      const { commanderCards, cards, colorIdentity } = await loadEnrichedDeck(
+        sessionDeckFrom(working, input.deckName, input.commanders),
+        format
+      );
       const nonCommanderCards = cards.filter((c) => !c.isCommander);
 
       const { currentStats, suggestions } = await suggestImprovements(
@@ -468,44 +679,100 @@ export async function superOptimizeDeck(input: {
         10
       );
       if (startingScore === null) startingScore = currentStats.score;
+      if (currentStats.score > bestScore) {
+        bestScore = currentStats.score;
+        bestWorking = working;
+        bestRoundsApplied = roundsApplied;
+        bestLandAdjustments = 0;
+      }
       if (suggestions.length === 0) break;
 
       for (const s of suggestions) working = applyOneSuggestion(working, s);
       roundsApplied++;
     }
+
+    // Score du dernier état atteint par les tours par pilier ci-dessus,
+    // même quand ce dernier tour a été appliqué juste avant la sortie de
+    // la boucle par le plafond `SUPER_OPTIMIZE_MAX_ROUNDS` (auquel cas il
+    // n'a encore jamais été mesuré, contrairement aux tours précédents —
+    // voir la mesure en tête de boucle ci-dessus).
+    const scoreAfterRounds = await scoreOfWorking(working, format, input.deckName, input.commanders);
+    if (scoreAfterRounds !== null && scoreAfterRounds > bestScore) {
+      bestScore = scoreAfterRounds;
+      bestWorking = working;
+      bestRoundsApplied = roundsApplied;
+      bestLandAdjustments = 0;
+    }
+
+    // Passage dédié terrains (voir topUpLandCount) : sur le dernier état
+    // de `working` obtenu ci-dessus, une fois les tours par pilier
+    // épuisés (convergés ou plafond atteint). `roundsApplied` ne bouge
+    // plus à partir d'ici : ce passage n'est pas un tour de suggestions
+    // par pilier (voir `landAdjustments`, compteur séparé).
+    const landTopup = await topUpLandCount(working, format, input.deckName, input.commanders);
+    working = landTopup.working;
+
+    if (landTopup.stepsApplied > 0) {
+      const scoreAfterLandTopup = await scoreOfWorking(working, format, input.deckName, input.commanders);
+      if (scoreAfterLandTopup !== null && scoreAfterLandTopup > bestScore) {
+        bestScore = scoreAfterLandTopup;
+        bestWorking = working;
+        bestRoundsApplied = roundsApplied;
+        bestLandAdjustments = landTopup.stepsApplied;
+      }
+    }
   } catch {
     // Erreur réseau/Scryfall en cours de route : on s'arrête là où on en
-    // est plutôt que de tout perdre. `working` ne reflète que les tours
-    // déjà appliqués intégralement (jamais un tour à moitié appliqué,
-    // puisque `suggestImprovements` est entièrement résolu — succès ou
-    // exception — avant que `working` ne soit modifié pour ce tour).
+    // est plutôt que de tout perdre — `bestWorking` reflète le meilleur
+    // état mesuré avant l'erreur.
   }
 
   const finalAnalysis = await analyzeDeck({
     formatKey: input.formatKey,
     deckName: input.deckName,
     commanders: input.commanders,
-    cards: working,
+    cards: bestWorking,
   });
 
-  if (roundsApplied === 0 || !finalAnalysis.ok) {
+  // Diff cartes calculé sur `bestWorking` (pas sur `roundsApplied`/
+  // `landAdjustments`, qui comptent des TENTATIVES, pas des changements
+  // effectifs) : si aucun tour ni aucun ajustement de terrain retenu n'a
+  // in fine amélioré le score, `bestWorking` est resté égal au deck de
+  // départ et ce diff est vide — c'est ce vide, pas les compteurs de
+  // tentatives, qui doit décider si le deck a réellement changé.
+  const finalCounts = new Map<string, number>();
+  for (const c of bestWorking) {
+    const key = c.name.toLowerCase();
+    finalCounts.set(key, (finalCounts.get(key) ?? 0) + c.count);
+  }
+  const addedNames: string[] = [];
+  for (const [key, count] of finalCounts) {
+    if (count > (initialCounts.get(key) ?? 0)) addedNames.push(key);
+  }
+  const removedNames: string[] = [];
+  for (const key of initialCounts.keys()) {
+    if (!finalCounts.has(key)) removedNames.push(key);
+  }
+  const changed = addedNames.length > 0 || removedNames.length > 0;
+
+  if (!changed || !finalAnalysis.ok) {
     return {
       ...finalAnalysis,
       addedNames: [],
       removedNames: [],
-      roundsApplied,
+      roundsApplied: bestRoundsApplied,
+      landAdjustments: bestLandAdjustments,
       optimizationNote: finalAnalysis.ok
         ? "Ton deck est déjà au maximum de ce que cette heuristique sait proposer — aucun changement effectué."
         : null,
     };
   }
 
-  // Filet de sécurité : une heuristique gloutonne (chaque tour optimise
-  // localement, sans recherche exhaustive) peut en théorie finir plus bas
-  // qu'au départ, notamment via `buildRemovalCandidates` qui ne tient pas
-  // compte de la santé courbe/terrains lors du choix d'une carte à retirer
-  // (voir doc ci-dessus). Dans ce cas : deck laissé inchangé plutôt que de
-  // livrer un résultat pire que le point de départ.
+  // Filet de sécurité (voir la doc du correctif du 29/08/2026 ci-dessus) :
+  // ne devrait plus se déclencher en pratique puisque `bestWorking` est
+  // déjà, par construction, le meilleur état mesuré — gardé par prudence
+  // au cas où une mesure se révélait incohérente avec `finalAnalysis`
+  // (ex: `analyzeDeck` échoue puis retombe sur un score par défaut).
   if (startingScore !== null && (finalAnalysis.currentStats?.score ?? 0) < startingScore) {
     const original = await analyzeDeck({
       formatKey: input.formatKey,
@@ -517,26 +784,19 @@ export async function superOptimizeDeck(input: {
       ...original,
       addedNames: [],
       removedNames: [],
-      roundsApplied,
+      roundsApplied: 0,
+      landAdjustments: 0,
       optimizationNote:
         "Aucune amélioration nette du score n'a été trouvée après optimisation — le deck n'a pas été modifié.",
     };
   }
 
-  const finalCounts = new Map<string, number>();
-  for (const c of working) {
-    const key = c.name.toLowerCase();
-    finalCounts.set(key, (finalCounts.get(key) ?? 0) + c.count);
-  }
-
-  const addedNames: string[] = [];
-  for (const [key, count] of finalCounts) {
-    if (count > (initialCounts.get(key) ?? 0)) addedNames.push(key);
-  }
-  const removedNames: string[] = [];
-  for (const key of initialCounts.keys()) {
-    if (!finalCounts.has(key)) removedNames.push(key);
-  }
-
-  return { ...finalAnalysis, addedNames, removedNames, roundsApplied, optimizationNote: null };
+  return {
+    ...finalAnalysis,
+    addedNames,
+    removedNames,
+    roundsApplied: bestRoundsApplied,
+    landAdjustments: bestLandAdjustments,
+    optimizationNote: null,
+  };
 }

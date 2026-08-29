@@ -23,6 +23,27 @@ function pillarStatus(count: number, target: number): PillarStatus {
   return "neutral";
 }
 
+/**
+ * Texte d'infobulle pour le badge "compte/cible" de chaque pilier
+ * (29/08/2026, demande de Ben : "je ne sais pas ce à quoi correspond le
+ * 11/10, explicite ou retire cette indication") — le badge reste compact
+ * (`compte/cible`, ex. "11/10") pour tenir dans la grille serrée, mais son
+ * sens n'était nulle part explicité dans l'UI. `count` peut dépasser
+ * `target` (ex. 11/10) sans que ce soit une erreur : le deck a simplement
+ * plus de cartes détectées dans ce pilier que la cible recommandée pour ce
+ * format — la contribution au score, elle, est plafonnée à la cible (voir
+ * `computeDeckStats` dans deck-score.ts : `Math.min(count/target, 1)`), un
+ * surplus n'apporte donc plus de points mais n'est pas signalé comme un
+ * problème pour autant.
+ */
+function pillarTooltip(label: string, count: number, target: number, status: PillarStatus): string {
+  const base = `${count} carte${count > 1 ? "s" : ""} de ce deck détectée${count > 1 ? "s" : ""} dans le pilier "${label}" par l'heuristique interne — cible recommandée pour ce format : ${target}.`;
+  if (status === "met") {
+    return `${base} ✓ Cible atteinte ou dépassée : au-delà de ${target}, les cartes en plus n'ajoutent plus de points au score (mais restent utiles au deck).`;
+  }
+  return `${base} Sous la cible : combler ce pilier ferait progresser le score.`;
+}
+
 const STATUS_STYLES: Record<
   PillarStatus,
   { card: string; count: string; track: string; fill: string }
@@ -96,7 +117,10 @@ export function PillarCoverage({
             >
               <div className="flex items-baseline justify-between gap-1">
                 <span className="text-[11px] font-medium">{CATEGORY_LABELS[cat]}</span>
-                <span className={`text-[10px] ${s.count}`}>
+                <span
+                  className={`text-[10px] ${s.count}`}
+                  title={pillarTooltip(CATEGORY_LABELS[cat], count, target, status)}
+                >
                   {count}/{target}
                   {status === "met" ? " ✓" : ""}
                 </span>
@@ -121,6 +145,7 @@ export function PillarCoverage({
                 type="button"
                 onClick={() => onSelect(cat)}
                 aria-pressed={isSelected}
+                title={pillarTooltip(CATEGORY_LABELS[cat], count, target, status)}
                 className={`shrink-0 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-medium transition-shadow ${s.card} ${s.count} ${
                   isSelected ? "ring-2 ring-accent ring-offset-1 ring-offset-surface" : ""
                 }`}

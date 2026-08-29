@@ -485,8 +485,17 @@ export function DeckBuilder({
         }
         setOptimizationNote(
           res.optimizationNote ??
-            (res.roundsApplied > 0
-              ? `Deck optimisé en ${res.roundsApplied} tour${res.roundsApplied > 1 ? "s" : ""} de suggestions — score amélioré, cartes changées ci-dessous.`
+            (res.roundsApplied > 0 || res.landAdjustments > 0
+              ? [
+                  res.roundsApplied > 0
+                    ? `${res.roundsApplied} tour${res.roundsApplied > 1 ? "s" : ""} de suggestions`
+                    : null,
+                  res.landAdjustments > 0
+                    ? `${res.landAdjustments} terrain${res.landAdjustments > 1 ? "s" : ""} ajusté${res.landAdjustments > 1 ? "s" : ""}`
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join(" + ") + " — score amélioré, cartes changées ci-dessous."
               : null)
         );
       } catch {

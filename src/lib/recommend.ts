@@ -428,7 +428,7 @@ function popularitySignal(card: ScryfallCard): string {
   return parts.length > 0 ? ` ${parts.join(" ")}` : "";
 }
 
-interface RemovalCandidate {
+export interface RemovalCandidate {
   name: string;
   categories: DeckCategory[];
   cmc: number;
@@ -466,7 +466,7 @@ interface RemovalCandidate {
  *   des 9 piliers génériques.
  * Toujours pas une mesure de puissance absolue — un signal relatif de plus.
  */
-function buildRemovalCandidates(
+export function buildRemovalCandidates(
   currentCards: EnrichedCard[],
   categoryCounts: Record<DeckCategory, number>,
   targets: Record<DeckCategory, number>,
