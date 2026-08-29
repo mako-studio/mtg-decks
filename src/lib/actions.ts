@@ -329,3 +329,214 @@ export async function resolveCardNames(names: string[]): Promise<Record<string, 
   for (const name of names) result[name] = byName.get(name.toLowerCase()) ?? null;
   return result;
 }
+
+/**
+ * Nombre de tours de suggestions appliqués par "Super Opti" (voir
+ * `superOptimizeDeck` ci-dessous) avant de s'arrêter, même si le moteur en
+ * proposerait encore. Compromis assumé, pas une science exacte : chaque
+ * tour relance `suggestImprovements` (jusqu'à 10 requêtes Scryfall
+ * séquentielles, throttlées ~110ms chacune côté client de ce site — voir
+ * scryfall.ts — plus la latence réseau réelle), donc 4 tours peuvent déjà
+ * représenter facilement 15-30+ secondes en conditions réelles. Un plafond
+ * plus haut pousserait le score encore un peu plus loin (rendements
+ * décroissants au fil des tours, les piliers les plus faibles étant comblés
+ * en premier) au prix d'une attente plus longue pour l'utilisateur.
+ */
+const SUPER_OPTIMIZE_MAX_ROUNDS = 4;
+
+/** Applique une suggestion (ajout, et retrait de `swapOut` si présent) à une liste plate {name,count} — même logique que confirmSwap dans DeckBuilder.tsx, reproduite ici côté serveur pour enchaîner les tours sans aller-retour réseau avec le client. */
+function applyOneSuggestion(
+  working: { name: string; count: number }[],
+  suggestion: CardSuggestion
+): { name: string; count: number }[] {
+  const addKey = suggestion.card.name.toLowerCase();
+  const already = working.find((c) => c.name.toLowerCase() === addKey);
+  let next = already
+    ? working.map((c) => (c.name.toLowerCase() === addKey ? { name: c.name, count: c.count + 1 } : c))
+    : [...working, { name: suggestion.card.name, count: 1 }];
+
+  if (suggestion.swapOut) {
+    const removeKey = suggestion.swapOut.name.toLowerCase();
+    const toRemove = next.find((c) => c.name.toLowerCase() === removeKey);
+    if (toRemove) {
+      next =
+        toRemove.count > 1
+          ? next.map((c) => (c.name.toLowerCase() === removeKey ? { name: c.name, count: c.count - 1 } : c))
+          : next.filter((c) => c.name.toLowerCase() !== removeKey);
+    }
+  }
+  return next;
+}
+
+export interface SuperOptimizeResult extends DeckAnalysisResult {
+  /**
+   * Cartes présentes en plus grand nombre (ou nouvellement présentes)
+   * qu'au moment du clic — diff avant/après, même sémantique que
+   * `restoredAddedNames` : le client les marque "ajoutée" (voir
+   * handleSuperOptimize dans DeckBuilder.tsx).
+   */
+  addedNames: string[];
+  /**
+   * Cartes entièrement sorties du deck (compte tombé à 0) par
+   * l'optimisation — le client les ajoute à la liste "Retirées pendant
+   * cette session" (RemovedCardsList.tsx), avec leurs données Scryfall
+   * déjà connues côté client (pas besoin de les re-résoudre).
+   */
+  removedNames: string[];
+  /** Nombre de tours réellement exécutés avant convergence ou le plafond `SUPER_OPTIMIZE_MAX_ROUNDS`. */
+  roundsApplied: number;
+  /**
+   * Message informatif (PAS une erreur, voir `error`) sur l'issue :
+   * `null` si l'optimisation a amélioré le deck normalement ; un message à
+   * afficher tel quel si le deck était déjà au maximum de ce que
+   * l'heuristique sait proposer, ou si aucune amélioration nette du score
+   * n'a été trouvée (voir le filet de sécurité plus bas).
+   */
+  optimizationNote: string | null;
+}
+
+/**
+ * Server Action "Super Opti" (28/08/2026, demande de Ben) : optimise le
+ * deck en un seul clic en enchaînant plusieurs tours de suggestions
+ * automatiques (celles déjà calculées par `suggestImprovements`, la même
+ * heuristique que le panneau "Suggestions automatiques" — rien de nouveau
+ * n'est inventé ici, ce bouton orchestre juste l'existant en boucle),
+ * chaque tour appliquant l'intégralité des suggestions du lot (ajout, et
+ * retrait de la candidate au swap si une a été trouvée) avant de relancer
+ * l'analyse sur le nouveau deck pour le tour suivant. S'arrête dès qu'un
+ * tour ne renvoie plus aucune suggestion (deck déjà au maximum de ce que
+ * l'heuristique sait proposer) ou au bout de `SUPER_OPTIMIZE_MAX_ROUNDS`.
+ *
+ * Fonctionne aussi bien sur un deck précon que sur un deck importé (CSV ou
+ * Arena) — c'est juste `DeckBuilder` qui l'appelle avec l'état courant du
+ * deck, quelle que soit son origine.
+ *
+ * ⚠️ Heuristique, pas une garantie d'optimalité globale : chaque tour reste
+ * un choix glouton (les meilleures suggestions de CE tour précis), pas une
+ * recherche exhaustive de la meilleure combinaison possible sur l'ensemble
+ * du deck — voir les limites déjà documentées pour `suggestImprovements`
+ * (classification heuristique des piliers, `buildRemovalCandidates` qui ne
+ * tient pas compte de la santé courbe/terrains lors du choix d'une carte à
+ * retirer). Filet de sécurité : si le score final calculé est malgré tout
+ * inférieur au score de départ (cas limite, pas censé arriver mais jamais
+ * exclu avec une heuristique gloutonne), le deck N'EST PAS modifié — la
+ * fonction renvoie l'analyse du deck d'origine inchangé avec un message
+ * explicite plutôt que de livrer un résultat pire que le point de départ.
+ *
+ * Non vérifié contre une vraie réponse Scryfall (même limite que le reste
+ * du site dans cet environnement, voir README) — vérifié via données
+ * simulées.
+ */
+export async function superOptimizeDeck(input: {
+  formatKey: string;
+  deckName: string;
+  commanders: string[];
+  cards: { name: string; count: number }[];
+}): Promise<SuperOptimizeResult> {
+  const initialCounts = new Map<string, number>();
+  for (const c of input.cards) {
+    const key = c.name.toLowerCase();
+    initialCounts.set(key, (initialCounts.get(key) ?? 0) + c.count);
+  }
+
+  let working = input.cards.map((c) => ({ name: c.name, count: c.count }));
+  let startingScore: number | null = null;
+  let roundsApplied = 0;
+
+  try {
+    const format = getFormat(input.formatKey);
+    for (let round = 0; round < SUPER_OPTIMIZE_MAX_ROUNDS; round++) {
+      const deck: PreconDeck = {
+        id: "session",
+        name: input.deckName,
+        setCode: "",
+        setName: "",
+        releaseDate: "",
+        commanders: input.commanders,
+        cardCount: working.reduce((sum, c) => sum + c.count, 0) + input.commanders.length,
+        cards: working,
+        source: null,
+      };
+      const { commanderCards, cards, colorIdentity } = await loadEnrichedDeck(deck, format);
+      const nonCommanderCards = cards.filter((c) => !c.isCommander);
+
+      const { currentStats, suggestions } = await suggestImprovements(
+        nonCommanderCards,
+        colorIdentity,
+        format,
+        commanderCards,
+        10
+      );
+      if (startingScore === null) startingScore = currentStats.score;
+      if (suggestions.length === 0) break;
+
+      for (const s of suggestions) working = applyOneSuggestion(working, s);
+      roundsApplied++;
+    }
+  } catch {
+    // Erreur réseau/Scryfall en cours de route : on s'arrête là où on en
+    // est plutôt que de tout perdre. `working` ne reflète que les tours
+    // déjà appliqués intégralement (jamais un tour à moitié appliqué,
+    // puisque `suggestImprovements` est entièrement résolu — succès ou
+    // exception — avant que `working` ne soit modifié pour ce tour).
+  }
+
+  const finalAnalysis = await analyzeDeck({
+    formatKey: input.formatKey,
+    deckName: input.deckName,
+    commanders: input.commanders,
+    cards: working,
+  });
+
+  if (roundsApplied === 0 || !finalAnalysis.ok) {
+    return {
+      ...finalAnalysis,
+      addedNames: [],
+      removedNames: [],
+      roundsApplied,
+      optimizationNote: finalAnalysis.ok
+        ? "Ton deck est déjà au maximum de ce que cette heuristique sait proposer — aucun changement effectué."
+        : null,
+    };
+  }
+
+  // Filet de sécurité : une heuristique gloutonne (chaque tour optimise
+  // localement, sans recherche exhaustive) peut en théorie finir plus bas
+  // qu'au départ, notamment via `buildRemovalCandidates` qui ne tient pas
+  // compte de la santé courbe/terrains lors du choix d'une carte à retirer
+  // (voir doc ci-dessus). Dans ce cas : deck laissé inchangé plutôt que de
+  // livrer un résultat pire que le point de départ.
+  if (startingScore !== null && (finalAnalysis.currentStats?.score ?? 0) < startingScore) {
+    const original = await analyzeDeck({
+      formatKey: input.formatKey,
+      deckName: input.deckName,
+      commanders: input.commanders,
+      cards: input.cards,
+    });
+    return {
+      ...original,
+      addedNames: [],
+      removedNames: [],
+      roundsApplied,
+      optimizationNote:
+        "Aucune amélioration nette du score n'a été trouvée après optimisation — le deck n'a pas été modifié.",
+    };
+  }
+
+  const finalCounts = new Map<string, number>();
+  for (const c of working) {
+    const key = c.name.toLowerCase();
+    finalCounts.set(key, (finalCounts.get(key) ?? 0) + c.count);
+  }
+
+  const addedNames: string[] = [];
+  for (const [key, count] of finalCounts) {
+    if (count > (initialCounts.get(key) ?? 0)) addedNames.push(key);
+  }
+  const removedNames: string[] = [];
+  for (const key of initialCounts.keys()) {
+    if (!finalCounts.has(key)) removedNames.push(key);
+  }
+
+  return { ...finalAnalysis, addedNames, removedNames, roundsApplied, optimizationNote: null };
+}

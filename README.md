@@ -643,6 +643,59 @@ seulement — les données Scryfall complètes sont re-résolues à la reprise
 via une nouvelle Server Action dédiée, `resolveCardNames`, plutôt que
 stockées telles quelles).
 
+### "Super Opti" : optimisation du deck en un clic (29/08/2026)
+
+Demande de Ben : un bouton qui remplace automatiquement les cartes du deck
+par les plus optimales possibles, en un seul clic, sur les decks précons
+comme sur les imports CSV/Arena.
+
+**Mécanisme.** `superOptimizeDeck` (actions.ts) n'invente aucune nouvelle
+logique de score : c'est une boucle autour du moteur de suggestions déjà
+existant (`suggestImprovements`, recommend.ts — le même que celui utilisé
+carte par carte dans le panneau "Améliorer ce deck"). À chaque tour, il
+récupère jusqu'à 10 suggestions (ajout + candidate au retrait), les
+applique toutes, puis recommence avec le deck mis à jour — jusqu'à ce qu'un
+tour ne trouve plus rien à proposer, ou qu'un plafond de 4 tours soit
+atteint (`SUPER_OPTIMIZE_MAX_ROUNDS`), pour borner le temps de calcul sur
+un gros deck. Le résultat final est comparé aux cartes de départ pour
+calculer précisément quelles cartes ont été ajoutées/retirées au total
+(peu importe combien de tours ont été nécessaires), afin d'alimenter les
+deux mécanismes déjà en place plutôt que d'en créer un troisième : les
+cartes ajoutées rejoignent le badge "Ajoutée" existant, les cartes
+retirées rejoignent la liste "Retirées pendant cette session"
+(RemovedCardsList.tsx, voir ci-dessus) — restaurables en un clic comme un
+retrait manuel.
+
+Filet de sécurité : si, malgré tout, le score final calculé se révèle plus
+bas que le score de départ (l'heuristique de retrait ne tient pas compte de
+la courbe de mana ni du nombre de terrains, voir la limite documentée sur
+`buildRemovalCandidates` dans recommend.ts — un cas en théorie possible même
+s'il ne s'est pas produit dans les scénarios testés), le deck n'est pas
+modifié et un message l'indique plutôt que d'appliquer un changement net
+négatif.
+
+Fonctionne indifféremment sur un deck précon ou un import CSV/Arena : la
+fonctionnalité vit dans DeckBuilder.tsx, le composant partagé par les trois
+types de page deck du site, et ne prend en entrée que commandant(s) + liste
+de cartes, sans rien supposer sur leur origine.
+
+⚠️ Comme pour le reste des fonctionnalités Scryfall de ce projet, aucun
+accès réseau réel n'était disponible pour vérifier ceci en conditions
+réelles. Vérifié par : un test de logique (dizaines de cartes simulées
+réparties sur les 9 piliers, appel direct de `superOptimizeDeck` avec un
+`fetch` mocké) confirmant la convergence en plusieurs tours sous le
+plafond, le calcul du diff ajoutées/retirées, et la branche "deck déjà
+optimal" (aucune suggestion dès le premier tour) ; puis un passage
+Playwright sur le build de production avec Scryfall mocké, confirmant
+l'intégration UI complète (bouton, texte de chargement, score qui
+progresse, badges "Ajoutée", liste "Retirées" peuplée et son bouton de
+restauration, second clic qui détecte correctement qu'il n'y a plus rien à
+optimiser). Le filet de sécurité anti-régression, lui, n'a été vérifié que
+par relecture du code (score final < score de départ) : le reproduire
+avec des données simulées réalistes n'a pas été tenté, ce cas restant
+délicat à provoquer artificiellement sans fausser le reste du scénario de
+test.
+
 ## Stack
 
 Next.js 16 (App Router, TypeScript, Turbopack) + Tailwind CSS v4. Pas de

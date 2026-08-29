@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import type { CardSuggestion, DeckCategory, EnrichedCard } from "@/lib/types";
-import { analyzeDeck, resolveCardNames, type DeckAnalysisResult } from "@/lib/actions";
+import { analyzeDeck, resolveCardNames, superOptimizeDeck, type DeckAnalysisResult } from "@/lib/actions";
 import { getFormat } from "@/lib/formats";
 import { CATEGORY_LABELS, EMPTY_CATEGORY_COUNTS, classifyCard } from "@/lib/deck-score";
 import { CardTile } from "./CardTile";
@@ -115,6 +115,14 @@ export function DeckBuilder({
   // de `SavedSession.removedCards` ci-dessus (28/08/2026, demande de Ben).
   const [removedCards, setRemovedCards] = useState<EnrichedCard[]>([]);
   const [pending, startTransition] = useTransition();
+  // Distinct de `pending` (qui gate déjà tous les boutons d'ajout/retrait
+  // pendant N'IMPORTE QUEL recalcul, Super Opti inclus puisqu'il passe par
+  // le même `startTransition` — voir handleSuperOptimize) : sert uniquement
+  // à choisir le texte affiché sur le bouton "Super Opti" lui-même pendant
+  // son propre recalcul, qui peut prendre bien plus longtemps qu'un ajout
+  // simple (plusieurs tours de suggestions, voir actions.ts).
+  const [superOptimizing, setSuperOptimizing] = useState(false);
+  const [optimizationNote, setOptimizationNote] = useState<string | null>(null);
   const [transientError, setTransientError] = useState<string | null>(null);
   const [savedSession, setSavedSession] = useState<SavedSession | null>(null);
   // Un seul élément déplié à la fois par liste (accordéon), plutôt que
@@ -182,6 +190,10 @@ export function DeckBuilder({
 
   function recompute(cardList: { name: string; count: number }[], newAdded: Set<string>) {
     setTransientError(null);
+    // Un geste manuel (ajout/retrait/swap) après un passage de Super Opti
+    // rend son message ("score amélioré en N tours", etc.) obsolète — pas la
+    // peine de le laisser affiché à côté d'un deck qui a de nouveau changé.
+    setOptimizationNote(null);
     startTransition(async () => {
       const commanders = result.commanderEntries.map((c) => c.name);
       const res = await analyzeDeck({
@@ -407,6 +419,84 @@ export function DeckBuilder({
     }
   }
 
+  /**
+   * "Super Opti" (28/08/2026, demande de Ben) : un clic pour laisser le
+   * moteur de suggestions existant (`suggestImprovements`, voir
+   * recommend.ts) remplacer lui-même les cartes du deck par les plus
+   * optimales qu'il sait trouver, en plusieurs tours (voir
+   * `superOptimizeDeck` dans actions.ts pour la boucle et son plafond).
+   * Aucune nouvelle logique de score ici : cette fonction ne fait
+   * qu'appeler la Server Action et réconcilier son résultat avec l'état
+   * local du simulateur, exactement comme un ajout/retrait manuel mais
+   * pour plusieurs cartes à la fois.
+   *
+   * Fonctionne aussi bien sur un deck précon que sur un import CSV/Arena :
+   * ce composant est partagé par les trois types de page deck, et
+   * `superOptimizeDeck` ne prend en entrée que commandant(s) + liste de
+   * cartes, sans rien supposer sur leur origine.
+   */
+  function handleSuperOptimize() {
+    setTransientError(null);
+    setOptimizationNote(null);
+    setSuperOptimizing(true);
+    const commanders = result.commanderEntries.map((c) => c.name);
+    // Capturé avant l'appel (données Scryfall complètes) pour pouvoir
+    // alimenter RemovedCardsList avec les cartes que Super Opti a fait
+    // disparaître du deck — même logique que dans confirmSwap/handleRemove.
+    const cardsBefore = result.cards;
+
+    startTransition(async () => {
+      try {
+        const res = await superOptimizeDeck({
+          formatKey: result.formatKey,
+          deckName: result.deckName,
+          commanders,
+          cards: result.cards.map((c) => ({ name: c.name, count: c.count })),
+        });
+
+        if (!res.ok) {
+          setTransientError(res.error ?? "Erreur inattendue pendant l'optimisation.");
+          return;
+        }
+
+        const removedKeys = new Set(res.removedNames);
+        const newlyRemoved = cardsBefore.filter((c) => removedKeys.has(c.name.toLowerCase()));
+
+        setResult(res);
+        setAddedNames((prev) => {
+          const next = new Set(prev);
+          for (const n of res.addedNames) next.add(n);
+          return next;
+        });
+        // Comme dans recompute() : une carte taguée "à retirer" qui a
+        // disparu du deck pendant l'optimisation n'a plus de sens à tagger.
+        setMarkedForRemoval((prev) => {
+          const next = new Set<string>();
+          for (const n of prev) {
+            if (res.cards.some((c) => c.name.toLowerCase() === n)) next.add(n);
+          }
+          return next;
+        });
+        if (newlyRemoved.length > 0) {
+          setRemovedCards((prev) => [
+            ...newlyRemoved,
+            ...prev.filter((e) => !removedKeys.has(e.name.toLowerCase())),
+          ]);
+        }
+        setOptimizationNote(
+          res.optimizationNote ??
+            (res.roundsApplied > 0
+              ? `Deck optimisé en ${res.roundsApplied} tour${res.roundsApplied > 1 ? "s" : ""} de suggestions — score amélioré, cartes changées ci-dessous.`
+              : null)
+        );
+      } catch {
+        setTransientError("Erreur inattendue pendant l'optimisation.");
+      } finally {
+        setSuperOptimizing(false);
+      }
+    });
+  }
+
   function exportCsv() {
     // Colonne "Commandant" dédiée (plutôt que de surcharger "Ajoutée via
     // suggestion" avec la valeur "non (commandant)") : plus lisible dans un
@@ -601,6 +691,35 @@ export function DeckBuilder({
         </div>
 
         <aside className="order-1 space-y-6 lg:order-2 lg:sticky lg:top-6 lg:self-start">
+          {/*
+            Au-dessus du panneau de suggestions "au coup par coup" : Super
+            Opti applique le même moteur mais en boucle, sur tout le deck,
+            en un clic (28/08/2026, demande de Ben). Mis en avant (bordure
+            accent) car c'est l'action la plus "engageante" de la page —
+            change potentiellement plusieurs cartes d'un coup.
+          */}
+          <div className="rounded-xl border border-accent/40 bg-accent-soft p-4">
+            <h3 className="text-sm font-medium text-accent">⚡ Super Opti</h3>
+            <p className="mt-1 text-xs text-accent/80">
+              Remplace automatiquement les cartes les plus faibles par les meilleures
+              trouvées par le moteur de suggestions, en plusieurs tours, jusqu&apos;à ce
+              qu&apos;il n&apos;y ait plus rien à améliorer. Les cartes retirées rejoignent
+              la liste « Retirées pendant cette session » ci-contre, les cartes ajoutées
+              sont marquées « Ajoutée ».
+            </p>
+            <button
+              type="button"
+              onClick={handleSuperOptimize}
+              disabled={pending}
+              className="mt-3 w-full rounded-lg bg-accent py-2 text-sm font-medium text-accent-foreground transition-colors hover:opacity-90 disabled:opacity-50"
+            >
+              {superOptimizing ? "Optimisation en cours…" : "⚡ Optimiser le deck"}
+            </button>
+            {optimizationNote && (
+              <p className="mt-2 text-xs text-accent/90">{optimizationNote}</p>
+            )}
+          </div>
+
           <ImproveDeckPanel
             suggestions={result.suggestions}
             onAddClick={handleAddClick}
