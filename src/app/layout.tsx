@@ -4,9 +4,9 @@ import "./globals.css";
 import { LanguageProvider, LanguageToggle } from "@/components/LanguageProvider";
 
 export const metadata: Metadata = {
-  title: "MTG Opti — Améliorez vos decks Commander & MTG Arena",
+  title: "MTG Opti — Améliorez vos decks Commander, Duel Commander & MTG Arena",
   description:
-    "Partez d'un deck préconstruit (Commander papier ou Arena) ou importez le vôtre, trouvez les cartes qui l'améliorent et visualisez le gain de puissance.",
+    "Partez d'un deck préconstruit (Commander papier, Duel Commander ou Arena) ou importez le vôtre, trouvez les cartes qui l'améliorent et visualisez le gain de puissance.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -36,6 +36,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               <nav className="flex items-center gap-5 text-sm text-muted">
                 <Link href="/" className="hover:text-foreground transition-colors">
                   Commander (papier)
+                </Link>
+                <Link href="/duelcommander" className="hover:text-foreground transition-colors">
+                  Duel Commander
                 </Link>
                 <Link href="/arena" className="hover:text-foreground transition-colors">
                   MTG Arena
@@ -76,6 +79,15 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               rel="noreferrer"
             >
               magic-preconstructed-decks-data
+            </a>
+            . Decks Duel Commander issus de decklists de tournoi réelles publiées sur{" "}
+            <a
+              className="underline hover:text-foreground"
+              href="https://www.mtgtop8.com"
+              target="_blank"
+              rel="noreferrer"
+            >
+              mtgtop8.com
             </a>
             . Magic: The Gathering est une marque de Wizards of the Coast.
           </footer>

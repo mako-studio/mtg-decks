@@ -250,6 +250,22 @@ globaux échoue sous `import` ESM sans ça, dans cet environnement précis.)
    lectures d'état inversées/trompeuses (compteurs lus avant la fin réelle
    du recalcul).
 
+### ⚠️ Piège d'environnement (05/09/2026) — imports ESM nommés depuis un `.ts`
+
+Rencontré en écrivant un script `verify-xxx.mts` pour la fonctionnalité
+Duel Commander, sur Node 22.22.2 / `tsx` 4.21.0 (a pu changer depuis) :
+`import { X } from "./src/lib/foo.ts"` échoue avec `SyntaxError: ... does
+not provide an export named 'X'`, **même pour un fichier `.ts` trivial
+sans aucune syntaxe TypeScript** (reproduit avec un fichier de test isolé
+dans `/tmp`, hors du repo — ce n'est donc pas spécifique à ce projet). Le
+module est en réalité chargé via l'interop CJS et tous ses exports nommés
+se retrouvent regroupés sous une clé `.default` (objet à accesseurs)
+plutôt qu'exposés en imports nommés ESM directs. Contournement : importer
+en `import * as ns from "./foo.ts"`, puis déstructurer depuis
+`ns.default ?? ns`. À appliquer dans tout futur script `verify-*.mts` tant
+que ce comportement persiste — sinon le script niveau 1 échoue avant même
+d'avoir pu tester quoi que ce soit.
+
 ### ⚠️ Piège critique — fichiers scratch et build cassé
 
 **Tout fichier `.mts`/`.ts` isolé à la racine du repo (même non importé
@@ -273,6 +289,20 @@ ne jamais aller lire ce chemin, et ne pas le signaler à Ben à chaque fois
 (il le sait déjà) — juste continuer à l'ignorer comme fait jusqu'ici.
 
 ## 9. État actuel exact du projet (au 29/08/2026, commit `f9985e4`)
+
+**⚠️ Cette section est désormais dépassée** (constaté le 05/09/2026,
+conformément à l'avertissement en fin de fichier — se fier à `git log`/
+`git status` réels plutôt qu'au texte figé ci-dessous). Au moins deux
+commits sont venus après `f9985e4` (`91af694` "super-opti",
+`36cb674` "super-opti-fix") sans mise à jour de ce fichier, et une
+fonctionnalité majeure a été ajoutée le 05/09/2026 : une section "Duel
+Commander" complète (nouveau format 1v1 avec sa propre configuration de
+score, 11 decks de tournoi réels scrapés manuellement sur mtgtop8.com en
+l'absence de précons officiels pour ce format) — voir le README, section
+"Duel Commander : section dédiée (05/09/2026)", pour le détail complet
+(décisions, méthode de collecte, limites, vérification). Le README reste
+la doc vivante à jour ; ce fichier-ci n'a pas été réécrit en entier pour
+ne pas risquer d'introduire une désynchronisation avec le code réel.
 
 Historique complet des commits (du plus ancien au plus récent) :
 

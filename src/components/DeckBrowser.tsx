@@ -4,7 +4,19 @@ import { useMemo, useState } from "react";
 import type { PreconDeck } from "@/lib/types";
 import { DeckCard } from "./DeckCard";
 
-export function DeckBrowser({ decks }: { decks: PreconDeck[] }) {
+export function DeckBrowser({
+  decks,
+  linkBase = "/decks",
+}: {
+  decks: PreconDeck[];
+  /**
+   * Préfixe de lien vers la page de détail d'un deck (05/09/2026, ajouté
+   * pour la section Duel Commander) — par défaut "/decks" (précons papier,
+   * comportement historique inchangé). Passer "/duelcommander/decks" pour
+   * la section Duel Commander plutôt que de dupliquer ce composant.
+   */
+  linkBase?: string;
+}) {
   const [query, setQuery] = useState("");
 
   const filtered = useMemo(() => {
@@ -32,7 +44,7 @@ export function DeckBrowser({ decks }: { decks: PreconDeck[] }) {
       </p>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {filtered.map((deck) => (
-          <DeckCard key={deck.id} deck={deck} />
+          <DeckCard key={deck.id} deck={deck} href={`${linkBase}/${deck.id}`} />
         ))}
       </div>
     </div>

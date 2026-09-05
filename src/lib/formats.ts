@@ -48,6 +48,67 @@ const COMMANDER_LIKE: CategoryConfig = {
 };
 
 /**
+ * Cibles/poids pour Duel Commander (05/09/2026) : même format singleton
+ * ~100 cartes que COMMANDER_LIKE (99 + commandant), mais 1 contre 1 et vie
+ * à 20 (au lieu de 40 en multijoueur) — parties nettement plus rapides
+ * (mtgtop8 indique une durée moyenne de 10-20 min pour ce format). Ça
+ * déplace la priorité des 9 piliers par rapport au Commander papier
+ * multijoueur :
+ * - removal et disruption montent : chaque removal/discard répond
+ *   directement au SEUL adversaire (pas de dilution politique entre 3
+ *   adversaires comme en table à 4).
+ * - tutor monte nettement : la consistance pour aller chercher sa pièce
+ *   maîtresse contre un adversaire unique est un axe de puissance central
+ *   en 1v1 compétitif (les 11 decklists de tournoi utilisées pour peupler
+ *   la section Duel Commander — voir src/data/duelcommander-decks.json —
+ *   tournent quasiment toutes 3 à 6 tutors, bien au-dessus d'un Commander
+ *   multijoueur casual typique).
+ * - wipe descend fortement : réinitialiser LE board de l'unique adversaire
+ *   est un outil beaucoup plus situationnel qu'en table à 4 (souvent aussi
+ *   mauvais pour soi que pour l'adversaire à 1 contre 1).
+ * - ramp descend légèrement (parties plus courtes, moins besoin de rampe
+ *   lourde vers un gros finisher).
+ * idealAvgCmc et idealLandRatio : mêmes réserves que COMMANDER_LIKE /
+ * CONSTRUCTED_60 ci-dessous — repères de deckbuilding, pas une donnée
+ * officielle. idealAvgCmc positionné entre le Commander multijoueur (2.9,
+ * parties plus longues) et le constructed 60 cartes (2.4) : le 1v1
+ * compétitif tourne beaucoup d'interaction à 1-2 manas mais garde le
+ * format Commander (deck singleton ~99 cartes, pas de "4 exemplaires").
+ * idealLandRatio repris à l'identique de COMMANDER_LIKE : les 9 decklists
+ * du snapshot avec un décompte de terrains explicite tournent entre 35 et
+ * 40 terrains sur 99, soit une moyenne très proche de 37/99 — cohérent
+ * avec le repère Commander habituel, pas de raison de s'en écarter.
+ */
+const DUEL_COMMANDER: CategoryConfig = {
+  targets: {
+    ramp: 7,
+    removal: 12,
+    wipe: 1,
+    draw: 8,
+    tutor: 6,
+    protection: 6,
+    landfix: 4,
+    finisher: 5,
+    disruption: 7,
+  },
+  weights: {
+    ramp: 9,
+    removal: 18,
+    wipe: 3,
+    draw: 12,
+    tutor: 12,
+    protection: 9,
+    landfix: 6,
+    finisher: 5,
+    disruption: 10,
+  },
+  curveWeight: 8,
+  landWeight: 8,
+  idealAvgCmc: 2.5,
+  idealLandRatio: 37 / 99,
+};
+
+/**
  * Cibles/poids pour un deck constructed 60 cartes classique (Standard,
  * Historic, Explorer, Alchemy, Timeless) : jusqu'à 4 exemplaires d'une
  * même carte, ramp/tutors moins centraux, removal/pioche/protection
@@ -104,6 +165,24 @@ export const FORMATS: Record<FormatKey, FormatConfig> = {
     deckSize: 99,
     maxCopies: 1,
     categories: COMMANDER_LIKE,
+  },
+  duelcommander: {
+    key: "duelcommander",
+    label: "Duel Commander (1v1)",
+    // "duel" est la clé de légalité Scryfall officielle pour Duel Commander
+    // (scryfall.com/docs/syntax, mot-clé f:/format: — confirmé le
+    // 05/09/2026 par la doc live, pas depuis la mémoire du modèle). Le
+    // banlist Duel Commander (distinct du banlist Commander papier — ex.
+    // Sol Ring et les autres rampes rapides y sont bannies) est donc géré
+    // nativement par `card.legalities.duel`, sans liste dupliquée à la
+    // main dans ce projet.
+    scryfallLegality: "duel",
+    arenaOnly: false,
+    singleton: true,
+    hasCommander: true,
+    deckSize: 99,
+    maxCopies: 1,
+    categories: DUEL_COMMANDER,
   },
   brawl: {
     key: "brawl",

@@ -1,8 +1,9 @@
 # Commander Booster
 
-Un site pour partir d'un deck préconstruit — Commander papier ou MTG
-Arena — trouver les cartes qui l'amélioreraient, et visualiser le gain de
-puissance estimé, avec le texte oracle et le coût de mana de chaque carte.
+Un site pour partir d'un deck préconstruit — Commander papier, Duel
+Commander (1v1) ou MTG Arena — trouver les cartes qui l'amélioreraient, et
+visualiser le gain de puissance estimé, avec le texte oracle et le coût de
+mana de chaque carte.
 
 ## Fonctionnalités (v1)
 
@@ -28,6 +29,22 @@ puissance estimé, avec le texte oracle et le coût de mana de chaque carte.
   (localStorage, locale à un navigateur), le CSV est un fichier portable.
   Les cartes marquées "ajoutée via suggestion" / "à retirer" dans le CSV
   sont restaurées telles quelles, pas seulement la liste de cartes.
+
+**Duel Commander** (`/duelcommander`, 05/09/2026)
+- Format 1v1 (vie 20) à part entière : légalité/banlist propres (via la
+  clé Scryfall officielle `duel`, distincte de `commander` — ex. Sol Ring
+  y est banni), et cibles/poids des 9 piliers recalibrés pour le 1v1
+  (removal/tutor/disruption pèsent plus, wipe beaucoup moins — voir
+  `DUEL_COMMANDER` dans `src/lib/formats.ts` pour le détail et les
+  réserves).
+- Pas de précons officiels pour ce format (il n'en existe pas) : la
+  section propose à la place 11 vrais decks de tournoi récents
+  (01-03/09/2026, Europe/Amérique du Sud/USA), scrapés sur
+  [mtgtop8.com](https://www.mtgtop8.com/format?f=EDH) — voir "Duel
+  Commander : section dédiée (05/09/2026)" plus bas pour la méthode de
+  collecte (manuelle, pas un script) et ses limites.
+- Même simulateur interactif que les autres sections (ajout/retrait/swap,
+  Super Opti, export CSV) : aucune fonctionnalité dupliquée.
 
 **Simulateur interactif** (sur toute page deck)
 - Ajouter une carte suggérée met à jour le deck immédiatement, recalcule
@@ -696,6 +713,126 @@ avec des données simulées réalistes n'a pas été tenté, ce cas restant
 délicat à provoquer artificiellement sans fausser le reste du scénario de
 test.
 
+### Duel Commander : section dédiée (05/09/2026)
+
+Demande de Ben : "faire le même travail d'optimisation de decks pour Duel
+Commander avec une section dédiée", en suggérant de se baser sur
+[mtgtop8.com/format?f=EDH](https://www.mtgtop8.com/format?f=EDH) (le
+filtre "EDH" de mtgtop8 désigne Duel Commander, pas le Commander
+multijoueur classique — vérifié en direct sur le site).
+
+**Format.** Duel Commander est un format 1 contre 1 : deck singleton
+~100 cartes comme le Commander papier, mais vie de départ à 20 (au lieu de
+40) et parties nettement plus rapides (mtgtop8 indique 10-20 min en
+moyenne). Point clé qui a évité un chantier de banlist maison : Scryfall
+documente officiellement une clé de légalité `duel` (voir
+[scryfall.com/docs/syntax](https://scryfall.com/docs/syntax), mot-clé
+`f:`/`format:` — "duel" y est explicitement listé comme "Duel Commander"),
+gérée nativement par le mécanisme déjà en place (`card.legalities[format.
+scryfallLegality]`, voir `FormatConfig` dans `types.ts`). Le nouveau format
+`duelcommander` (`src/lib/formats.ts`) n'a donc eu besoin d'aucune liste de
+cartes bannies dupliquée à la main — juste `scryfallLegality: "duel"`,
+comme "commander"/"brawl"/etc. Les 9 cibles/poids de piliers ont en
+revanche été recalibrés spécifiquement pour le 1v1 (voir le commentaire
+détaillé sur `DUEL_COMMANDER` dans `formats.ts`) : removal/tutor/disruption
+montent (répondre directement au seul adversaire, consistance pour aller
+chercher sa pièce maîtresse), wipe descend fortement (réinitialiser LE
+board adverse est bien moins pertinent à 1 contre 1 qu'à 4). Comme pour
+COMMANDER_LIKE/CONSTRUCTED_60, ce sont des repères de deckbuilding
+raisonnés (partiellement recoupés avec les 11 decklists réelles du
+snapshot ci-dessous), pas une donnée officielle.
+
+**Pas de précons — deckbuilding assumé par les joueurs.** Contrairement au
+Commander papier, Duel Commander n'a pas de produits préconstruits
+officiels. La section propose à la place un snapshot de 11 vraies
+decklists de tournoi (classements récents du 01 au 03/09/2026 — Troll2Jeux
+Paris, Finale Lega Estiva DC Perugia, DC Arequipa, Liga Plateu Osasco,
+Černý Rytíř Prague, Weekly DC Oklahoma City, DC Piacenza), choisies pour
+la diversité des commandants/couleurs plutôt que par exhaustivité.
+
+**Méthode de collecte — écart important par rapport au reste du projet.**
+Les autres datasets de ce site (`commander-decks.json`,
+`arena-*-decks.json`) viennent d'un dataset GitHub communautaire, fetché
+par un vrai script (`fetch-precon-decks.mjs`) via `raw.githubusercontent.com`
+(accessible en réseau direct depuis le bac à sable cloud). **mtgtop8.com
+n'est PAS accessible en réseau direct depuis cet environnement** — testé
+et confirmé : `curl` (bash du bac à sable) échoue en `HTTP 000` dessus, de
+même que sur `api.scryfall.com` (même restriction déjà documentée) et sur
+plusieurs proxies publics essayés en secours (`api.allorigins.win`,
+`r.jina.ai`, `corsproxy.io` — tous bloqués aussi). Écrire un vrai script
+comme `fetch-precon-decks.mjs` n'était donc pas possible cette fois.
+
+À la place, chaque deck a été **transcrit manuellement via l'outil
+WebFetch** (qui, lui, atteint mtgtop8.com — accès différent du `fetch`
+Node du bac à sable), avec vérification programmatique du total de cartes
+(~100) avant intégration. Deux pièges rencontrés pendant cette collecte,
+à connaître pour l'étendre plus tard :
+- Demander à WebFetch de "trouver le lien d'export `.dec`" d'un deck puis
+  fetcher ce lien séparément s'est révélé **peu fiable** : plusieurs
+  tentatives ont renvoyé le contenu d'un tout autre deck récemment fetché
+  dans le même lot de requêtes (probablement le petit modèle de résumé qui
+  confond/invente un href sous charge). Fiable en revanche : fetcher
+  directement la page `event?e=X&d=Y&f=EDH` du deck et demander une
+  transcription complète de la decklist telle qu'affichée, sans jamais
+  demander de "lien à suivre" en intermédiaire.
+- Un paramètre `d=` sans le `e=` correspondant peut renvoyer un deck
+  complètement différent — toujours garder les deux paramètres ensemble.
+
+Conséquence assumée : ce snapshot est **manuel, pas régénérable par une
+commande** comme les autres — pour l'étendre ou le rafraîchir, il faut
+répéter cette collecte (ou écrire un vrai script si l'accès réseau à
+mtgtop8.com devient possible depuis cet environnement un jour). Risque
+résiduel documenté : une transcription assistée par IA peut comporter un
+écart ponctuel de +/-1 sur une quantité de carte (observé sur un deck lors
+de la vérification, toujours dans la tolérance acceptée) ; un nom de carte
+introuvable sur Scryfall se comporte comme pour n'importe quel import
+utilisateur ("non trouvée", pas un crash). Détail complet de la méthode et
+des 11 sources : voir le commentaire en tête de
+`src/lib/duelcommander-decks.ts`.
+
+**Bug attrapé par la vérification Playwright (voir plus bas) : routage.**
+`DeckBrowser`/`DeckCard` étaient conçus uniquement pour les précons papier
+(`DeckCard` pointe par défaut vers `/decks/${id}`). Réutiliser ces
+composants tels quels pour la section Duel Commander aurait fait pointer
+chaque carte vers `/decks/<id-duel-commander>` (404, l'id n'existe pas
+dans `commander-decks.json`) au lieu de `/duelcommander/decks/<id>`.
+Corrigé en ajoutant un prop `linkBase` optionnel à `DeckBrowser` (défaut
+`/decks`, comportement historique inchangé pour l'accueil Commander
+papier) plutôt que de dupliquer le composant — voir `DeckBrowser.tsx`.
+
+**⚠️ Piège d'environnement découvert pendant la vérification — à
+connaître pour toute future session utilisant la méthodologie de
+vérification "niveau 1" (HANDOFF.md section 7).** Sur ce Node/tsx précis
+(Node 22.22.2, `tsx` 4.21.0 — a pu changer depuis), `npx tsx
+verify-xxx.mts` qui fait `import { X } from "./src/lib/foo.ts"` échoue
+avec `SyntaxError: ... does not provide an export named 'X'`, **même pour
+un fichier `.ts` trivial sans aucune syntaxe TypeScript**. Confirmé que ce
+n'est pas spécifique à ce projet (reproduit avec un fichier `.ts` de test
+isolé dans `/tmp`, hors du repo). Le module est en réalité chargé via
+l'interop CJS et tous ses exports nommés se retrouvent regroupés sous une
+clé `.default` (objet à accesseurs) plutôt qu'exposés en imports nommés
+ESM directs. Contournement : importer en `import * as ns from "./foo.ts"`,
+puis déstructurer depuis `ns.default ?? ns`. Les scripts `verify-*.mts` de
+ce projet devront utiliser ce contournement tant que ce comportement
+persiste (pas de repro tenté avec un Node/tsx antérieur pour dater
+précisément le changement).
+
+**Vérification.** Niveau 1 (logique pure, `tsx`, fetch mocké) : config du
+format (`scryfallLegality`, poids qui totalisent bien 100, singleton),
+chargement des 11 decks (par id + id inconnu → `null`), `analyzeDeck()` de
+bout en bout sur un deck Duel Commander avec cartes Scryfall simulées
+(dont une carte factice "Sol Ring" bannie en `duel` mais légale en
+`commander`, pour confirmer que le bon champ de légalité est lu), et
+confirmation que la recherche de suggestions utilise bien `f:duel` dans sa
+requête Scryfall. Niveau 2 (Playwright sur build de production, Scryfall
+mocké) : page de navigation (11 decks affichés, recherche par commandant),
+ouverture d'un deck (dashboard, courbe de mana, panneau Suggestions/Super
+Opti, export CSV) — captures d'écran relues, aucune erreur console. C'est
+cette passe qui a révélé le bug de routage ci-dessus (corrigé puis
+re-vérifié). Comme pour tout ce qui touche Scryfall dans ce projet, aucune
+de ces vérifications n'a pu se faire contre une vraie réponse Scryfall ou
+mtgtop8 en direct depuis cet environnement.
+
 ## Stack
 
 Next.js 16 (App Router, TypeScript, Turbopack) + Tailwind CSS v4. Pas de
@@ -970,6 +1107,9 @@ Ouvrir [http://localhost:3000](http://localhost:3000).
 npm run fetch-decks
 ```
 
+Ne couvre PAS `src/data/duelcommander-decks.json` (snapshot manuel, pas de
+script — voir "Duel Commander : section dédiée (05/09/2026)" plus haut).
+
 ## Structure
 
 ```
@@ -977,6 +1117,8 @@ src/
   app/
     page.tsx                    # Accueil Commander papier : liste + recherche
     decks/[id]/page.tsx         # Détail deck Commander papier
+    duelcommander/page.tsx      # Accueil Duel Commander : liste des 11 decks de tournoi
+    duelcommander/decks/[id]/page.tsx  # Détail deck Duel Commander
     arena/page.tsx              # Accueil Arena : import + galeries Brawl/Starter
     arena/decks/[id]/page.tsx   # Détail deck Arena (galerie), sélecteur de format
     glossaire/page.tsx          # Glossaire MTG (FR/EN), recherchable
@@ -1004,6 +1146,7 @@ src/
     formats.ts                   # Registre des formats (cibles/poids par format)
     translation-cache.ts         # Cache mémoire des traductions FR (partagé CardTile/SuggestionCard)
     precon-decks.ts              # Decks Commander papier (snapshot local)
+    duelcommander-decks.ts       # Decks Duel Commander (snapshot manuel, 11 decks de tournoi mtgtop8)
     arena-decks.ts               # Decks Brawl/Starter Arena (snapshot local)
     arena-format.ts              # Parse/génère le texte d'import-export Arena
     arena-import.ts              # Adapte un deck importé vers le modèle interne
@@ -1018,6 +1161,7 @@ src/
     recommend.ts                   # Recherche + classement des suggestions (par format)
   data/
     commander-decks.json          # Snapshot Commander papier
+    duelcommander-decks.json      # Snapshot Duel Commander (11 decks, collecte manuelle mtgtop8)
     arena-brawl-decks.json        # Snapshot Brawl (Arena)
     arena-starter-decks.json      # Snapshot Starter Decks (Arena)
     glossary.ts                   # Contenu du glossaire (~55 termes, sourcés)

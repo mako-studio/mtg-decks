@@ -8,7 +8,20 @@ export interface PreconCardRef {
   count: number;
 }
 
-/** Un deck Commander préconstruit officiel. */
+/**
+ * Un deck Commander préconstruit officiel.
+ *
+ * Réutilisé tel quel (05/09/2026) pour les decks Duel Commander de
+ * src/data/duelcommander-decks.json (voir src/lib/duelcommander-decks.ts) —
+ * ce ne sont pas des précons officiels mais des decks de tournoi réels
+ * scrapés sur mtgtop8.com. Champs repurposés pour ce cas : `setCode`/
+ * `setName` = code/nom de l'événement mtgtop8 (pas un set Magic),
+ * `releaseDate` = date du tournoi, `source` = lien vers la decklist
+ * mtgtop8. Choix délibéré plutôt qu'un nouveau type : ces champs sont déjà
+ * assez génériques pour porter cette sémantique, et ça permet de réutiliser
+ * DeckCard/DeckBrowser/DeckAnalysis sans dupliquer de composant (voir
+ * README, section Duel Commander).
+ */
 export interface PreconDeck {
   id: string;
   name: string;
@@ -280,12 +293,16 @@ export interface CardSuggestion {
 
 /**
  * Formats pris en charge. "commander" est le format papier existant.
- * Les autres sont des formats MTG Arena — voir src/lib/formats.ts.
- * Clés vérifiées contre le type officiel `ScryfallFormat`
- * (package @scryfall/api-types).
+ * "duelcommander" (05/09/2026) est Duel Commander (1v1, vie 20) — voir
+ * src/lib/formats.ts et src/lib/duelcommander-decks.ts. Les autres sont
+ * des formats MTG Arena — voir src/lib/formats.ts.
+ * Clés vérifiées contre la doc officielle Scryfall (scryfall.com/docs/syntax,
+ * mot-clé de recherche `f:`/`format:` — "duel" y est explicitement documenté
+ * comme "Duel Commander").
  */
 export type FormatKey =
   | "commander"
+  | "duelcommander"
   | "brawl"
   | "historicbrawl"
   | "standard"
