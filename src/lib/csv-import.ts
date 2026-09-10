@@ -41,8 +41,13 @@ function isYes(value: string | undefined): boolean {
  * à la ligne à l'intérieur — indispensable ici, beaucoup de noms de
  * cartes MTG contiennent une virgule (ex: "Krenko, Mob Boss"), donc un
  * simple `split(",")` casserait l'import.
+ *
+ * Exporté (05/09/2026) pour être réutilisé par collection-import.ts (import
+ * CSV d'une collection possédée, pas d'un deck exporté par ce site) : même
+ * format de fichier de base, colonnes reconnues différentes — voir ce
+ * fichier plutôt que dupliquer ce parseur.
  */
-function parseCsvRows(text: string): string[][] {
+export function parseCsvRows(text: string): string[][] {
   const rows: string[][] = [];
   let row: string[] = [];
   let field = "";

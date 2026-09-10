@@ -43,6 +43,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                 <Link href="/arena" className="hover:text-foreground transition-colors">
                   MTG Arena
                 </Link>
+                <Link href="/collection" className="hover:text-foreground transition-colors">
+                  Ma collection
+                </Link>
                 <Link href="/extensions" className="hover:text-foreground transition-colors">
                   Extensions
                 </Link>

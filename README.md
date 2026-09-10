@@ -46,6 +46,22 @@ mana de chaque carte.
 - Même simulateur interactif que les autres sections (ajout/retrait/swap,
   Super Opti, export CSV) : aucune fonctionnalité dupliquée.
 
+**Ma collection** (`/collection`, 10/09/2026)
+- Importe les cartes possédées (texte collé libre OU CSV) et suggère le
+  meilleur deck Commander/Duel Commander constructible avec, plutôt que de
+  se contenter d'analyser une liste déjà fixée.
+- Détecte automatiquement les commandants possibles dans la collection
+  (créature légendaire, ou "can be your commander") et présélectionne
+  celui qui donnerait le meilleur score — un sélecteur permet de changer
+  d'avis et de reconstruire le deck pour un autre candidat.
+- Sélectionne les meilleures cartes possédées (piliers sous leur cible en
+  priorité) dans l'identité couleur du commandant, puis complète avec des
+  terrains de base si la collection ne suffit pas à remplir le deck — un
+  deck toujours immédiatement jouable, même incomplet.
+- Le score et les suggestions d'acquisition (quoi ajouter pour combler ce
+  qui manque encore) réutilisent tel quel le moteur existant — voir "Deck
+  depuis ma collection : section dédiée (10/09/2026)" plus bas.
+
 **Simulateur interactif** (sur toute page deck)
 - Ajouter une carte suggérée met à jour le deck immédiatement, recalcule
   le score et les nouvelles suggestions (le retrait d'une carte comble
@@ -832,6 +848,119 @@ cette passe qui a révélé le bug de routage ci-dessus (corrigé puis
 re-vérifié). Comme pour tout ce qui touche Scryfall dans ce projet, aucune
 de ces vérifications n'a pu se faire contre une vraie réponse Scryfall ou
 mtgtop8 en direct depuis cet environnement.
+
+### Deck depuis ma collection : section dédiée (10/09/2026)
+
+Demande de Ben : "importer une liste de cartes et que le site me suggère
+un deck Commander (duel ou multi) avec les cartes que j'ai, et voir le
+score de performance de ce deck". Trois choix de conception validés avec
+lui avant implémentation (`AskUserQuestion`) : import texte collé **et**
+CSV (les deux, pas l'un ou l'autre) ; collection insuffisante pour remplir
+le deck → compléter avec des terrains de base **et** suggérer le reste à
+acquérir (pas un deck partiel sans suggestions) ; commandant détecté
+automatiquement avec présélection du meilleur, mais changeable par Ben.
+
+**Principe directeur : aucune nouvelle logique de score.** Comme pour
+Super Opti et la recherche manuelle (voir section 11 de HANDOFF.md), cette
+fonctionnalité est une couche de sélection au-dessus du moteur existant,
+jamais une réinvention. Concrètement : `classifyCard`/`computeDeckStats`
+(`deck-score.ts`) décident de tout ce qui touche au score — y compris le
+"score d'essai" qui sert à classer les commandants candidats (un candidat
+est classé en construisant réellement son deck d'essai puis en
+`computeDeckStats`-ant, jamais via une métrique de classement séparée) —
+et `analyzeDeck`/`suggestImprovements` (`actions.ts`/`recommend.ts`)
+restent l'unique source des suggestions d'acquisition, une fois le deck
+construit à partir du pool possédé.
+
+**Nouveaux fichiers, séparation réseau/pur.** `src/lib/collection-import.ts`
+parse la collection (texte libre ou CSV, voir plus bas) — aucun appel
+réseau, aucune notion de commandant (contrairement à `csv-import.ts`, qui
+importe un DECK déjà construit avec cette notion). `src/lib/
+collection-builder.ts` contient toute la logique de sélection
+(`isCommanderEligible`, `selectDeckFromPool`, `rankCommanderCandidates`) —
+elle aussi volontairement sans aucun appel réseau : les cartes lui sont
+données déjà résolues, pour rester testable en pur avec de simples objets
+`ScryfallCard` à la main plutôt qu'un `fetch` mocké. L'orchestration
+réseau (un seul appel groupé `getCardsByNames` pour toute la collection,
+un second pour les 6 terrains de base) vit dans une nouvelle fonction
+`buildDeckFromCollection` (`actions.ts`), aux côtés d'`analyzeDeck` dont
+elle se sert pour l'étape finale (score + suggestions), exactement comme
+`superOptimizeDeck` le fait déjà.
+
+**Détection de commandant — logique inexistante avant cette
+fonctionnalité.** Le reste du site n'avait jamais eu besoin de savoir si
+UNE carte donnée peut être commandant (le commandant est toujours fourni
+par la source : précon, import Arena, CSV de deck). Règle retenue :
+créature légendaire (`type_line` contient "Legendary" et "Creature"), ou
+toute carte dont le texte oracle contient "can be your commander"
+(planeswalkers commandants). Les "Background" sont explicitement exclus :
+un Background ne peut être commandant QUE comme partenaire d'une créature
+"Choose a Background", jamais seul — et cette v1 ne gère qu'un commandant
+unique (pas de partenaires/Background), limitation assumée pour rester
+dans un périmètre raisonnable, à réévaluer si Ben le demande.
+
+**Sélection du deck (`selectDeckFromPool`).** Le pool possédé est filtré à
+l'identité couleur du commandant et à la légalité du format choisi, puis
+scindé terrains / non-terrains, chaque groupe trié par un score de
+priorité — somme, pour chaque carte, de `poids/cible` de chaque pilier
+qu'elle remplit (`classifyCard`, même formule que l'`impact` d'une
+suggestion dans `recommend.ts`), avec un petit bonus de départage repris
+de `buildRemovalCandidates` (`game_changer`/`edhrec_rank`, à échelle
+volontairement réduite : le rôle rempli doit rester le critère dominant).
+Terrains retenus jusqu'à `idealLandRatio × deckSize` (~37 sur 99), le
+reste des places jusqu'à `deckSize` va aux non-terrains classés — puis
+tout écart restant (collection insuffisante, dans un sens ou dans l'autre)
+est comblé par des terrains de base, couleurs cyclées dans l'identité du
+commandant (`Wastes` si incolore) : garantit un deck toujours à
+exactement `deckSize` cartes, donc immédiatement jouable, quelle que soit
+la taille réelle de la collection importée. Le maximum de copies du
+format (1 en Commander/Duel Commander, singleton) est respecté partout
+sauf pour les terrains de base.
+
+**Formats de collection acceptés.** Texte libre : une carte par ligne,
+"4 Sol Ring" / "Sol Ring x4" / "Sol Ring" seule (1 exemplaire implicite),
+suffixe édition entre parenthèses/crochets ignoré (beaucoup d'exports
+d'outils tiers en ajoutent). CSV : colonnes "Nom"/"Nombre" (mêmes intitulés
+reconnus que l'import CSV de deck existant, réutilise son parseur RFC4180
+`parseCsvRows`, maintenant exporté), colonnes inconnues ignorées
+silencieusement (foil/édition/prix...). Les noms non résolus par Scryfall
+(faute de frappe probable) sont listés à Ben dans l'UI plutôt que
+silencieusement ignorés — cohérent avec la convention d'honnêteté
+épistémique du projet : une carte qu'il pense avoir mise dans sa liste et
+qui manque à l'appel doit être visible, pas juste absente sans explication.
+
+**UI.** `CollectionImportForm.tsx` (nouveau composant, page `/collection`)
+suit le même schéma que `CsvImportForm.tsx`/`ArenaImportForm.tsx` :
+formulaire jusqu'à un résultat `ok`, puis bascule vers le `DeckBuilder`
+existant en pleine largeur — aucune UI de deck dupliquée. Un sélecteur de
+commandant additionnel apparaît uniquement s'il y a plus d'un candidat
+détecté, affichant le score d'essai de chacun ; le changer appelle une
+nouvelle Server Action dédiée (`switchCollectionCommander`) qui reconstruit
+le deck pour le candidat choisi à partir de la même collection (pas besoin
+de recoller le texte/re-uploader le CSV). Piège rencontré en écrivant ce
+composant : `useEffect(() => setState(...), [dep])` pour recopier le
+résultat d'un `useActionState` dans un état local déclenche la règle
+`react-hooks/set-state-in-effect` (rendus en cascade) — corrigé en posant
+l'état directement dans le `onSubmit` du `<form>` (qui s'exécute avant
+l'action, pas dans un effet) plutôt que de le dériver après coup.
+
+**Vérification.** Niveau 1 (logique pure, `tsx`, fetch mocké) :
+`parseCollectionText`/`parseCollectionCsv` (comptages, virgule dans un nom
+guillemetée, commentaires/lignes vides ignorés), `buildDeckFromCollection`
+de bout en bout sur un pool volontairement minuscule (commandant détecté
+correctement, carte hors-couleur exclue, faute de frappe listée dans
+`unresolvedNames`, deck complété à exactement 99 cartes via des terrains
+de base), et `switchCollectionCommander` vers un nom inexistant qui
+retombe proprement sur le meilleur candidat. Niveau 2 (Playwright sur
+build de production, Scryfall mocké, deux commandants candidats dans le
+pool simulé) : page `/collection` et son lien de nav, import texte,
+détection des 2 candidats avec leurs scores d'essai, bascule vers l'autre
+candidat (reconstruit bien le deck — titre/score/liste de cartes changent
+en conséquence), aucune erreur console — captures d'écran relues. Comme
+pour tout ce qui touche Scryfall dans ce projet, aucune de ces
+vérifications n'a pu se faire contre une vraie réponse Scryfall depuis cet
+environnement (voir section réseau ci-dessous) ; le site déployé, lui, a
+un accès réseau normal.
 
 ## Stack
 

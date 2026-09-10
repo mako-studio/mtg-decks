@@ -13,6 +13,14 @@ import type {
 import { parseArenaDeck, serializeArenaDeck } from "./arena-format";
 import { arenaImportToPreconDeck } from "./arena-import";
 import { parseDeckCsv } from "./csv-import";
+import { parseCollectionCsv, parseCollectionText } from "./collection-import";
+import {
+  BASIC_LAND_BY_COLOR,
+  isCommanderEligible,
+  isLegalInFormat,
+  rankCommanderCandidates,
+  selectDeckFromPool,
+} from "./collection-builder";
 import { loadEnrichedDeck } from "./deck-loader";
 import { buildRemovalCandidates, evaluateCardCompatibility, suggestImprovements } from "./recommend";
 import { computeDeckStats } from "./deck-score";
@@ -396,15 +404,6 @@ async function scoreOfWorking(
     return null;
   }
 }
-
-/** Une couleur de terrain de base par lettre WUBRG — pour choisir quel terrain ajouter dans `topUpLandCount`. */
-const BASIC_LAND_BY_COLOR: Record<string, string> = {
-  W: "Plains",
-  U: "Island",
-  B: "Swamp",
-  R: "Mountain",
-  G: "Forest",
-};
 
 /**
  * Plafond de sécurité pour `topUpLandCount` (voir sa doc) : en pratique
@@ -799,4 +798,210 @@ export async function superOptimizeDeck(input: {
     landAdjustments: bestLandAdjustments,
     optimizationNote: null,
   };
+}
+
+export interface CollectionCommanderCandidate {
+  name: string;
+  /** Score (computeDeckStats, sur 100) du deck d'essai construit pour ce candidat — voir rankCommanderCandidates dans collection-builder.ts. */
+  trialScore: number;
+}
+
+export interface CollectionBuildResult extends DeckAnalysisResult {
+  /** Commandants candidats détectés dans la collection, triés du meilleur score d'essai au moins bon (voir collection-builder.ts). Vide si l'analyse a échoué avant la détection. */
+  candidates: CollectionCommanderCandidate[];
+  /** Nom du commandant retenu pour CE résultat (le meilleur par défaut, ou celui choisi via switchCollectionCommander). `null` si l'analyse a échoué. */
+  selectedCommander: string | null;
+  /** Liste brute importée (avant résolution/sélection) — renvoyée telle quelle pour permettre de reconstruire le deck avec un autre commandant sans redemander le texte/CSV à Ben (voir switchCollectionCommander). */
+  collectionCards: { name: string; count: number }[];
+  /** Noms de la liste importée que Scryfall n'a pas su résoudre (faute de frappe probable) — affichés à Ben plutôt que silencieusement ignorés, cohérence avec la convention d'honnêteté du projet (HANDOFF.md §11). */
+  unresolvedNames: string[];
+}
+
+function emptyCollectionResult(
+  formatKey: string,
+  deckName: string,
+  error: string,
+  collectionCards: { name: string; count: number }[] = []
+): CollectionBuildResult {
+  return {
+    ...emptyResult(getFormat(formatKey).key, deckName, error),
+    candidates: [],
+    selectedCommander: null,
+    collectionCards,
+    unresolvedNames: [],
+  };
+}
+
+/**
+ * Construit le meilleur deck Commander/Duel Commander possible à partir
+ * d'une collection possédée (05/09/2026, demande de Ben — voir
+ * collection-builder.ts pour le détail de la sélection). Fonction centrale
+ * réutilisée par les deux Server Actions liées aux formulaires d'import
+ * (analyzeCollectionText/analyzeCollectionCsv, ci-dessous) ET par le
+ * changement de commandant depuis l'UI (switchCollectionCommander) — dans
+ * les trois cas, `collectionCards` est la même liste brute {name,count},
+ * seul `preferredCommander` change.
+ *
+ * Étapes : résout la collection auprès de Scryfall (un seul appel groupé,
+ * comme partout ailleurs sur ce site — voir getCardsByNames) ; détecte les
+ * commandants éligibles qui sont aussi légaux dans le format choisi ; les
+ * classe par score du deck qu'on obtiendrait avec chacun
+ * (rankCommanderCandidates) ; retient `preferredCommander` s'il est fourni
+ * et fait partie des candidats, sinon le mieux classé ; construit le deck
+ * final pour ce commandant (selectDeckFromPool, avec complément en terrains
+ * de base) ; puis délègue à `analyzeDeck` pour le score/les suggestions
+ * d'acquisition — même pipeline que tous les autres decks du site, rien de
+ * dupliqué à partir de là.
+ */
+export async function buildDeckFromCollection(input: {
+  formatKey: string;
+  deckName: string;
+  collectionCards: { name: string; count: number }[];
+  /** Commandant à utiliser si fourni et éligible/légal — sinon le mieux classé est retenu (voir doc ci-dessus). */
+  preferredCommander?: string | null;
+}): Promise<CollectionBuildResult> {
+  const format = getFormat(input.formatKey);
+  if (!format.hasCommander) {
+    return emptyCollectionResult(
+      format.key,
+      input.deckName,
+      "Ce format ne fonctionne pas avec un commandant — choisis Commander ou Duel Commander.",
+      input.collectionCards
+    );
+  }
+  if (input.collectionCards.length === 0) {
+    return emptyCollectionResult(format.key, input.deckName, "Aucune carte reconnue dans ta collection.", []);
+  }
+
+  try {
+    const names = input.collectionCards.map((c) => c.name);
+    const resolvedPool = await getCardsByNames(names);
+    const unresolvedNames = input.collectionCards
+      .filter((c) => !resolvedPool.has(c.name.toLowerCase()))
+      .map((c) => c.name);
+
+    const ownedCounts = new Map<string, number>();
+    for (const c of input.collectionCards) {
+      const key = c.name.toLowerCase();
+      if (!resolvedPool.has(key)) continue;
+      ownedCounts.set(key, (ownedCounts.get(key) ?? 0) + c.count);
+    }
+
+    const pool = Array.from(resolvedPool.values());
+    const candidates = pool.filter((card) => isCommanderEligible(card) && isLegalInFormat(card, format));
+    if (candidates.length === 0) {
+      return emptyCollectionResult(
+        format.key,
+        input.deckName,
+        'Aucune carte de ta collection ne peut être commandant pour ce format (créature légendaire, ou carte avec "can be your commander"). Ajoute-en une à ta liste.',
+        input.collectionCards
+      );
+    }
+
+    const basicNames = Array.from(new Set([...Object.values(BASIC_LAND_BY_COLOR), "Wastes"]));
+    const basics = await getCardsByNames(basicNames);
+
+    const ranked = rankCommanderCandidates({ pool, ownedCounts, candidates, format, basics });
+    const preferred = input.preferredCommander?.toLowerCase();
+    const chosen = (preferred && ranked.find((r) => r.card.name.toLowerCase() === preferred)) || ranked[0];
+
+    const deckCards = selectDeckFromPool({
+      pool: pool.filter((c) => c.name.toLowerCase() !== chosen.card.name.toLowerCase()),
+      ownedCounts,
+      commander: chosen.card,
+      format,
+      basics,
+    });
+
+    const analysis = await analyzeDeck({
+      formatKey: format.key,
+      deckName: input.deckName,
+      commanders: [chosen.card.name],
+      cards: deckCards,
+    });
+
+    return {
+      ...analysis,
+      candidates: ranked.map((r) => ({ name: r.card.name, trialScore: r.trialScore })),
+      selectedCommander: chosen.card.name,
+      collectionCards: input.collectionCards,
+      unresolvedNames,
+    };
+  } catch {
+    return emptyCollectionResult(
+      format.key,
+      input.deckName,
+      "Erreur pendant l'analyse (service Scryfall indisponible ?). Réessaie dans quelques instants.",
+      input.collectionCards
+    );
+  }
+}
+
+/** Server Action liée au formulaire "coller ma liste" (voir CollectionImportForm.tsx) : parse le texte collé puis délègue à buildDeckFromCollection. */
+export async function analyzeCollectionText(
+  prevState: CollectionBuildResult,
+  formData: FormData
+): Promise<CollectionBuildResult> {
+  const text = String(formData.get("collection") ?? "");
+  const formatKey = String(formData.get("format") ?? "commander");
+  const parsed = parseCollectionText(text);
+  if (!parsed.ok) {
+    return emptyCollectionResult(
+      formatKey,
+      prevState.deckName || "Deck depuis ma collection",
+      parsed.error ?? "Impossible de lire cette liste."
+    );
+  }
+  return buildDeckFromCollection({
+    formatKey,
+    deckName: "Deck depuis ma collection",
+    collectionCards: parsed.cards,
+  });
+}
+
+/** Server Action liée au formulaire d'import CSV de collection (voir CollectionImportForm.tsx) : parse le fichier puis délègue à buildDeckFromCollection. */
+export async function analyzeCollectionCsv(
+  prevState: CollectionBuildResult,
+  formData: FormData
+): Promise<CollectionBuildResult> {
+  const file = formData.get("csv");
+  const formatKey = String(formData.get("format") ?? "commander");
+  if (!(file instanceof File) || file.size === 0) {
+    return emptyCollectionResult(
+      formatKey,
+      prevState.deckName || "Deck depuis ma collection",
+      "Choisis un fichier CSV à importer."
+    );
+  }
+  const text = await file.text();
+  const parsed = parseCollectionCsv(text);
+  if (!parsed.ok) {
+    return emptyCollectionResult(
+      formatKey,
+      prevState.deckName || "Deck depuis ma collection",
+      parsed.error ?? "Impossible de lire ce fichier CSV."
+    );
+  }
+  return buildDeckFromCollection({
+    formatKey,
+    deckName: file.name.replace(/\.csv$/i, "") || "Deck depuis ma collection",
+    collectionCards: parsed.cards,
+  });
+}
+
+/**
+ * Reconstruit le deck avec un autre commandant candidat (voir le sélecteur
+ * dans CollectionImportForm.tsx) — même `collectionCards` que l'analyse
+ * initiale, pas besoin de redemander le texte/CSV à Ben. Server Action
+ * appelée directement (pas liée à un `<form>`/useActionState, contrairement
+ * aux deux ci-dessus) : même pattern que `analyzeDeck`/`superOptimizeDeck`
+ * appelées depuis DeckBuilder.tsx pour chaque recalcul.
+ */
+export async function switchCollectionCommander(
+  formatKey: string,
+  deckName: string,
+  collectionCards: { name: string; count: number }[],
+  commanderName: string
+): Promise<CollectionBuildResult> {
+  return buildDeckFromCollection({ formatKey, deckName, collectionCards, preferredCommander: commanderName });
 }
