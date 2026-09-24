@@ -1240,6 +1240,128 @@ commandant non possédé fonctionnel (indicateur "Construction…", titre du
 deck mis à jour, bandeau d'aperçu) et retour au deck d'origine après
 "Revenir à mon deck" — aucune erreur console sur l'ensemble du scénario.
 
+### Priorité tier > score partout sur le site, exclusion des synergies singleton mortes (24/09/2026)
+
+Deux retours de Ben le même jour (4e passage), après le tier de puissance
+et le correctif de cohérence ci-dessus.
+
+**(1) "l'objectif principal du builder n'est pas d'avoir le meilleure
+score de complétude mais le meilleur score de tier. Le score de tier a la
+priorité. Je veux que le builder créé des decks les plus puissants
+possibles."** Demande confirmée "partout sur le site" (question posée à
+Ben : uniquement "Deck depuis ma collection" ou tout le site — réponse :
+tout le site). Deux primitives partagées, réutilisées par les trois
+moteurs concernés plutôt que trois implémentations séparées :
+
+- `cardPowerScore` (nouvelle fonction, `deck-tier.ts`) : score de
+  puissance PAR CARTE — Game Changer (+6, dominant), mana rapide (+3),
+  tour supplémentaire (+4), déni de terrain de masse (+4) — délibérément
+  restreint aux signaux que `computeDeckTier` pèse fortement et qui ne
+  sont PAS déjà des piliers (removal/tutor/disruption le sont déjà, pas
+  besoin de les dupliquer ici). +6 pour un Game Changer dépasse
+  volontairement `WEAKEST_CATEGORY_BONUS` (2.5, collection-builder.ts) :
+  un Game Changer possédé l'emporte presque toujours sur une carte qui ne
+  ferait que combler un pilier faible, sans rendre ce bonus inutile pour
+  autant (départage entre cartes de puissance égale, garde un deck
+  FONCTIONNEL — un tas de bombes sans removal/rampe n'est pas non plus
+  "le deck le plus puissant possible" en pratique).
+- `hasDeadSingletonSynergy` (nouvelle fonction, `deck-score.ts`) : voir
+  point (2) ci-dessous — réutilisée ici aussi car une carte à synergie
+  morte n'a évidemment pas sa place dans "le deck le plus puissant
+  possible".
+
+Trois moteurs branchés dessus :
+
+- **`collection-builder.ts`** : `priorityScore` ajoute `cardPowerScore(card)`
+  (remplace l'ancien bonus fixe de 0.5 pour `game_changer`) ; `selectDeckFromPool`
+  exclut les cartes à synergie singleton morte du pool éligible ;
+  `rankCommanderCandidates` trie désormais les commandants candidats par
+  `trialTier.powerIndex` D'ABORD, `trialScore` en second (récupère aussi le
+  tier complet du deck d'essai, pas seulement son score).
+- **`recommend.ts`** : dans `suggestImprovements` (piliers génériques) et
+  `suggestForArchetype` (synergie thématique), les résultats Scryfall sont
+  réordonnés par `cardPowerScore` décroissant avant sélection (à budget de
+  suggestions égal, les cartes puissantes sont retenues en priorité), et
+  les cartes à synergie singleton morte sont exclues des deux boucles.
+- **`actions.ts`, `superOptimizeDeck` ("Super Opti")** : le suivi du
+  "meilleur état" (`bestWorking`) au fil des tours ne compare plus
+  seulement `bestScore` mais passe par une nouvelle fonction `isBetterState`
+  (tier `powerIndex` prioritaire, score en tie-break, uniquement pour les
+  formats à commandant — hors Commander le tier n'existe pas, voir
+  `computeDeckTier`) — appliquée aux trois points de comparaison de la
+  boucle (chaque tour par pilier, après le dernier tour, après le passage
+  terrains). Le filet de sécurité en fin de fonction (qui annule tout si
+  le résultat final est "pire" que le départ) est lui aussi devenu
+  tier-aware : comparer uniquement le score y aurait été un bug neuf —
+  un état à tier plus haut mais score de complétude plus bas est
+  EXACTEMENT le résultat voulu par Ben, pas une régression à annuler.
+  `CollectionCommanderCandidate`/`UnownedCommanderSuggestion` (types)
+  portent désormais `trialTier` en plus de `trialScore`, et
+  `CollectionImportForm.tsx` affiche le tier en premier dans le sélecteur
+  de commandant et la liste "commandants que tu ne possèdes pas encore"
+  (afficher encore le score seul en tête aurait reproduit la confusion
+  score-vs-tier déjà remontée par Ben plus haut).
+
+**Non fait, à la demande si besoin :** pas de nouvelle fonctionnalité
+"proposer une carte plus puissante pour upgrader un pilier déjà complet" —
+ça demanderait de nouvelles requêtes de recherche et un mécanisme de
+comparaison/swap contre l'existant, une extension de périmètre plus large
+que ce qui était nécessaire pour répondre à la demande de Ben (priorité de
+sélection/classement, pas une nouvelle source de suggestions).
+
+**(2) "certaines suggestions ne correspondent pas au format commander. Par
+exemple : Mishra avec 'À chaque fois que vous jouez un sort d'artefact,
+vous pouvez chercher dans votre cimetière, votre main et/ou votre
+bibliothèque une carte ayant le même nom que ce sort et la mettre en jeu.
+[...]' Implique que l'on a plusieurs fois la même carte dans notre deck ce
+qui est impossible en commander où il n'y a qu'un exemplaire de chaque
+carte."** Correctif général (pas un cas spécial pour Mishra) :
+`hasDeadSingletonSynergy` (`deck-score.ts`) détecte, par motif de texte
+oracle, toute carte dont l'effet suppose de trouver/utiliser un AUTRE
+exemplaire de la même carte (`"a card with the same name as..."`), avec
+une exemption explicite pour les cartes qui lèvent elles-mêmes la règle
+singleton pour leur propre nom (Relentless Rats et équivalents —
+`"any number of cards named..."`) : ces dernières restent parfaitement
+fonctionnelles en Commander. Appliquée uniquement quand `format.maxCopies
+<= 1` (singleton) : en constructed 60 cartes, ce schéma est parfaitement
+jouable et ne doit jamais être filtré. Branchée aux trois points où une
+carte peut être proposée ou ajoutée à Ben : exclusion dans
+`selectDeckFromPool` (collection-builder.ts), exclusion dans les deux
+boucles de suggestion de `recommend.ts`, et mise en garde ajoutée (sans
+changer le verdict — la carte peut avoir un autre effet valable en plus
+de cette clause morte) dans `evaluateCardCompatibility` pour la recherche
+manuelle ("Tester une carte").
+
+**Vérification.** Niveau 1 (logique pure, mocked fetch — voir
+`verify-tier-priority-2026-09-24.mts`, `verify-recommend-2026-09-24.mts`,
+`verify-actions-2026-09-24.mts`, scratchpad) : magnitudes de
+`cardPowerScore` ; `hasDeadSingletonSynergy` détecte un Mishra-like et
+épargne un Relentless-Rats-like (exemption explicite) et une carte
+normale ; `selectDeckFromPool` exclut un Mishra-like en Commander ;
+scénario construit où un commandant a un meilleur score mais l'autre un
+meilleur tier — confirmé que `rankCommanderCandidates` classe bien celui
+au tier supérieur en premier ; `evaluateCardCompatibility` ajoute la mise
+en garde en Commander (singleton) mais pas en Standard (maxCopies=4) ;
+`suggestImprovements` ne suggère jamais un Mishra-like et préfère la carte
+la plus puissante d'un pilier à budget de suggestions limité ;
+`buildDeckFromCollection`/`suggestUnownedCommanders`/`superOptimizeDeck`
+(actions.ts, import direct avec fetch mocké) s'exécutent de bout en bout
+sans erreur et exposent bien `trialTier`/`tier`. Niveau 2 (Playwright,
+build de production, Scryfall mocké) : le sélecteur de commandant et la
+liste des commandants non possédés affichent bien le tier avant le score
+dans chaque option/suggestion — aucune erreur console.
+
+⚠️ Portée de la vérification de `superOptimizeDeck` : le test niveau 1
+confirme que la fonction s'exécute correctement de bout en bout avec le
+nouveau suivi tier/score (pas d'exception, champs attendus présents), mais
+ne construit pas de scénario dédié qui force le cas de bascule exact
+("tier plus haut mais score plus bas gagne") À L'INTÉRIEUR de Super Opti —
+un tel montage à travers plusieurs tours de suggestions + swaps aurait
+demandé un effort disproportionné par rapport au risque réel, la fonction
+de comparaison (`isBetterState`) suivant exactement le même schéma que
+`rankCommanderCandidates`, elle-même testée avec un scénario dédié qui
+force cette divergence.
+
 ## Stack
 
 Next.js 16 (App Router, TypeScript, Turbopack) + Tailwind CSS v4. Pas de

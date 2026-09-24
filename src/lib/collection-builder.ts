@@ -1,7 +1,8 @@
 import type { ArchetypeSignal, DeckCategory, EnrichedCard, FormatConfig, ScryfallCard } from "./types";
 import { getDisplayOracleText } from "./scryfall";
-import { classifyCard, computeDeckStats, EMPTY_CATEGORY_COUNTS } from "./deck-score";
+import { classifyCard, computeDeckStats, EMPTY_CATEGORY_COUNTS, hasDeadSingletonSynergy } from "./deck-score";
 import { cardMatchesArchetype, detectArchetypes } from "./archetype";
+import { cardPowerScore, computeDeckTier, type DeckTierResult } from "./deck-tier";
 
 /**
  * Construction d'un deck Commander/Duel Commander à partir d'une collection
@@ -90,12 +91,22 @@ const ARCHETYPE_MATCH_BONUS = 0.5;
  * des poids/cible de chaque pilier qu'elle remplit (`classifyCard`, même
  * formule que l'`impact` d'une suggestion dans recommend.ts — un pilier
  * proche de sa cible pèse plus qu'un pilier déjà large), plus :
- * - un bonus de qualité individuelle (même signal que
- *   `buildRemovalCandidates` dans recommend.ts — `game_changer`/
- *   `edhrec_rank`, champs officiels Scryfall — légèrement augmenté par
- *   rapport à la v1 du 05/09/2026 pour mieux refléter la puissance réelle
- *   d'une carte, tout en restant nettement sous la contribution d'un
- *   pilier correctement rempli) ;
+ * - `cardPowerScore(card)` (deck-tier.ts), **la priorité principale
+ *   depuis le 24/09/2026** (3e passage de la journée, demande de Ben :
+ *   "l'objectif principal du builder n'est pas d'avoir le meilleur score
+ *   de complétude mais le meilleur score de tier [...] je veux que le
+ *   builder créé des decks les plus puissants possibles") — jusqu'à 6
+ *   points pour un Game Changer, contre 2.5 pour `WEAKEST_CATEGORY_BONUS`
+ *   ci-dessous : un Game Changer possédé l'emporte donc quasiment
+ *   toujours sur une carte qui comblerait juste un pilier faible, sans
+ *   pour autant rendre `WEAKEST_CATEGORY_BONUS` inutile (il départage
+ *   toujours entre cartes de puissance égale, et garde un deck
+ *   FONCTIONNEL — un tas de bombes sans removal/rampe n'est pas non plus
+ *   "le deck le plus puissant possible" en pratique) ;
+ * - un bonus de qualité individuelle plus léger (`edhrec_rank`, popularité
+ *   générale — signal de désambiguïsation entre cartes non couvertes par
+ *   `cardPowerScore`, volontairement sous la contribution d'un pilier
+ *   correctement rempli) ;
  * - un léger ajustement de courbe de mana (encourage sans forcer les
  *   cartes proches de `idealAvgCmc` du format — amplitude volontairement
  *   faible, seulement un départage) ;
@@ -117,7 +128,7 @@ function priorityScore(
   let score = 0;
   for (const cat of categories) score += weights[cat] / targets[cat];
 
-  if (card.game_changer) score += 0.5;
+  score += cardPowerScore(card);
   if (typeof card.edhrec_rank === "number" && card.edhrec_rank > 0) {
     if (card.edhrec_rank <= 300) score += 0.25;
     else if (card.edhrec_rank <= 1500) score += 0.08;
@@ -299,6 +310,16 @@ export function selectDeckFromPool(params: SelectDeckParams): { name: string; co
   const eligible = pool.filter((card) => {
     if (card.name.toLowerCase() === commanderKey) return false;
     if (!isLegalInFormat(card, format)) return false;
+    // Format singleton (Commander/Duel Commander : maxCopies=1) : une
+    // carte dont la valeur dépend d'avoir PLUSIEURS exemplaires du même
+    // nom (ex: "search your library for a card with the same name as
+    // that spell") est structurellement inerte ici, sa bibliothèque ne
+    // contenant jamais de second exemplaire à trouver — voir
+    // hasDeadSingletonSynergy dans deck-score.ts (signalé par Ben le
+    // 24/09/2026, exemple : Mishra). En constructed 60 cartes
+    // (maxCopies=4), ce schéma est parfaitement fonctionnel, donc jamais
+    // filtré.
+    if (format.maxCopies <= 1 && hasDeadSingletonSynergy(card)) return false;
     return card.color_identity.every((c) => commander.color_identity.includes(c));
   });
 
@@ -394,8 +415,18 @@ const BASIC_LAND_BY_COLOR: Record<string, string> = {
 
 export interface RankedCommanderCandidate {
   card: ScryfallCard;
-  /** Score du deck d'essai construit pour ce commandant (computeDeckStats — même échelle/formule que le score final affiché), utilisé pour présélectionner le meilleur candidat. */
+  /** Score du deck d'essai construit pour ce commandant (computeDeckStats — même échelle/formule que le score final affiché) — critère SECONDAIRE de classement depuis le 24/09/2026 (voir trialTier). */
   trialScore: number;
+  /**
+   * Tier de puissance du deck d'essai (computeDeckTier) — critère
+   * PRINCIPAL de classement depuis le 24/09/2026 (demande de Ben : "le
+   * score de tier a la priorité"). Toujours défini : `rankCommanderCandidates`
+   * n'est appelée que pour des formats à commandant (voir sa doc), donc
+   * `computeDeckTier` s'applique toujours ici, contrairement à
+   * `DeckAnalysisResult.tier` qui peut être `null` pour un format sans
+   * commandant.
+   */
+  trialTier: DeckTierResult;
 }
 
 export interface RankCandidatesParams {
@@ -408,13 +439,21 @@ export interface RankCandidatesParams {
 
 /**
  * Classe les commandants candidats (cartes possédées éligibles, voir
- * isCommanderEligible) par score du deck qu'on pourrait construire avec
- * chacun — pas une heuristique de classement à part : chaque candidat est
- * évalué en construisant réellement son deck d'essai (`selectDeckFromPool`,
- * qui bénéficie automatiquement de la sélection itérative + archétype
- * robustifiée ci-dessus, aucun changement nécessaire ici) puis en calculant
- * son score avec `computeDeckStats`, exactement comme le deck final
- * affiché. Aucun appel réseau ici (tout est déjà résolu en amont, voir
+ * isCommanderEligible) par TIER de puissance du deck qu'on pourrait
+ * construire avec chacun, le score de complétude servant de départage
+ * secondaire (24/09/2026, 3e passage de la journée — demande de Ben :
+ * "l'objectif principal du builder n'est pas d'avoir le meilleur score de
+ * complétude mais le meilleur score de tier. Le score de tier a la
+ * priorité." — avant ce changement, le tri se faisait uniquement par
+ * score de complétude, ce qui pouvait présélectionner un commandant qui
+ * couvre bien ses propres piliers plutôt que celui qui joue réellement le
+ * plus fort). Pas une heuristique de classement à part : chaque candidat
+ * est évalué en construisant réellement son deck d'essai
+ * (`selectDeckFromPool`, qui bénéficie automatiquement de la sélection
+ * itérative + archétype + priorité puissance ci-dessus, aucun changement
+ * nécessaire ici) puis en calculant son score (`computeDeckStats`) ET son
+ * tier (`computeDeckTier`), exactement comme le deck final affiché.
+ * Aucun appel réseau ici (tout est déjà résolu en amont, voir
  * buildDeckFromCollection dans actions.ts), donc classer même une
  * vingtaine de candidats reste rapide.
  */
@@ -429,15 +468,17 @@ export function rankCommanderCandidates(params: RankCandidatesParams): RankedCom
     const deckCards = selectDeckFromPool({ pool: trialPool, ownedCounts, commander, format, basics });
     const enriched = toEnriched(deckCards, byName);
     const stats = computeDeckStats(enriched, format.categories);
-    return { card: commander, trialScore: stats.score };
+    const tier = computeDeckTier(enriched, [commander], stats, format.categories);
+    return { card: commander, trialScore: stats.score, trialTier: tier };
   });
 
   ranked.sort((a, b) => {
+    if (b.trialTier.powerIndex !== a.trialTier.powerIndex) return b.trialTier.powerIndex - a.trialTier.powerIndex;
     if (b.trialScore !== a.trialScore) return b.trialScore - a.trialScore;
-    // Départage à score de deck d'essai égal (cas fréquent avec un pool
-    // petit) : popularité générale de la carte elle-même (mêmes champs
-    // officiels Scryfall que popularitySignal/buildRemovalCandidates dans
-    // recommend.ts), pas une nouvelle donnée.
+    // Départage à tier ET score de deck d'essai égaux (cas fréquent avec
+    // un pool petit) : popularité générale de la carte elle-même (mêmes
+    // champs officiels Scryfall que popularitySignal/buildRemovalCandidates
+    // dans recommend.ts), pas une nouvelle donnée.
     const aRank = a.card.edhrec_rank ?? Infinity;
     const bRank = b.card.edhrec_rank ?? Infinity;
     return aRank - bRank;

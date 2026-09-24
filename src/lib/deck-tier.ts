@@ -91,6 +91,47 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
+/**
+ * Score de puissance PAR CARTE (24/09/2026, 3e passage de la journée —
+ * demande de Ben : "l'objectif principal du builder n'est pas d'avoir le
+ * meilleur score de complétude mais le meilleur score de tier [...] je
+ * veux que le builder créé des decks les plus puissants possibles").
+ * Jusqu'ici, aucun module de sélection/suggestion de carte (
+ * `collection-builder.ts`, `recommend.ts`) ne regardait les signaux de
+ * puissance objective ci-dessus (`computeDeckTier`) — seulement les 9
+ * piliers de `deck-score.ts`. Cette fonction factorise EN UN SEUL ENDROIT
+ * les signaux qui pèsent le plus dans `computeDeckTier` (Game Changer :
+ * 40/100 du poids total, mana rapide : 15/100) plus deux signaux rares
+ * mais à fort impact qu'aucun des 9 piliers ne capture (tour
+ * supplémentaire, destruction de terrains de masse — voir
+ * `EXTRA_TURN_PATTERN`/`MASS_LAND_DENIAL_PATTERNS` ci-dessus), pour que
+ * `collection-builder.ts` (sélection des cartes possédées) ET
+ * `recommend.ts` (suggestions/Super Opti sur tous les types de deck du
+ * site) appliquent la MÊME notion de "carte puissante" plutôt que
+ * d'inventer chacun la leur.
+ *
+ * Volontairement un score PAR CARTE, additif et approximatif (pas un
+ * recalcul de `computeDeckTier`, qui est un agrégat de DECK ENTIER,
+ * beaucoup trop coûteux à recalculer à chaque carte candidate évaluée) :
+ * un signal d'ordre de priorité pour la sélection/le tri, pas une
+ * prédiction exacte de la contribution de cette carte au powerIndex
+ * final. Removal/disruption (interactionScore) et tutor (tutorScore) ne
+ * sont volontairement PAS dupliqués ici : ce sont déjà des piliers à part
+ * entière dans `deck-score.ts`, déjà bien pris en compte par les moteurs
+ * de sélection existants — le point de cette fonction est de représenter
+ * les signaux de puissance MANQUANTS jusqu'ici, pas de tout réinventer.
+ */
+export function cardPowerScore(card: ScryfallCard): number {
+  let score = 0;
+  if (card.game_changer) score += 6;
+  const text = getDisplayOracleText(card);
+  const categories = classifyCard(card);
+  if (categories.includes("ramp") && card.cmc <= 2) score += 3;
+  if (EXTRA_TURN_PATTERN.test(text)) score += 4;
+  if (MASS_LAND_DENIAL_PATTERNS.some((p) => p.test(text))) score += 4;
+  return score;
+}
+
 function tierFromPowerIndex(powerIndex: number): { tier: PowerTierLevel; subTier: PowerSubTier } {
   const clamped = clamp(powerIndex, 0, 100);
   // 5 paliers de 20 points (0-19, 20-39, ..., 80-100) — bornes égales par

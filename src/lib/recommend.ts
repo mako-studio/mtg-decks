@@ -11,8 +11,9 @@ import type {
   SwapCandidate,
 } from "./types";
 import { searchCards } from "./scryfall";
-import { CATEGORY_LABELS, classifyCard, computeDeckStats } from "./deck-score";
+import { CATEGORY_LABELS, classifyCard, computeDeckStats, hasDeadSingletonSynergy } from "./deck-score";
 import { cardMatchesArchetype, detectArchetypes } from "./archetype";
+import { cardPowerScore } from "./deck-tier";
 
 /**
  * Requêtes Scryfall (syntaxe : https://scryfall.com/docs/syntax) utilisées
@@ -101,6 +102,16 @@ async function suggestForArchetype(
     return [];
   }
 
+  // 24/09/2026 — priorité tier > score (demande de Ben : "je veux que le
+  // builder créé des decks les plus puissants possibles", confirmé
+  // "partout sur le site"). On ne change pas le critère de correspondance
+  // (toujours cardMatchesArchetype), seulement l'ORDRE dans lequel les
+  // résultats Scryfall sont examinés : les cartes les plus puissantes
+  // (cardPowerScore, deck-tier.ts — Game Changer, mana rapide, tours
+  // supplémentaires, déni de terrain de masse) passent en premier, donc à
+  // budget de suggestions égal (maxCount), on retient les plus fortes.
+  results = [...results].sort((a, b) => cardPowerScore(b) - cardPowerScore(a));
+
   const out: CardSuggestion[] = [];
   for (const card of results) {
     if (out.length >= maxCount) break;
@@ -108,6 +119,12 @@ async function suggestForArchetype(
     const isBasicLand = card.type_line?.includes("Basic Land");
     const have = currentCounts.get(key) ?? 0;
     if (seen.has(key) || (!isBasicLand && have >= format.maxCopies)) continue;
+    // 24/09/2026 — correctif remonté par Ben (carte "Mishra" dont le texte
+    // cherche "une carte ayant le même nom que ce sort" : implique
+    // plusieurs exemplaires de la même carte, impossible en Commander où
+    // format.maxCopies === 1). On exclut ces cartes des suggestions dans
+    // tout format singleton — voir hasDeadSingletonSynergy, deck-score.ts.
+    if (format.maxCopies <= 1 && hasDeadSingletonSynergy(card)) continue;
     if (!cardMatchesArchetype(card, signal)) continue;
 
     seen.add(key);
@@ -198,12 +215,22 @@ export async function suggestImprovements(
       continue;
     }
 
+    // 24/09/2026 — priorité tier > score, voir doc identique dans
+    // suggestForArchetype ci-dessus : au sein d'un même pilier, on propose
+    // d'abord les cartes les plus puissantes (cardPowerScore) plutôt que
+    // les premières trouvées par la requête Scryfall.
+    results = [...results].sort((a, b) => cardPowerScore(b) - cardPowerScore(a));
+
     for (const card of results) {
       if (suggestions.length >= pillarBudget) break;
       const key = card.name.toLowerCase();
       const isBasicLand = card.type_line?.includes("Basic Land");
       const have = currentCounts.get(key) ?? 0;
       if (seen.has(key) || (!isBasicLand && have >= format.maxCopies)) continue;
+      // 24/09/2026 — voir doc identique dans suggestForArchetype ci-dessus :
+      // exclut les cartes dont le texte dépend de plusieurs exemplaires de
+      // la même carte, mortes dans un format singleton (ex : Mishra).
+      if (format.maxCopies <= 1 && hasDeadSingletonSynergy(card)) continue;
       const categories = classifyCard(card);
       if (!categories.includes(cat)) continue;
 
@@ -369,6 +396,20 @@ export function evaluateCardCompatibility(
       archetypeMatch = { archetype: match.archetype, label: match.label };
       reason += ` Correspond aussi au thème détecté de ton deck (${match.label}).`;
     }
+  }
+
+  // 24/09/2026 — correctif remonté par Ben (carte "Mishra" : son texte
+  // cherche "une carte ayant le même nom que ce sort" dans le cimetière/
+  // main/bibliothèque, ce qui suppose un second exemplaire de la même
+  // carte — impossible dans un format singleton comme Commander/Duel
+  // Commander/Brawl, un seul exemplaire autorisé par carte hors terrain de
+  // base). On ne change pas `verdict` ici (la carte peut avoir un autre
+  // effet valable en plus de cette clause morte — voir le corps de la
+  // carte au cas par cas) : on ajoute juste une mise en garde honnête à la
+  // raison déjà calculée, cohérent avec hasDeadSingletonSynergy (deck-score.ts).
+  if (format.maxCopies <= 1 && hasDeadSingletonSynergy(card)) {
+    reason +=
+      " ⚠️ Le texte de cette carte repose (en tout ou partie) sur la possibilité de trouver/utiliser un AUTRE exemplaire de la même carte — impossible dans ce format singleton (un seul exemplaire autorisé par carte hors terrain de base) : cette partie de son effet sera généralement inerte dans ce deck.";
   }
 
   const removalCandidates = buildRemovalCandidates(currentCards, currentStats.categoryCounts, targets, archetypes);

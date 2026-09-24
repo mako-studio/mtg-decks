@@ -239,6 +239,45 @@ export function classifyCard(card: ScryfallCard): DeckCategory[] {
 }
 
 /**
+ * Cartes DÉPENDANT explicitement de trouver/utiliser un AUTRE exemplaire
+ * de la MÊME carte nommée (ex: "search your library ... for a card with
+ * the same name as that spell") — un schéma de synergie normal en
+ * constructed 60 cartes (jusqu'à 4 exemplaires, voir `maxCopies` dans
+ * formats.ts), mais largement MORT dans un format singleton (Commander/
+ * Duel Commander/Brawl : un seul exemplaire par carte non-terrain de
+ * base) puisque la bibliothèque ne contient jamais un second exemplaire à
+ * trouver une fois le premier lancé/en jeu. Repéré le 24/09/2026 suite au
+ * signalement de Ben : une carte suggérée (un commandant nommé "Mishra"
+ * dans son exemple) dont le texte présuppose de pouvoir "chercher ...
+ * une carte ayant le même nom que ce sort" — impossible en Commander,
+ * rendant cette partie de son effet inerte dans ce contexte.
+ *
+ * Exclut explicitement les cartes qui LÈVENT elles-mêmes la restriction
+ * singleton pour leur propre nom (ex. Relentless Rats, Seven Dwarves,
+ * Persistent Petitioners : "A deck can have any number of cards named
+ * ~") — leur texte évoque aussi "cartes"+"même nom", mais leur schéma est
+ * explicitement CONÇU pour fonctionner en singleton, l'exact opposé du
+ * problème détecté ici.
+ *
+ * Heuristique par motif de texte oracle, comme le reste de ce fichier :
+ * approximation, pas une vérité absolue (voir le caveat en tête de
+ * fichier). Volontairement appelée par l'appelant uniquement pour les
+ * formats singleton (`format.maxCopies <= 1`, voir collection-builder.ts/
+ * recommend.ts) — en constructed 60 cartes, ce schéma est parfaitement
+ * fonctionnel et ne doit jamais être filtré.
+ */
+const SAME_NAME_DEPENDENCY_PATTERN = /cards? with the same name as (?:that|this|it|the exiled|a card)/i;
+const SINGLETON_EXEMPTION_PATTERN =
+  /(?:any number of cards named|no maximum number of cards named|as many cards named [^.]* as you want)/i;
+
+export function hasDeadSingletonSynergy(card: ScryfallCard): boolean {
+  const text = getDisplayOracleText(card);
+  if (!text) return false;
+  if (SINGLETON_EXEMPTION_PATTERN.test(text)) return false;
+  return SAME_NAME_DEPENDENCY_PATTERN.test(text);
+}
+
+/**
  * Compteurs à zéro pour les 9 piliers. Exporté pour que l'UI (tableau de
  * bord du deck builder) ait un repli typé quand les stats ne sont pas
  * encore disponibles, sans dupliquer la liste des catégories.

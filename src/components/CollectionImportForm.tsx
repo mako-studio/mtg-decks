@@ -252,9 +252,20 @@ export function CollectionImportForm() {
                 onChange={(e) => handleCommanderChange(e.target.value)}
                 className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground disabled:opacity-60"
               >
+                {/*
+                  24/09/2026 (demande de Ben : "le score de tier a la
+                  priorité [...] je veux que le builder créé des decks les
+                  plus puissants possibles") — le tier est désormais le
+                  critère de tri de `result.candidates` (voir
+                  rankCommanderCandidates, collection-builder.ts), donc
+                  affiché en PREMIER ici, score de complétude en second
+                  entre parenthèses : afficher encore le score seul en tête
+                  reproduirait exactement la confusion score-vs-tier déjà
+                  remontée par Ben (voir DeckDashboard.tsx).
+                */}
                 {result.candidates.map((c) => (
                   <option key={c.name} value={c.name}>
-                    {c.name} — score d&apos;essai {c.trialScore}/100
+                    {c.name} — {c.trialTier.label} (indice {c.trialTier.powerIndex}/100, score {c.trialScore}/100)
                   </option>
                 ))}
               </select>
@@ -282,8 +293,8 @@ export function CollectionImportForm() {
             <div>
               <h2 className="text-sm font-medium">Commandants que tu ne possèdes pas encore</h2>
               <p className="mt-0.5 text-xs text-muted">
-                Classés par le score du deck qu&apos;on pourrait te construire avec eux, en utilisant uniquement les
-                cartes déjà présentes dans ta collection.
+                Classés par le tier de puissance du deck qu&apos;on pourrait te construire avec eux (score de
+                complétude en complément), en utilisant uniquement les cartes déjà présentes dans ta collection.
               </p>
             </div>
             <button
@@ -315,7 +326,8 @@ export function CollectionImportForm() {
                   <span>
                     {s.name}{" "}
                     <span className="text-xs text-muted">
-                      ({s.colorIdentity.join("") || "incolore"}) — score d&apos;essai {s.trialScore}/100
+                      ({s.colorIdentity.join("") || "incolore"}) — {s.trialTier.label} (indice{" "}
+                      {s.trialTier.powerIndex}/100, score {s.trialScore}/100)
                     </span>
                   </span>
                   <button

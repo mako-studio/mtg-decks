@@ -405,26 +405,64 @@ function sessionDeckFrom(
 }
 
 /**
- * Score actuel (sur 100, avec landHealth/curveHealth) d'une liste plate
- * {name,count} — calcul direct via `computeDeckStats` (pas de recherche
- * Scryfall de suggestions, contrairement à `suggestImprovements`), utilisé
- * uniquement pour comparer des états successifs de `working` dans
- * `superOptimizeDeck` (voir `bestWorking`/`bestScore` ci-dessous). `null`
- * si le deck ne peut pas être résolu (Scryfall indisponible).
+ * Score ET tier d'une liste plate {name,count} — calcul direct via
+ * `computeDeckStats`/`computeDeckTier` (pas de recherche Scryfall de
+ * suggestions, contrairement à `suggestImprovements`), utilisé uniquement
+ * pour comparer des états successifs de `working` dans `superOptimizeDeck`
+ * (voir `bestWorking`/`bestScore`/`bestTier` et `isBetterState` ci-dessous).
+ * `null` si le deck ne peut pas être résolu (Scryfall indisponible).
+ *
+ * ⚠️ Remplace l'ancien `scoreOfWorking` (24/09/2026, demande de Ben :
+ * "l'objectif principal du builder n'est pas d'avoir le meilleur score de
+ * complétude mais le meilleur score de tier [...] je veux que le builder
+ * créé des decks les plus puissants possibles", confirmé "partout sur le
+ * site" y compris Super Opti) — `tier` n'a de sens que pour les formats à
+ * commandant (voir computeDeckTier, deck-tier.ts), `null` sinon.
  */
-async function scoreOfWorking(
+interface WorkingMeasure {
+  score: number;
+  tier: DeckTierResult | null;
+}
+
+async function measureWorking(
   cardsList: { name: string; count: number }[],
   format: FormatConfig,
   deckName: string,
   commanders: string[]
-): Promise<number | null> {
+): Promise<WorkingMeasure | null> {
   try {
-    const { cards } = await loadEnrichedDeck(sessionDeckFrom(cardsList, deckName, commanders), format);
+    const { commanderCards, cards } = await loadEnrichedDeck(sessionDeckFrom(cardsList, deckName, commanders), format);
     const nonCommanderCards = cards.filter((c) => !c.isCommander);
-    return computeDeckStats(nonCommanderCards, format.categories).score;
+    const stats = computeDeckStats(nonCommanderCards, format.categories);
+    const tier = format.hasCommander
+      ? computeDeckTier(nonCommanderCards, commanderCards, stats, format.categories)
+      : null;
+    return { score: stats.score, tier };
   } catch {
     return null;
   }
+}
+
+/**
+ * Décide si `candidate` est un meilleur état que `best` pour Super Opti —
+ * priorité au tier de puissance (`powerIndex`, deck-tier.ts) sur le score
+ * de complétude (24/09/2026, demande de Ben, voir doc de `measureWorking`
+ * ci-dessus) : un état avec un `powerIndex` plus haut l'emporte MÊME s'il a
+ * un score de complétude plus bas — c'est précisément le comportement
+ * demandé ("le score de tier a la priorité"), pas un bug. À `powerIndex`
+ * égal, le score départage. Pour un format sans commandant (`tier` toujours
+ * `null` des deux côtés — voir analyzeDeck), ou si l'un des deux tiers
+ * manque pour une raison quelconque, on retombe sur la comparaison de score
+ * seule : la notion de tier n'existe pas hors Commander.
+ */
+function isBetterState(candidate: WorkingMeasure, best: WorkingMeasure): boolean {
+  if (candidate.tier && best.tier) {
+    if (candidate.tier.powerIndex !== best.tier.powerIndex) {
+      return candidate.tier.powerIndex > best.tier.powerIndex;
+    }
+    return candidate.score > best.score;
+  }
+  return candidate.score > best.score;
 }
 
 /**
@@ -665,6 +703,13 @@ export async function superOptimizeDeck(input: {
   const originalWorking = input.cards.map((c) => ({ name: c.name, count: c.count }));
   let working = originalWorking;
   let startingScore: number | null = null;
+  // Tier de départ (24/09/2026, voir isBetterState ci-dessus) — capturé en
+  // même temps que `startingScore`, sert au filet de sécurité en fin de
+  // fonction pour rester cohérent avec le critère tier-prioritaire (sans
+  // ça, un état retenu à tier plus haut mais score plus bas — exactement
+  // le comportement voulu — déclencherait à tort le filet de sécurité
+  // score-only et jetterait un gain de puissance réel).
+  let startingTier: DeckTierResult | null = null;
   let roundsApplied = 0;
 
   // Meilleur état rencontré au fil du parcours, et son "coût" affiché
@@ -674,13 +719,19 @@ export async function superOptimizeDeck(input: {
   // avant même la première mesure). `bestRoundsApplied`/`bestLandAdjustments`
   // sont snapshotés EN MÊME TEMPS que `bestWorking`, pas juste incrémentés
   // au fil de l'eau : sans ça, si un tour ou le passage terrains est
-  // tenté mais pas retenu (parce qu'il fait reculer le score), les
-  // compteurs renvoyés au client annonceraient des changements qui ne
-  // sont en réalité pas dans le deck final — voir aussi le diff
-  // `addedNames`/`removedNames` plus bas, qui lui est calculé directement
-  // sur `bestWorking` et fait foi en cas de doute.
+  // tenté mais pas retenu (parce qu'il fait reculer l'état, voir
+  // isBetterState), les compteurs renvoyés au client annonceraient des
+  // changements qui ne sont en réalité pas dans le deck final — voir aussi
+  // le diff `addedNames`/`removedNames` plus bas, qui lui est calculé
+  // directement sur `bestWorking` et fait foi en cas de doute.
+  //
+  // `bestTier` (24/09/2026, demande de Ben — voir doc de `measureWorking`/
+  // `isBetterState` ci-dessus) : suivi en parallèle de `bestScore`, c'est
+  // désormais LUI le critère principal de "meilleur état" pour les formats
+  // à commandant.
   let bestWorking = originalWorking;
   let bestScore = -Infinity;
+  let bestTier: DeckTierResult | null = null;
   let bestRoundsApplied = 0;
   let bestLandAdjustments = 0;
 
@@ -699,9 +750,21 @@ export async function superOptimizeDeck(input: {
         commanderCards,
         10
       );
-      if (startingScore === null) startingScore = currentStats.score;
-      if (currentStats.score > bestScore) {
+      // Tier de cet état (24/09/2026, voir isBetterState ci-dessus) —
+      // calculé sur les mêmes `nonCommanderCards`/`commanderCards`/
+      // `currentStats` que `suggestImprovements` vient de produire, pas de
+      // résolution Scryfall supplémentaire (même raisonnement que dans
+      // analyzeDeck).
+      const tierNow = format.hasCommander
+        ? computeDeckTier(nonCommanderCards, commanderCards, currentStats, format.categories)
+        : null;
+      if (startingScore === null) {
+        startingScore = currentStats.score;
+        startingTier = tierNow;
+      }
+      if (isBetterState({ score: currentStats.score, tier: tierNow }, { score: bestScore, tier: bestTier })) {
         bestScore = currentStats.score;
+        bestTier = tierNow;
         bestWorking = working;
         bestRoundsApplied = roundsApplied;
         bestLandAdjustments = 0;
@@ -712,14 +775,15 @@ export async function superOptimizeDeck(input: {
       roundsApplied++;
     }
 
-    // Score du dernier état atteint par les tours par pilier ci-dessus,
-    // même quand ce dernier tour a été appliqué juste avant la sortie de
-    // la boucle par le plafond `SUPER_OPTIMIZE_MAX_ROUNDS` (auquel cas il
-    // n'a encore jamais été mesuré, contrairement aux tours précédents —
-    // voir la mesure en tête de boucle ci-dessus).
-    const scoreAfterRounds = await scoreOfWorking(working, format, input.deckName, input.commanders);
-    if (scoreAfterRounds !== null && scoreAfterRounds > bestScore) {
-      bestScore = scoreAfterRounds;
+    // État du dernier tour atteint par les tours par pilier ci-dessus, même
+    // quand ce dernier tour a été appliqué juste avant la sortie de la
+    // boucle par le plafond `SUPER_OPTIMIZE_MAX_ROUNDS` (auquel cas il n'a
+    // encore jamais été mesuré, contrairement aux tours précédents — voir
+    // la mesure en tête de boucle ci-dessus).
+    const afterRounds = await measureWorking(working, format, input.deckName, input.commanders);
+    if (afterRounds && isBetterState(afterRounds, { score: bestScore, tier: bestTier })) {
+      bestScore = afterRounds.score;
+      bestTier = afterRounds.tier;
       bestWorking = working;
       bestRoundsApplied = roundsApplied;
       bestLandAdjustments = 0;
@@ -734,9 +798,10 @@ export async function superOptimizeDeck(input: {
     working = landTopup.working;
 
     if (landTopup.stepsApplied > 0) {
-      const scoreAfterLandTopup = await scoreOfWorking(working, format, input.deckName, input.commanders);
-      if (scoreAfterLandTopup !== null && scoreAfterLandTopup > bestScore) {
-        bestScore = scoreAfterLandTopup;
+      const afterLandTopup = await measureWorking(working, format, input.deckName, input.commanders);
+      if (afterLandTopup && isBetterState(afterLandTopup, { score: bestScore, tier: bestTier })) {
+        bestScore = afterLandTopup.score;
+        bestTier = afterLandTopup.tier;
         bestWorking = working;
         bestRoundsApplied = roundsApplied;
         bestLandAdjustments = landTopup.stepsApplied;
@@ -794,7 +859,27 @@ export async function superOptimizeDeck(input: {
   // déjà, par construction, le meilleur état mesuré — gardé par prudence
   // au cas où une mesure se révélait incohérente avec `finalAnalysis`
   // (ex: `analyzeDeck` échoue puis retombe sur un score par défaut).
-  if (startingScore !== null && (finalAnalysis.currentStats?.score ?? 0) < startingScore) {
+  //
+  // ⚠️ Correctif du 24/09/2026 (tier prioritaire, voir isBetterState
+  // ci-dessus) : comparer UNIQUEMENT `score` ici serait maintenant FAUX en
+  // soi — le comportement voulu par Ben peut légitimement retenir un état
+  // à tier plus haut mais score de complétude plus bas (ex: un deck plus
+  // "puissant" mais légèrement moins rond sur ses 9 piliers). Un filet de
+  // sécurité score-only déclencherait alors à tort sur exactement le cas
+  // que ce correctif est censé permettre. Pour un format à commandant, on
+  // ne régresse donc que si le tier final est strictement pire que le
+  // tier de départ, ou à tier égal si le score a reculé ; pour un format
+  // sans commandant (tier toujours `null`), la comparaison de score seule
+  // reste inchangée.
+  const finalTier = finalAnalysis.tier;
+  const regressed =
+    startingScore !== null &&
+    (format.hasCommander && startingTier && finalTier
+      ? finalTier.powerIndex < startingTier.powerIndex ||
+        (finalTier.powerIndex === startingTier.powerIndex && (finalAnalysis.currentStats?.score ?? 0) < startingScore)
+      : (finalAnalysis.currentStats?.score ?? 0) < startingScore);
+
+  if (regressed) {
     const original = await analyzeDeck({
       formatKey: input.formatKey,
       deckName: input.deckName,
@@ -807,8 +892,9 @@ export async function superOptimizeDeck(input: {
       removedNames: [],
       roundsApplied: 0,
       landAdjustments: 0,
-      optimizationNote:
-        "Aucune amélioration nette du score n'a été trouvée après optimisation — le deck n'a pas été modifié.",
+      optimizationNote: format.hasCommander
+        ? "Aucune amélioration nette du tier de puissance (ni, à tier égal, du score) n'a été trouvée après optimisation — le deck n'a pas été modifié."
+        : "Aucune amélioration nette du score n'a été trouvée après optimisation — le deck n'a pas été modifié.",
     };
   }
 
@@ -826,6 +912,16 @@ export interface CollectionCommanderCandidate {
   name: string;
   /** Score (computeDeckStats, sur 100) du deck d'essai construit pour ce candidat — voir rankCommanderCandidates dans collection-builder.ts. */
   trialScore: number;
+  /**
+   * Tier de puissance (deck-tier.ts) du deck d'essai construit pour ce
+   * candidat (24/09/2026, demande de Ben : le classement des commandants
+   * candidats priorise désormais ce tier sur `trialScore` — voir
+   * rankCommanderCandidates dans collection-builder.ts). Toujours défini
+   * ici (contrairement à `DeckAnalysisResult.tier`, nullable pour les
+   * formats sans commandant) : cette interface n'existe que pour des
+   * candidats commandant, donc toujours un format à commandant.
+   */
+  trialTier: DeckTierResult;
 }
 
 export interface CollectionBuildResult extends DeckAnalysisResult {
@@ -944,7 +1040,7 @@ export async function buildDeckFromCollection(input: {
 
     return {
       ...analysis,
-      candidates: ranked.map((r) => ({ name: r.card.name, trialScore: r.trialScore })),
+      candidates: ranked.map((r) => ({ name: r.card.name, trialScore: r.trialScore, trialTier: r.trialTier })),
       selectedCommander: chosen.card.name,
       collectionCards: input.collectionCards,
       unresolvedNames,
@@ -1127,6 +1223,7 @@ export async function suggestUnownedCommanders(
       suggestions: ranked.slice(0, UNOWNED_SUGGESTIONS_LIMIT).map((r) => ({
         name: r.card.name,
         trialScore: r.trialScore,
+        trialTier: r.trialTier,
         colorIdentity: r.card.color_identity,
       })),
     };
