@@ -1,6 +1,7 @@
 "use client";
 
 import type { ArchetypeSignal, DeckCategory, EnrichedCard, HealthSignal, ManaCurveBucket } from "@/lib/types";
+import type { DeckTierResult, PowerTierLevel } from "@/lib/deck-tier";
 import { CATEGORY_LABELS } from "@/lib/deck-score";
 import { PillarCoverage } from "./PillarCoverage";
 import { ManaCurveChart } from "./ManaCurveChart";
@@ -9,6 +10,22 @@ const HEALTH_TEXT_CLASS: Record<HealthSignal["status"], string> = {
   good: "text-success",
   watch: "text-warning",
   off: "text-warning",
+};
+
+/**
+ * Couleurs du badge de tier (24/09/2026) : dégradé d'intensité croissante
+ * du tier 1 au tier 5, réutilisant les seules teintes déjà définies dans
+ * globals.css (pas de nouvelle variable CSS pour un seul badge) —
+ * neutre/muted pour "Exhibition", jusqu'à synergy (violet, déjà utilisé
+ * ailleurs pour les badges d'archétype mais dans une zone différente de
+ * l'UI, pas de collision visuelle) pour "cEDH".
+ */
+const TIER_BADGE_CLASS: Record<PowerTierLevel, string> = {
+  1: "bg-surface-muted text-muted",
+  2: "bg-success-soft text-success",
+  3: "bg-accent-soft text-accent",
+  4: "bg-warning-soft text-warning",
+  5: "bg-synergy-soft text-synergy",
 };
 
 /**
@@ -32,6 +49,16 @@ const HEALTH_TEXT_CLASS: Record<HealthSignal["status"], string> = {
  * ces deux données étaient déjà calculées (avgCmc/landCount) mais
  * n'étaient affichées nulle part et n'entraient pas dans le score (voir
  * deck-score.ts).
+ *
+ * Extension du 24/09/2026 (demande de Ben) : badge de tier de puissance
+ * (1 à 5, low/mid/top — voir deck-tier.ts) juste à côté du score. C'est un
+ * axe VOLONTAIREMENT DISTINCT du score 0-100 ci-dessus (qui mesure la
+ * couverture des piliers par rapport à SA PROPRE cible, pas la puissance
+ * absolue) — d'où un badge séparé plutôt qu'un mélange des deux chiffres,
+ * avec sa propre légende de transparence (`tier.caveat`, affichée en
+ * survol ET en résumé sous le badge — convention d'honnêteté du projet,
+ * HANDOFF.md §11 : jamais un chiffre présenté sans dire ce qu'il ne sait
+ * pas mesurer). `null` pour un format sans commandant (voir computeDeckTier).
  */
 export function DeckDashboard({
   currentScore,
@@ -43,6 +70,7 @@ export function DeckDashboard({
   onSelectCategory,
   matchingCards,
   archetypes,
+  tier,
   manaCurve,
   avgCmc,
   totalNonLandCards,
@@ -59,6 +87,7 @@ export function DeckDashboard({
   /** Cartes du deck correspondant au pilier sélectionné — vide si aucun pilier sélectionné. */
   matchingCards: EnrichedCard[];
   archetypes: ArchetypeSignal[];
+  tier: DeckTierResult | null;
   manaCurve: ManaCurveBucket[];
   avgCmc: number;
   totalNonLandCards: number;
@@ -82,6 +111,14 @@ export function DeckDashboard({
               {improvementPct}%
             </span>
           )}
+          {tier && (
+            <span
+              title={`Indice de puissance ${tier.powerIndex}/100 — Game Changers : ${tier.signals.gameChangerCount}, mana rapide (rampe coût ≤2) : ${tier.signals.fastManaCount}, tutors : ${tier.signals.tutorCount}, tours supplémentaires : ${tier.signals.extraTurnCount}, destruction de terrains de masse : ${tier.signals.massLandDenialCount}. ${tier.caveat}`}
+              className={`ml-1.5 rounded-full px-2 py-0.5 text-xs font-semibold ${TIER_BADGE_CLASS[tier.tier]}`}
+            >
+              {tier.label}
+            </span>
+          )}
         </div>
         <p className="max-w-sm text-right text-xs text-muted">
           Score heuristique interne (0-100) basé sur la présence de rampe, removal, pioche, board
@@ -90,6 +127,15 @@ export function DeckDashboard({
           score projeté si les cartes suggérées ci-dessous étaient ajoutées.
         </p>
       </div>
+
+      {tier && (
+        <p className="mt-2 text-[11px] text-muted">
+          {tier.label} · indice de puissance {tier.powerIndex}/100 — indication heuristique
+          inspirée des Brackets Commander officiels de Wizards of the Coast (système encore en
+          beta), un axe distinct du score ci-dessus. Survole le badge pour le détail des signaux
+          et ses limites.
+        </p>
+      )}
 
       {archetypes.length > 0 && (
         <div className="mt-3 flex flex-wrap items-center gap-1.5">

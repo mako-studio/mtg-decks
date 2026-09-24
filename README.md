@@ -962,6 +962,170 @@ vérifications n'a pu se faire contre une vraie réponse Scryfall depuis cet
 environnement (voir section réseau ci-dessous) ; le site déployé, lui, a
 un accès réseau normal.
 
+### Robustification de la construction Commander/Duel + tier de puissance (24/09/2026)
+
+Demande de Ben : "améliore et rends plus robuste l'algo de construction de
+deck commander multi et duel, fais en sorte qu'il soit le plus puissant et
+pertinent possible ; si tu rencontres des blocages tu trouveras un moyen
+de les contourner ; ajoute aussi une indication de tier du deck". Précision
+apportée en cours de route : 5 tiers (1 à 5), pas 4 — voir plus bas pourquoi
+ça correspond en fait mieux à la source officielle utilisée.
+
+**A. Sélection du pool, de statique à itérative.** La v1 du 10/09/2026
+(voir section ci-dessus) triait tout le pool possédé **une seule fois**
+par score de priorité et prenait les N meilleures cartes dans l'ordre — un
+défaut connu de ce genre de tri statique : plusieurs cartes d'un même
+pilier déjà bien couvert (beaucoup de removal fort, par exemple) peuvent
+occuper toutes les places disponibles pendant qu'un pilier resté à zéro
+(protection, disons) ne récupère jamais rien, faute d'avoir jamais été
+reconsidéré une fois les meilleures cartes globales déjà choisies.
+`selectDeckFromPool` (`collection-builder.ts`) sélectionne désormais
+**carte par carte, en reconsidérant à chaque étape quel pilier est
+actuellement le plus sous sa cible** — même principe que `weakestFirst`
+dans `suggestImprovements` (`recommend.ts`), généralisé ici à la
+construction complète du deck plutôt qu'à un lot de suggestions
+ponctuelles. `classifyCard` est précalculé une fois par carte
+(`classifyCache`) plutôt que recalculé à chaque itération, pour rester
+robuste sur une grosse collection. Terrains et non-terrains passent par le
+même mécanisme (`pickBestCards`), la passe terrains transmettant son
+décompte de piliers final comme point de départ de la passe non-terrains
+(un terrain de fixing compté en premier réduit d'autant le déficit
+"fixing" vu ensuite par les non-terrains). Un départage déterministe par
+nom évite toute dépendance à l'ordre d'itération du moteur JS en cas
+d'égalité stricte de score.
+
+**Bootstrap d'archétype en deux passes.** `detectArchetypes`
+(`archetype.ts`) exige déjà un minimum de cartes hors terrain pour
+retourner un signal — impossible donc de connaître l'archétype d'un deck
+avant d'avoir choisi ne serait-ce qu'une première sélection de cartes.
+`selectDeckFromPool` construit donc une sélection "seed" sans aucun bonus
+d'archétype (passe 1), détecte les signaux dessus, puis **refait
+entièrement** la sélection depuis zéro avec un bonus modeste (+0.5, à
+l'échelle d'un seul pilier proche de sa cible, jamais dominant) pour toute
+carte du pool qui correspond à un signal détecté (`cardMatchesArchetype`,
+réutilisée telle quelle) — pas un ajustement incrémental de la seed, pour
+que les cartes écartées en passe 1 aient elles aussi une chance d'être
+repêchées en passe 2 si elles collent au thème. Aucun signal détecté sur
+la seed → la seed est renvoyée telle quelle, pas de recalcul inutile.
+
+**Réglages secondaires de `priorityScore` :** bonus de qualité
+(`game_changer`/`edhrec_rank`) légèrement augmenté par rapport à la v1
+pour mieux refléter la puissance individuelle d'une carte, et ajout d'un
+terme de courbe de mana modeste (amplitude max 0.3, contre ~1.4-2 pour un
+seul pilier rempli) qui ne fait que départager entre cartes de priorité
+sinon égale — le rôle rempli dans le deck reste partout le critère
+dominant. **Aucune réinvention de moteur de score** (convention du projet,
+section 11 ci-dessous) : tout repose sur `classifyCard`/`computeDeckStats`/
+`format.categories`/`archetype.ts` déjà existants ; la seule nouveauté est
+l'ORDRE de sélection et ces quelques constantes de réglage, documentées
+dans le code.
+
+**B. Tier de puissance (`src/lib/deck-tier.ts`, nouveau module).** Axe
+volontairement DISTINCT du score structurel 0-100 existant (qui mesure la
+couverture des 9 piliers par rapport à la propre cible du deck, pas sa
+puissance absolue). Plutôt que d'inventer une échelle arbitraire, ce
+module s'appuie sur le système officiel **Commander Brackets** de Wizards
+of the Coast (recherché le 24/09/2026 via magic.wizards.com/en/formats/
+commander et commanderbrackets.com/faq — système explicitement encore en
+"beta" à cette date, donc susceptible d'évoluer, à revérifier si ce module
+est retouché) : 5 paliers officiels (1 Exhibition, 2 Core, 3 Upgraded,
+4 Optimized, 5 cEDH), ce qui correspond exactement aux 5 tiers demandés
+par Ben. Le discriminant quantifiable principal de WotC — le nombre de
+"Game Changers" (leur liste officielle de cartes jugées à part) — est déjà
+un champ Scryfall présent dans l'app (`ScryfallCard.game_changer`,
+utilisé ailleurs par `recommend.ts`), donc le signal dominant du calcul
+(poids 40/100) n'est pas une donnée inventée.
+
+**Signaux extraits** (tous dérivés de champs Scryfall déjà exploités
+ailleurs, ou de sorties déjà calculées par le moteur existant — aucun
+appel réseau supplémentaire) : nombre de Game Changers (mainboard +
+commandant(s)), "mana rapide" (cartes classées "ramp" à coût ≤2, proxy
+pour Sol Ring/Mana Crypt/Arcane Signet et équivalents), nombre de tutors
+(repris de `stats.categoryCounts.tutor`), nombre de cartes donnant un tour
+supplémentaire (nouveau motif dédié `takes? an extra turn`, volontairement
+PAS ajouté aux 9 piliers stables de `deck-score.ts` — ce n'est pas un rôle
+de deckbuilding au même sens), nombre de cartes de destruction de terrains
+DE MASSE (motifs délibérément étroits — "destroy all lands",
+"each/all player(s) sacrifice(s)... land(s)" — pour ne jamais confondre
+avec du removal de terrain ciblé et situationnel comme Wasteland, un outil
+normal à tous les niveaux de puissance), courbe moyenne, et ratio
+d'interaction (removal+disruption rapporté à leur cible du format).
+
+**Formule (0-100, somme de poids) :** Game Changers 40 pts (0 si aucun,
+jusqu'à 40 à partir de 6), mana rapide 15 pts (3 pts/carte, plafond à 5
+cartes), tutors 10 pts (proportionnel à la cible du format — donc plus
+exigeant en Duel Commander, dont la cible de tutors est déjà plus haute
+qu'en Commander multijoueur, cohérence avec le réglage existant de
+`formats.ts`), interaction 10 pts, tours supplémentaires 10 pts (faible
+pour 1-2 occurrences — "a Time Warp or two is fine" selon WotC — plafond
+dès 3, l'enchaînement étant le vrai discriminant des paliers hauts),
+destruction de terrains de masse 10 pts (binaire, quasi absente en dessous
+du palier 4 selon WotC), courbe de mana 5 pts (petit bonus pour une courbe
+à ou sous l'idéal du format, jamais dominant). Le résultat est ensuite
+découpé en 5 paliers égaux de 20 points, chacun en 3 sous-bandes
+low/mid/top — simplicité et transparence plutôt qu'un calage précis sur
+des seuils WotC que la source elle-même présente comme non mécaniques.
+
+**Limitation assumée et affichée à l'écran (pas seulement documentée
+ici).** WotC le dit elle-même à propos de son propre système : le tableau
+de cartes est un plancher, pas toute la réponse — l'intention du deck
+compte le plus. Cette heuristique reste un pur proxy textuel/structurel :
+elle ne peut PAS détecter de façon fiable une vraie ligne de combo à deux
+cartes, une pièce de stax/verrou, ou un enchaînement de destruction de
+terrains — seulement des motifs de surface. Un deck combo rapide mais avec
+peu de Game Changers "visibles" peut être sous-évalué ; un deck avec
+plusieurs Game Changers mais mal exécuté peut être surévalué. Ce caveat
+est renvoyé tel quel par `computeDeckTier` (champ `caveat`) et affiché sous
+le badge de tier dans `DeckDashboard.tsx`, pas seulement en commentaire de
+code — cohérent avec la convention d'honnêteté épistémique du projet et
+avec les préférences de Ben sur la transparence des heuristiques.
+
+**Intégration.** `DeckAnalysisResult.tier` (nouveau champ, `actions.ts`) :
+calculé dans `analyzeDeck` uniquement quand `format.hasCommander` (le
+système de Game Changers/brackets est une notion Commander, sans sens pour
+Standard/Historic/etc.), `null` sinon. Comme le reste de `analyzeDeck`,
+tous les chemins qui en dérivent (import CSV/Arena, Super Opti, deck
+depuis collection) héritent du champ automatiquement puisqu'ils étalent
+(`...`) le résultat d'`analyzeDeck` plutôt que d'en reconstruire un
+séparément. `DeckDashboard.tsx` affiche le badge juste à côté du score
+(dégradé de couleur croissant du tier 1 neutre au tier 5 violet, seules
+teintes déjà définies dans `globals.css`, aucune nouvelle variable CSS),
+avec le détail des signaux et le caveat complet au survol, et un résumé
+d'une ligne toujours visible en dessous (pas caché uniquement dans un
+tooltip, pour rester visible sur mobile/tactile).
+
+**Blocage rencontré et contournement.** Même contrainte que pour toute
+autre fonctionnalité de ce projet : `api.scryfall.com` reste bloqué depuis
+ce bac à sable (`curl` → 403 au niveau du proxy). Comme d'habitude, aucune
+tentative de contournement réseau (pas de proxy alternatif, pas de scraper
+de repli) — seule la méthodologie de vérification en deux niveaux déjà
+établie pour ce projet a été utilisée, voir juste en dessous.
+
+**Vérification.** Niveau 1 (logique pure, `tsx`, aucun mock réseau
+nécessaire : `selectDeckFromPool`/`computeDeckTier` ne font eux-mêmes
+aucun appel Scryfall) : démonstration directe de la régression corrigée
+(pilier "removal" totalement absent avec l'ancien tri statique, désormais
+couvert même quand 3 cartes de rampe à score identique sont disponibles),
+bootstrap d'archétype en deux passes vérifié à la fois positivement (≥6
+cartes en synergie détectées sur la seed → une carte marginale en synergie
+l'emporte sur une carte marginale neutre pour la dernière place) et
+négativement (zéro carte en synergie → le départage alphabétique par
+défaut s'applique, aucun faux positif), intégration de bout en bout avec
+le vrai format Commander (99 cartes exactes, `maxCopies` respecté, les 9
+piliers couverts, `rankCommanderCandidates` trie bien par score d'essai
+décroissant), et `computeDeckTier` vérifié sur un cas vide (tier 1 bas),
+un cas saturant chaque sous-score (tier 5 haut, avec un recalcul
+indépendant de la formule pour écarter une erreur d'arithmétique) et un
+cas intermédiaire. Niveau 2 (Playwright sur build de production, Scryfall
+mocké, collection avec Game Changers/mana rapide/removal simulés) : le
+badge de tier s'affiche avec le bon format ("Tier X — Low/Mid/Top"), son
+tooltip détaille les signaux, la ligne de transparence sous le badge est
+bien présente, et le badge reste cohérent après un changement de
+commandant — aucune erreur console. Comme pour tout ce qui touche
+Scryfall dans ce projet, aucune de ces vérifications n'a pu se faire
+contre une vraie réponse Scryfall depuis cet environnement ; le site
+déployé, lui, a un accès réseau normal.
+
 ## Stack
 
 Next.js 16 (App Router, TypeScript, Turbopack) + Tailwind CSS v4. Pas de

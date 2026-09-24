@@ -601,6 +601,7 @@ export function DeckBuilder({
           onSelectCategory={(cat) => setCategoryFilter((prev) => (prev === cat ? null : cat))}
           matchingCards={matchingCards}
           archetypes={result.archetypes}
+          tier={result.tier}
           manaCurve={result.currentStats?.manaCurve ?? []}
           avgCmc={result.currentStats?.avgCmc ?? 0}
           totalNonLandCards={result.currentStats?.totalNonLandCards ?? 0}

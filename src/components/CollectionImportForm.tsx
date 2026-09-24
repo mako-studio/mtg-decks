@@ -22,6 +22,7 @@ const INITIAL_STATE: CollectionBuildResult = {
   improvementPct: 0,
   suggestions: [],
   archetypes: [],
+  tier: null,
   exportText: "",
   candidates: [],
   selectedCommander: null,

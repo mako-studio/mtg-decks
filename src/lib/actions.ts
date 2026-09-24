@@ -24,6 +24,7 @@ import {
 import { loadEnrichedDeck } from "./deck-loader";
 import { buildRemovalCandidates, evaluateCardCompatibility, suggestImprovements } from "./recommend";
 import { computeDeckStats } from "./deck-score";
+import { computeDeckTier, type DeckTierResult } from "./deck-tier";
 import { detectArchetypes } from "./archetype";
 import { getFormat } from "./formats";
 import {
@@ -51,6 +52,14 @@ export interface DeckAnalysisResult {
   suggestions: CardSuggestion[];
   /** Archétype(s)/stratégie(s) détectés pour ce deck (voir archetype.ts) — tableau vide si aucun signal clair. */
   archetypes: ArchetypeSignal[];
+  /**
+   * Tier de puissance 1-5 (low/mid/top), voir deck-tier.ts — axe séparé du
+   * score structurel `currentStats.score` (24/09/2026, demande de Ben).
+   * `null` pour un format sans commandant (le système de Game Changers/
+   * brackets est une notion Commander, voir computeDeckTier) ou tant que
+   * l'analyse n'a pas encore réussi.
+   */
+  tier: DeckTierResult | null;
   exportText: string;
   /**
    * Renseignés uniquement par `analyzeCsvImport` : cartes à remettre dans
@@ -76,6 +85,7 @@ function emptyResult(formatKey: FormatKey, deckName: string, error: string): Dec
     improvementPct: 0,
     suggestions: [],
     archetypes: [],
+    tier: null,
     exportText: "",
   };
 }
@@ -117,6 +127,16 @@ export async function analyzeDeck(input: {
     const { currentStats, projectedStats, improvementPct, suggestions, archetypes } =
       await suggestImprovements(nonCommanderCards, colorIdentity, format, commanderCards, 10);
 
+    // Tier de puissance (24/09/2026, demande de Ben) : uniquement pour les
+    // formats à commandant — le système de Game Changers/brackets dont il
+    // s'inspire (voir deck-tier.ts) est une notion Commander, elle n'a pas
+    // de sens pour Standard/Historic/etc. Calculé sur les mêmes
+    // `nonCommanderCards`/`commanderCards`/`currentStats` que le reste de
+    // cette fonction, pas de résolution Scryfall supplémentaire.
+    const tier = format.hasCommander
+      ? computeDeckTier(nonCommanderCards, commanderCards, currentStats, format.categories)
+      : null;
+
     const exportText = format.arenaOnly
       ? serializeArenaDeck({
           commander:
@@ -141,6 +161,7 @@ export async function analyzeDeck(input: {
       improvementPct,
       suggestions,
       archetypes,
+      tier,
       exportText,
     };
   } catch {
