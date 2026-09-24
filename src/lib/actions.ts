@@ -37,6 +37,7 @@ import {
   getDisplayLocalizedTypeLine,
   getDisplayOracleText,
   getLocalizedPrint,
+  searchCards,
 } from "./scryfall";
 
 export interface DeckAnalysisResult {
@@ -1025,4 +1026,205 @@ export async function switchCollectionCommander(
   commanderName: string
 ): Promise<CollectionBuildResult> {
   return buildDeckFromCollection({ formatKey, deckName, collectionCards, preferredCommander: commanderName });
+}
+
+export interface UnownedCommanderSuggestion extends CollectionCommanderCandidate {
+  /** Identité couleur (WUBRG) du commandant — pour un badge couleur côté UI, sans appel supplémentaire. */
+  colorIdentity: string[];
+}
+
+/** Nombre de candidats évalués pour suggestUnownedCommanders ci-dessous — voir sa doc pour la justification (1 page Scryfall = 175 cartes). */
+const UNOWNED_CANDIDATE_POOL_SIZE = 1;
+/** Nombre de suggestions retournées à l'UI — assez pour choisir, pas au point de noyer Ben sous des options marginales. */
+const UNOWNED_SUGGESTIONS_LIMIT = 8;
+
+/**
+ * Suggère des commandants que Ben NE POSSÈDE PAS, évalués sur le deck
+ * qu'on pourrait réellement construire pour chacun avec UNIQUEMENT les
+ * cartes déjà présentes dans sa collection (24/09/2026, demande de Ben :
+ * "je veux aussi avoir une fonctionnalité de commanders recommandés avec
+ * mes cartes même si je ne possède pas ces commanders dans mes cartes").
+ *
+ * Aucune nouvelle mécanique de score : réutilise tel quel
+ * `rankCommanderCandidates` (collection-builder.ts), le même moteur qui
+ * classe déjà les commandants POSSÉDÉS dans `buildDeckFromCollection` —
+ * seule la provenance des candidats change. `selectDeckFromPool`
+ * construit toujours le deck d'essai à partir du pool RÉELLEMENT possédé
+ * par Ben (`pool`/`ownedCounts`), jamais du commandant non possédé
+ * lui-même : un commandant hors des couleurs de sa collection se
+ * retrouve donc naturellement avec un pool quasi vide et un score
+ * d'essai bas (terrains de base seuls) — pas besoin de filtrer les
+ * couleurs à la main, le score existant pénalise déjà l'incompatibilité.
+ *
+ * Bassin de candidats : les commandants légaux les plus populaires du
+ * format (recherche `is:commander legal:<format>`, triée par popularité
+ * EDHREC, ${UNOWNED_CANDIDATE_POOL_SIZE} page = jusqu'à 175 cartes) —
+ * pas l'exhaustivité de toutes les créatures légendaires jamais
+ * imprimées (plusieurs milliers), qui rendrait l'évaluation lente et
+ * proposerait surtout des curiosités obscures plutôt que des commandants
+ * connus et effectivement jouables. `is:commander` est un opérateur de
+ * recherche Scryfall documenté (https://scryfall.com/docs/syntax,
+ * "cartes qui peuvent être commandant") — non re-vérifié en direct (accès
+ * à api.scryfall.com bloqué depuis mon environnement de dev, voir la
+ * note en tête de scryfall.ts), mais c'est un opérateur stable et
+ * largement utilisé côté communauté ; `isCommanderEligible`/
+ * `isLegalInFormat` sont réappliqués en filet de sécurité sur le résultat
+ * plutôt que de faire une confiance aveugle à la recherche.
+ *
+ * Action SÉPARÉE de `buildDeckFromCollection`, appelée à la demande côté
+ * UI (pas à chaque analyse/changement de commandant possédé) : elle
+ * ajoute une recherche Scryfall et l'évaluation d'une grosse poignée de
+ * candidats, un coût qu'on ne veut payer que si Ben ouvre effectivement
+ * cette fonctionnalité.
+ */
+export async function suggestUnownedCommanders(
+  formatKey: string,
+  collectionCards: { name: string; count: number }[]
+): Promise<{ ok: true; suggestions: UnownedCommanderSuggestion[] } | { ok: false; error: string }> {
+  const format = getFormat(formatKey);
+  if (!format.hasCommander) {
+    return { ok: false, error: "Ce format ne fonctionne pas avec un commandant." };
+  }
+  if (collectionCards.length === 0) {
+    return { ok: false, error: "Aucune carte reconnue dans ta collection." };
+  }
+
+  try {
+    const names = collectionCards.map((c) => c.name);
+    const resolvedPool = await getCardsByNames(names);
+    const ownedCounts = new Map<string, number>();
+    for (const c of collectionCards) {
+      const key = c.name.toLowerCase();
+      if (!resolvedPool.has(key)) continue;
+      ownedCounts.set(key, (ownedCounts.get(key) ?? 0) + c.count);
+    }
+    const pool = Array.from(resolvedPool.values());
+    const ownedNames = new Set(pool.map((c) => c.name.toLowerCase()));
+
+    const popular = await searchCards(
+      `is:commander legal:${format.scryfallLegality}`,
+      UNOWNED_CANDIDATE_POOL_SIZE,
+      "edhrec",
+      "cards"
+    );
+    const unowned = popular.filter(
+      (card) =>
+        !ownedNames.has(card.name.toLowerCase()) && isCommanderEligible(card) && isLegalInFormat(card, format)
+    );
+    if (unowned.length === 0) {
+      return {
+        ok: false,
+        error: "Aucun commandant supplémentaire trouvé (tous déjà possédés, ou service Scryfall indisponible).",
+      };
+    }
+
+    const basicNames = Array.from(new Set([...Object.values(BASIC_LAND_BY_COLOR), "Wastes"]));
+    const basics = await getCardsByNames(basicNames);
+
+    const ranked = rankCommanderCandidates({ pool, ownedCounts, candidates: unowned, format, basics });
+    return {
+      ok: true,
+      suggestions: ranked.slice(0, UNOWNED_SUGGESTIONS_LIMIT).map((r) => ({
+        name: r.card.name,
+        trialScore: r.trialScore,
+        colorIdentity: r.card.color_identity,
+      })),
+    };
+  } catch {
+    return { ok: false, error: "Erreur pendant la recherche (service Scryfall indisponible ?). Réessaie dans quelques instants." };
+  }
+}
+
+/**
+ * Construit un deck d'APERÇU pour un commandant que Ben ne possède pas
+ * (voir `suggestUnownedCommanders` ci-dessus) : "si j'avais ce commandant,
+ * voici le meilleur deck que je pourrais construire avec ce que je
+ * possède déjà". Différence avec `switchCollectionCommander` : ce
+ * commandant n'est PAS cherché parmi les candidats possédés (il ne peut
+ * pas l'être, par définition) — il est résolu directement auprès de
+ * Scryfall par son nom exact (déjà connu, renvoyé par
+ * `suggestUnownedCommanders`), puis le deck est construit avec le pool
+ * RÉELLEMENT possédé par Ben, exactement comme pour n'importe quel autre
+ * commandant (`selectDeckFromPool`, même moteur, aucune branche
+ * spéciale).
+ *
+ * `candidates: []` dans le résultat : ce n'est pas un commandant possédé,
+ * proposer de "changer de commandant possédé" depuis cet aperçu n'aurait
+ * pas de sens — Ben revient à son deck normal via le lien dédié côté UI
+ * (CollectionImportForm.tsx garde `submitted`, le résultat original, à
+ * côté de cet aperçu).
+ */
+export async function buildDeckWithUnownedCommander(
+  formatKey: string,
+  deckName: string,
+  collectionCards: { name: string; count: number }[],
+  commanderName: string
+): Promise<CollectionBuildResult> {
+  const format = getFormat(formatKey);
+  if (!format.hasCommander) {
+    return emptyCollectionResult(
+      format.key,
+      deckName,
+      "Ce format ne fonctionne pas avec un commandant.",
+      collectionCards
+    );
+  }
+
+  try {
+    const names = collectionCards.map((c) => c.name);
+    const resolvedPool = await getCardsByNames(names);
+    const unresolvedNames = collectionCards
+      .filter((c) => !resolvedPool.has(c.name.toLowerCase()))
+      .map((c) => c.name);
+    const ownedCounts = new Map<string, number>();
+    for (const c of collectionCards) {
+      const key = c.name.toLowerCase();
+      if (!resolvedPool.has(key)) continue;
+      ownedCounts.set(key, (ownedCounts.get(key) ?? 0) + c.count);
+    }
+    const pool = Array.from(resolvedPool.values());
+
+    const commander = await getCardByName(commanderName, "exact");
+    if (!commander || !isCommanderEligible(commander) || !isLegalInFormat(commander, format)) {
+      return emptyCollectionResult(
+        format.key,
+        deckName,
+        "Ce commandant est introuvable ou n'est pas légal dans ce format.",
+        collectionCards
+      );
+    }
+
+    const basicNames = Array.from(new Set([...Object.values(BASIC_LAND_BY_COLOR), "Wastes"]));
+    const basics = await getCardsByNames(basicNames);
+
+    const deckCards = selectDeckFromPool({
+      pool: pool.filter((c) => c.name.toLowerCase() !== commander.name.toLowerCase()),
+      ownedCounts,
+      commander,
+      format,
+      basics,
+    });
+
+    const analysis = await analyzeDeck({
+      formatKey: format.key,
+      deckName,
+      commanders: [commander.name],
+      cards: deckCards,
+    });
+
+    return {
+      ...analysis,
+      candidates: [],
+      selectedCommander: commander.name,
+      collectionCards,
+      unresolvedNames,
+    };
+  } catch {
+    return emptyCollectionResult(
+      format.key,
+      deckName,
+      "Erreur pendant la construction de l'aperçu (service Scryfall indisponible ?). Réessaie dans quelques instants.",
+      collectionCards
+    );
+  }
 }

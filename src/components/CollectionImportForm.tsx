@@ -4,8 +4,11 @@ import { useActionState, useRef, useState, useTransition } from "react";
 import {
   analyzeCollectionCsv,
   analyzeCollectionText,
+  buildDeckWithUnownedCommander,
+  suggestUnownedCommanders,
   switchCollectionCommander,
   type CollectionBuildResult,
+  type UnownedCommanderSuggestion,
 } from "@/lib/actions";
 import { FORMATS } from "@/lib/formats";
 import { DeckBuilder } from "./DeckBuilder";
@@ -37,6 +40,33 @@ function slugify(str: string): string {
     .replace(/[̀-ͯ]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
+}
+
+/**
+ * Indicateur de chargement visuel (24/09/2026, demande de Ben : "je veux
+ * aussi avoir une notif visuel que les decks sont en train de charger car
+ * lorsque je clique sur un deck suggéré dans le dropdown, le temps de
+ * chargement laisse penser que le système freeze"). Avant ce correctif, le
+ * changement de commandant (`switching`, `useTransition`) ne désactivait
+ * que le `<select>` (`disabled` + `opacity-60`) sans aucun texte ni
+ * animation — un recalcul de plusieurs centaines de millisecondes à
+ * quelques secondes (nouvel appel Scryfall + reconstruction complète du
+ * deck, voir buildDeckFromCollection) sans aucun signal visuel donnait
+ * effectivement l'impression que la page ne répondait plus. Réutilisé tel
+ * quel pour les deux nouvelles interactions asynchrones ci-dessous
+ * (découverte de commandants non possédés, aperçu d'un deck avec l'un
+ * d'eux) plutôt qu'un style différent par interaction.
+ */
+function LoadingIndicator({ label }: { label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-accent" role="status" aria-live="polite">
+      <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4z" />
+      </svg>
+      {label}
+    </span>
+  );
 }
 
 /** Formats proposés ici : uniquement ceux à commandant que Ben a demandés ("commander duel ou multi") — pas Brawl/Historic Brawl (Arena), hors périmètre de cette fonctionnalité v1. */
@@ -82,6 +112,25 @@ export function CollectionImportForm() {
   const [override, setOverride] = useState<CollectionBuildResult | null>(null);
   const [switching, startSwitch] = useTransition();
 
+  /**
+   * État de la fonctionnalité "commandants recommandés non possédés"
+   * (24/09/2026, demande de Ben — voir suggestUnownedCommanders/
+   * buildDeckWithUnownedCommander dans actions.ts). `unownedSuggestions`
+   * reste `null` tant que Ben n'a pas ouvert cette section (appel à la
+   * demande, pas à chaque analyse — voir la doc de l'action). `previewName`
+   * mémorise le nom du commandant non possédé actuellement prévisualisé
+   * (si non-null, `override` contient CE deck d'aperçu, pas le deck normal
+   * de Ben) pour afficher le bandeau "aperçu" et permettre d'y revenir.
+   */
+  const [unownedSuggestions, setUnownedSuggestions] = useState<UnownedCommanderSuggestion[] | null>(null);
+  const [unownedError, setUnownedError] = useState<string | null>(null);
+  const [discovering, startDiscovering] = useTransition();
+  const [previewName, setPreviewName] = useState<string | null>(null);
+  /** Résultat affiché juste avant d'entrer en mode aperçu — capturé une seule fois (pas écrasé si Ben prévisualise un 2e commandant non possédé sans revenir entre les deux) pour que "Revenir à mon deck" retrouve exactement l'état d'avant, y compris un commandant possédé choisi manuellement au préalable. */
+  const [beforePreview, setBeforePreview] = useState<CollectionBuildResult | null>(null);
+  const [previewingName, setPreviewingName] = useState<string | null>(null);
+  const [previewing, startPreviewing] = useTransition();
+
   const submitted = lastMode === "text" ? textState : lastMode === "csv" ? csvState : null;
   const result = override ?? (submitted?.ok ? submitted : null);
 
@@ -99,8 +148,54 @@ export function CollectionImportForm() {
           result.collectionCards,
           name
         );
-        if (next.ok) setOverride(next);
+        if (next.ok) {
+          setOverride(next);
+          setPreviewName(null);
+          setBeforePreview(null);
+        }
       });
+    }
+
+    function handleDiscoverUnowned() {
+      if (!result) return;
+      setUnownedError(null);
+      startDiscovering(async () => {
+        const res = await suggestUnownedCommanders(result.formatKey, result.collectionCards);
+        if (res.ok) {
+          setUnownedSuggestions(res.suggestions);
+        } else {
+          // On garde la liste précédente affichée (si "Actualiser" échoue après
+          // un premier succès) plutôt que de l'effacer — seule l'erreur est
+          // affichée en plus, Ben peut réessayer avec le même bouton.
+          setUnownedError(res.error);
+        }
+      });
+    }
+
+    function handlePreviewUnowned(name: string) {
+      if (!result || name === previewingName) return;
+      const snapshot = previewName ? beforePreview : result;
+      setPreviewingName(name);
+      startPreviewing(async () => {
+        const next = await buildDeckWithUnownedCommander(
+          result.formatKey,
+          result.deckName,
+          result.collectionCards,
+          name
+        );
+        if (next.ok) {
+          setBeforePreview(snapshot);
+          setPreviewName(name);
+          setOverride(next);
+        }
+        setPreviewingName(null);
+      });
+    }
+
+    function handleBackToOwned() {
+      setOverride(beforePreview);
+      setPreviewName(null);
+      setBeforePreview(null);
     }
 
     return (
@@ -111,11 +206,31 @@ export function CollectionImportForm() {
             setLastMode(null);
             setOverride(null);
             setFileName(null);
+            setUnownedSuggestions(null);
+            setUnownedError(null);
+            setPreviewName(null);
+            setBeforePreview(null);
           }}
           className="mb-4 text-xs font-medium text-muted underline hover:text-foreground"
         >
           ← Importer une autre collection
         </button>
+
+        {previewName && (
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-accent/40 bg-accent-soft px-3 py-2 text-sm text-accent">
+            <span>
+              Aperçu avec <strong>{previewName}</strong> — un commandant que tu ne possèdes pas encore, construit
+              avec le reste de ta collection.
+            </span>
+            <button
+              type="button"
+              onClick={handleBackToOwned}
+              className="shrink-0 rounded-md border border-accent/40 px-2.5 py-1 text-xs font-medium hover:bg-accent hover:text-accent-foreground"
+            >
+              ← Revenir à mon deck
+            </button>
+          </div>
+        )}
 
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div>
@@ -143,6 +258,11 @@ export function CollectionImportForm() {
                   </option>
                 ))}
               </select>
+              {switching && (
+                <span className="mt-0.5">
+                  <LoadingIndicator label="Recalcul du deck en cours…" />
+                </span>
+              )}
             </label>
           )}
         </div>
@@ -156,6 +276,61 @@ export function CollectionImportForm() {
             {result.unresolvedNames.length > 1 ? "s" : ""} en compte : {result.unresolvedNames.join(", ")}.
           </p>
         )}
+
+        <div className="mb-6 rounded-xl border border-border bg-surface p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-medium">Commandants que tu ne possèdes pas encore</h2>
+              <p className="mt-0.5 text-xs text-muted">
+                Classés par le score du deck qu&apos;on pourrait te construire avec eux, en utilisant uniquement les
+                cartes déjà présentes dans ta collection.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleDiscoverUnowned}
+              disabled={discovering}
+              className="shrink-0 rounded-lg border border-border bg-surface-muted px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:opacity-60"
+            >
+              {discovering
+                ? "Recherche en cours…"
+                : unownedSuggestions === null
+                  ? "Découvrir des commandants"
+                  : "Actualiser la liste"}
+            </button>
+          </div>
+
+          {discovering && (
+            <p className="mt-3">
+              <LoadingIndicator label="Recherche des commandants les plus populaires du format, puis évaluation avec ta collection…" />
+            </p>
+          )}
+
+          {!discovering && unownedError && <p className="mt-3 text-sm text-accent">{unownedError}</p>}
+
+          {!discovering && unownedSuggestions !== null && unownedSuggestions.length > 0 && (
+            <ul className="mt-3 divide-y divide-border">
+              {unownedSuggestions.map((s) => (
+                <li key={s.name} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                  <span>
+                    {s.name}{" "}
+                    <span className="text-xs text-muted">
+                      ({s.colorIdentity.join("") || "incolore"}) — score d&apos;essai {s.trialScore}/100
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handlePreviewUnowned(s.name)}
+                    disabled={previewing}
+                    className="shrink-0 rounded-md border border-border px-2.5 py-1 text-xs font-medium hover:bg-accent hover:text-accent-foreground disabled:opacity-60"
+                  >
+                    {previewingName === s.name ? "Construction…" : "Prévisualiser ce deck"}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
 
         <DeckBuilder
           key={`${deckSlug}:${result.cards.map((c) => c.name).join("|")}`}

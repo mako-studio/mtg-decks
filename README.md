@@ -1126,6 +1126,120 @@ Scryfall dans ce projet, aucune de ces vérifications n'a pu se faire
 contre une vraie réponse Scryfall depuis cet environnement ; le site
 déployé, lui, a un accès réseau normal.
 
+### Cohérence score/tier, indicateur de chargement, commandants non possédés (24/09/2026)
+
+Trois retours de Ben le même jour, après avoir testé la fonctionnalité de
+tier de puissance ci-dessus en conditions réelles (deux captures d'écran
+d'un deck Duel Commander avec le commandant Merieke Ri Berit : score
+95.1/100 mais "Tier 2 — Top", indice de puissance 35.2/100).
+
+**(A) "je ne comprends pas pourquoi le score est de 95.1/100 et seulement
+tier 2 top. Vérifie la cohérence de la notation des decks."** Investigation
+plutôt que correctif immédiat : relecture de `deck-score.ts`/`deck-tier.ts`
+et reconstruction d'un scénario qui reproduit la FORME du signalement de
+Ben (voir `verify-A-C-2026-09-24.mts`, scratchpad) — un deck Duel Commander
+qui couvre à 100% ses 9 piliers (cibles de `DUEL_COMMANDER.targets`,
+modestes par construction) et a une courbe/un nombre de terrains sains,
+mais sans aucun signal de puissance objective (0 Game Changer, pas de mana
+rapide, pas de tours supplémentaires, pas de MLD). Résultat : score 100/100,
+Tier 2 — Top, indice de puissance 33.7/100 — à moins de 2 points de l'indice
+réel de Ben (35.2/100) avec un fixture construit uniquement à partir de la
+lecture du code, sans connaître son deck exact. **Verdict : ce n'est PAS un
+bug.** Le score (`computeDeckStats`) et le tier (`computeDeckTier`) mesurent
+deux choses différentes à partir des MÊMES données d'entrée
+(`nonCommanderCards`/`commanderCards`/`currentStats`/`format.categories`,
+identiques dans `analyzeDeck` — pas de désynchronisation possible) : le
+score dit "ce deck remplit-il bien SES PROPRES rôles de deckbuilding, par
+rapport à une cible modeste et atteignable ?", le tier dit "à quel niveau
+de puissance objectif ce deck joue-t-il face à l'écosystème Commander dans
+son ensemble, en particulier le nombre de cartes 'Game Changer' officielles
+WotC (40% du poids) ?". Un deck petit budget/synergique bien construit peut
+tout à fait remplir tous ses rôles (score élevé) sans contenir de bombes
+reconnues (tier modeste) — les deux n'ont aucune raison de converger. Ce
+n'était déjà pas caché (le badge de tier portait déjà la mention "un axe
+distinct du score" en petit texte), mais visuellement trop collé au score
+pour se lire comme tel au premier coup d'œil. Correctif UI dans
+`DeckDashboard.tsx` : chaque nombre a maintenant un micro-libellé
+("Score de complétude" / "Puissance (tier)") pour ne plus se lire comme une
+seule mesure, et le texte sous les deux nombres énonce maintenant
+explicitement, en premier, que les deux peuvent diverger sans contradiction
+— avant le détail des signaux, personnalisé au deck affiché (nombre de
+Game Changers, de mana rapide, de tutors, de tours supplémentaires).
+
+**(B) "je veux aussi une notif visuel que les decks sont en train de
+charger car lorsque je clique sur un deck suggéré dans le dropdown, le
+temps de chargement laisse penser que le système freeze."** Confirmé en
+lisant le code : le changement de commandant (`handleCommanderChange` dans
+`CollectionImportForm.tsx`, `useTransition`) relance tout le pipeline
+(`switchCollectionCommander` → nouvel appel Scryfall + reconstruction
+complète du deck) mais n'affichait avant ce correctif QUE `disabled` +
+`opacity-60` sur le `<select>` lui-même — aucun texte, aucune animation.
+Correctif : nouveau composant `LoadingIndicator` (spinner SVG
+`animate-spin` + texte, `role="status" aria-live="polite"`) affiché sous le
+sélecteur pendant `switching` ("Recalcul du deck en cours…"), réutilisé tel
+quel pour les deux nouvelles interactions asynchrones de (C) ci-dessous
+plutôt qu'un style différent par cas.
+
+**(C) "je veux aussi avoir une fonctionnalité de commanders recommandés
+avec mes cartes même si je ne possède pas ces commanders dans mes
+cartes."** Nouvelle section "Commandants que tu ne possèdes pas encore"
+dans `CollectionImportForm.tsx`, ouverte à la demande (pas calculée à
+chaque analyse — coût réseau/calcul non négligeable, voir plus bas) :
+
+- `suggestUnownedCommanders` (actions.ts) : cherche les commandants légaux
+  les plus populaires du format (`is:commander legal:<format>`, tri
+  EDHREC, 1 page Scryfall = jusqu'à 175 cartes — pas l'exhaustivité de
+  toutes les créatures légendaires jamais imprimées, pour rester rapide et
+  pertinent), écarte ceux déjà possédés, puis les classe avec
+  `rankCommanderCandidates` — **le même moteur, sans aucune modification**,
+  qui classe déjà les commandants POSSÉDÉS dans `buildDeckFromCollection`.
+  Aucune nouvelle mécanique de score n'a été nécessaire : `selectDeckFromPool`
+  construit toujours le deck d'essai à partir du pool RÉELLEMENT possédé
+  par Ben, jamais du commandant lui-même — un commandant hors de ses
+  couleurs se retrouve donc naturellement avec un pool quasi vide et un
+  score d'essai bas (vérifié dans `verify-A-C-2026-09-24.mts` : un
+  commandant mono-vert candidat contre un pool possédé 100% rouge/noir
+  obtient un score d'essai de 8/100 contre 49.6/100 pour un commandant
+  on-color — l'auto-pénalisation fonctionne sans filtrage de couleur codé
+  en dur).
+- `buildDeckWithUnownedCommander` (actions.ts) : construit un deck
+  d'APERÇU pour un commandant non possédé donné — "si j'avais ce
+  commandant, voici le meilleur deck que je pourrais construire avec ce
+  que je possède déjà" — en le résolvant directement auprès de Scryfall
+  (il n'est par définition pas dans le pool possédé) puis en appelant
+  `selectDeckFromPool` normalement.
+- UI : bouton "Découvrir des commandants" → liste (nom, identité couleur,
+  score d'essai) → "Prévisualiser ce deck" par candidat → bandeau "Aperçu
+  avec {nom}" + bouton "Revenir à mon deck" qui restaure exactement l'état
+  d'avant (y compris un commandant possédé choisi manuellement au
+  préalable, via un instantané `beforePreview` capturé une seule fois par
+  session d'aperçu).
+
+`is:commander` est un opérateur de recherche Scryfall documenté
+(scryfall.com/docs/syntax) mais non re-vérifié en direct (accès à
+`api.scryfall.com` bloqué depuis cet environnement de dev, comme partout
+ailleurs dans ce projet, voir la section Limites plus bas) —
+`isCommanderEligible`/`isLegalInFormat` sont réappliqués en filet de
+sécurité sur le résultat de recherche plutôt que de lui faire une confiance
+aveugle. À confirmer une fois déployé si le résultat semblait incohérent.
+
+**Vérification.** Niveau 1 (`verify-A-C-2026-09-24.mts`, logique pure) :
+scénario (A) ci-dessus (score 100/100, Tier 2 — Top, indice 33.7/100 — à
+moins de 2 points de l'observation réelle de Ben) et scénario (C)
+(auto-pénalisation d'un commandant hors couleurs, 8/100 vs 49.6/100 pour un
+commandant on-color). Niveau 2 (Playwright, build de production, Scryfall
+mocké — `verify-mock-server.cjs` étendu avec un handler `/cards/search`
+minimal et un délai artificiel de 400ms sur chaque appel mocké pour pouvoir
+observer les indicateurs de chargement, sinon trop rapides en local pour
+qu'un script les capture) : micro-libellés score/tier et paragraphe de
+clarté affichés, indicateur "Recalcul du deck en cours…" visible pendant
+un changement de commandant possédé, section "Découvrir des commandants"
+fonctionnelle (indicateur de chargement, commandant non possédé on-color
+proposé, commandants déjà possédés absents de la liste), aperçu d'un
+commandant non possédé fonctionnel (indicateur "Construction…", titre du
+deck mis à jour, bandeau d'aperçu) et retour au deck d'origine après
+"Revenir à mon deck" — aucune erreur console sur l'ensemble du scénario.
+
 ## Stack
 
 Next.js 16 (App Router, TypeScript, Turbopack) + Tailwind CSS v4. Pas de

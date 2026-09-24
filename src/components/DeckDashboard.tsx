@@ -51,14 +51,34 @@ const TIER_BADGE_CLASS: Record<PowerTierLevel, string> = {
  * deck-score.ts).
  *
  * Extension du 24/09/2026 (demande de Ben) : badge de tier de puissance
- * (1 à 5, low/mid/top — voir deck-tier.ts) juste à côté du score. C'est un
- * axe VOLONTAIREMENT DISTINCT du score 0-100 ci-dessus (qui mesure la
+ * (1 à 5, low/mid/top — voir deck-tier.ts) à côté du score. C'est un axe
+ * VOLONTAIREMENT DISTINCT du score 0-100 ci-dessus (qui mesure la
  * couverture des piliers par rapport à SA PROPRE cible, pas la puissance
  * absolue) — d'où un badge séparé plutôt qu'un mélange des deux chiffres,
  * avec sa propre légende de transparence (`tier.caveat`, affichée en
  * survol ET en résumé sous le badge — convention d'honnêteté du projet,
  * HANDOFF.md §11 : jamais un chiffre présenté sans dire ce qu'il ne sait
  * pas mesurer). `null` pour un format sans commandant (voir computeDeckTier).
+ *
+ * Clarifié le 24/09/2026 (2e retour de Ben, même jour : "je ne comprends
+ * pas pourquoi le score est de 95.1/100 et seulement tier 2 top") : le
+ * badge de tier était déjà décrit comme "un axe distinct du score" en
+ * petit texte sous les deux chiffres, mais visuellement collé juste après
+ * le score sur la même ligne — assez proche pour être lu comme "une 2e
+ * mesure de la même chose", donc comme contradictoire si l'un est haut et
+ * l'autre modeste. Cette lecture N'EST PAS un bug : un deck qui couvre
+ * bien ses 9 piliers (score élevé, cible modeste = SA PROPRE cible) peut
+ * tout à fait contenir peu de cartes "Game Changer" officielles WotC ou de
+ * mana rapide/tours supplémentaires (tier modeste, cible = l'écosystème
+ * Commander entier) — les deux mesurent des choses différentes et n'ont
+ * aucune raison de converger. Deux correctifs pour que ça se lise comme
+ * tel sans avoir à survoler ou lire un paragraphe : (1) chaque nombre a
+ * maintenant un micro-libellé au-dessus ("Score de complétude" /
+ * "Puissance (tier)") pour ne plus se lire comme une seule mesure ; (2) le
+ * texte sous les deux nombres énonce maintenant explicitement, en premier,
+ * que les deux peuvent diverger sans contradiction, avant le détail des
+ * signaux (nombre de Game Changers, etc. — personnalisé au deck affiché,
+ * pas un texte générique).
  */
 export function DeckDashboard({
   currentScore,
@@ -97,27 +117,40 @@ export function DeckDashboard({
   return (
     <div className="rounded-xl border border-border bg-surface p-5">
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="flex items-baseline gap-2.5">
-          <span className="text-2xl font-semibold tracking-tight">{currentScore}</span>
-          <span className="text-muted">→</span>
-          <span className="text-2xl font-semibold tracking-tight text-accent">{projectedScore}</span>
-          {improvementPct !== 0 && (
-            <span
-              className={`ml-1.5 rounded-full px-2 py-0.5 text-xs font-semibold ${
-                improvementPct > 0 ? "bg-success-soft text-success" : "bg-warning-soft text-warning"
-              }`}
-            >
-              {improvementPct > 0 ? "+" : ""}
-              {improvementPct}%
+        <div className="flex flex-wrap items-end gap-5">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[10px] font-medium uppercase tracking-wide text-muted">
+              Score de complétude
             </span>
-          )}
+            <div className="flex items-baseline gap-2.5">
+              <span className="text-2xl font-semibold tracking-tight">{currentScore}</span>
+              <span className="text-muted">→</span>
+              <span className="text-2xl font-semibold tracking-tight text-accent">{projectedScore}</span>
+              {improvementPct !== 0 && (
+                <span
+                  className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                    improvementPct > 0 ? "bg-success-soft text-success" : "bg-warning-soft text-warning"
+                  }`}
+                >
+                  {improvementPct > 0 ? "+" : ""}
+                  {improvementPct}%
+                </span>
+              )}
+            </div>
+          </div>
+
           {tier && (
-            <span
-              title={`Indice de puissance ${tier.powerIndex}/100 — Game Changers : ${tier.signals.gameChangerCount}, mana rapide (rampe coût ≤2) : ${tier.signals.fastManaCount}, tutors : ${tier.signals.tutorCount}, tours supplémentaires : ${tier.signals.extraTurnCount}, destruction de terrains de masse : ${tier.signals.massLandDenialCount}. ${tier.caveat}`}
-              className={`ml-1.5 rounded-full px-2 py-0.5 text-xs font-semibold ${TIER_BADGE_CLASS[tier.tier]}`}
-            >
-              {tier.label}
-            </span>
+            <div className="flex flex-col gap-0.5">
+              <span className="text-[10px] font-medium uppercase tracking-wide text-muted">
+                Puissance (tier)
+              </span>
+              <span
+                title={`Indice de puissance ${tier.powerIndex}/100 — Game Changers : ${tier.signals.gameChangerCount}, mana rapide (rampe coût ≤2) : ${tier.signals.fastManaCount}, tutors : ${tier.signals.tutorCount}, tours supplémentaires : ${tier.signals.extraTurnCount}, destruction de terrains de masse : ${tier.signals.massLandDenialCount}. ${tier.caveat}`}
+                className={`w-fit rounded-full px-2 py-0.5 text-xs font-semibold ${TIER_BADGE_CLASS[tier.tier]}`}
+              >
+                {tier.label}
+              </span>
+            </div>
           )}
         </div>
         <p className="max-w-sm text-right text-xs text-muted">
@@ -130,10 +163,20 @@ export function DeckDashboard({
 
       {tier && (
         <p className="mt-2 text-[11px] text-muted">
-          {tier.label} · indice de puissance {tier.powerIndex}/100 — indication heuristique
-          inspirée des Brackets Commander officiels de Wizards of the Coast (système encore en
-          beta), un axe distinct du score ci-dessus. Survole le badge pour le détail des signaux
-          et ses limites.
+          Un score de complétude élevé et un tier de puissance modeste ne sont pas contradictoires :
+          le <strong className="text-foreground">score</strong> mesure si ce deck remplit bien SES
+          PROPRES rôles de deckbuilding (rampe, removal, pioche...), le{" "}
+          <strong className="text-foreground">tier</strong> mesure sa puissance objective face à
+          l&apos;écosystème Commander dans son ensemble — un deck peut très bien couvrir tous ses
+          rôles sans contenir beaucoup de cartes &quot;Game Changer&quot; officielles ou d&apos;outils
+          de vitesse extrême. Ici : {tier.label.toLowerCase()}, indice {tier.powerIndex}/100 (
+          {tier.signals.gameChangerCount} Game Changer{tier.signals.gameChangerCount === 1 ? "" : "s"},{" "}
+          {tier.signals.fastManaCount} mana rapide, {tier.signals.tutorCount} tutor
+          {tier.signals.tutorCount === 1 ? "" : "s"}, {tier.signals.extraTurnCount} tour
+          {tier.signals.extraTurnCount === 1 ? "" : "s"} supplémentaire
+          {tier.signals.extraTurnCount === 1 ? "" : "s"}) — indication heuristique inspirée des
+          Brackets Commander officiels de Wizards of the Coast (système encore en beta). Survole le
+          badge pour le détail complet et ses limites.
         </p>
       )}
 
