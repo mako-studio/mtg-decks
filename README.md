@@ -1362,6 +1362,86 @@ de comparaison (`isBetterState`) suivant exactement le même schéma que
 `rankCommanderCandidates`, elle-même testée avec un scénario dédié qui
 force cette divergence.
 
+### Correctif de performance : blocage sur une grosse collection (24/09/2026)
+
+Deux signalements de Ben le même jour, juste après le correctif
+ci-dessus : **"le site est bloqué à cette étape avec 1000 cartes"** (à la
+soumission d'une collection depuis `/collection`) puis **"idem, ça ne
+génère pas les commandants suggérés"** (bouton "Découvrir des
+commandants" resté bloqué sur "Recherche en cours…").
+
+Même cause racine pour les deux : `rankCommanderCandidates`
+(collection-builder.ts) appelle `selectDeckFromPool` une fois PAR
+COMMANDANT CANDIDAT — jusqu'à ~175 pour "Découvrir des commandants"
+(1 page Scryfall de commandants populaires), potentiellement plusieurs
+centaines pour les commandants POSSÉDÉS d'une grosse collection (autant
+de créatures légendaires que Ben en a accumulé). `selectDeckFromPool`
+recalculait à chaque appel, depuis zéro, tout ce qui ne dépend PAS
+réellement du commandant testé : légalité dans le format, exclusion des
+synergies singleton mortes (`hasDeadSingletonSynergy`, ajoutée plus tôt
+dans la même journée) et surtout `classifyCard`/`cardPowerScore`
+(plusieurs dizaines de tests regex par carte chacune) — `cardPowerScore`
+étant en plus appelée à CHAQUE itération de la boucle de sélection
+gloutonne de `pickBestCards` (elle-même O(créneaux × cartes restantes)
+par appel), pas juste une fois par carte. Un travail indépendant du
+commandant candidat se retrouvait donc multiplié par le nombre de
+candidats ET par la taille de la boucle de sélection, au lieu de rester
+proportionnel à la taille de la collection. Mesuré en reproduisant le
+scénario en pur calcul local (sans latence réseau, voir
+`repro-1000-cards-2026-09-24.mts`, scratchpad) : **~7 secondes rien que
+pour classer 100 candidats sur une collection de 1000 cartes** — largement
+de quoi dépasser un timeout de fonction serverless en production (Vercel)
+ou simplement donner l'impression que le site est figé, et ça empirait
+avec chaque commandant candidat supplémentaire.
+
+Correctif : deux nouveaux caches calculés UNE SEULE FOIS par
+`rankCommanderCandidates` puis réutilisés pour tous les candidats plutôt
+que reconstruits à chaque appel de `selectDeckFromPool`/`pickBestCards` :
+
+- `prepareCandidatePool` (nouvelle fonction) : légalité + exclusion
+  singleton morte + `classifyCard`, pour l'ensemble du pool, indépendant
+  du commandant — `selectDeckFromPool` prend maintenant un paramètre
+  optionnel `prepared` (ce résultat) ; s'il est omis (appel isolé depuis
+  `switchCollectionCommander`/`buildDeckWithUnownedCommander`/le deck
+  final de `buildDeckFromCollection`), il est calculé sur place comme
+  avant — un coût correct pour UN appel, seule la multiplication par le
+  nombre de candidats posait problème.
+- `powerScoreCache` (dans le même objet `prepared`) : `cardPowerScore(card)`
+  précalculé une fois par carte, passé en paramètre à `pickBestCards`/
+  `priorityScore` au lieu d'être recalculé (et donc de rappeler
+  `classifyCard` en interne, un pur doublon) à chaque carte évaluée dans
+  la boucle de sélection gloutonne — la partie du correctif qui avait
+  le plus d'impact, puisque cette boucle est bien plus fréquente qu'un
+  simple appel par candidat.
+
+Résultat mesuré (même script) : ~900 ms pour 100 candidats sur 1000
+cartes (contre ~7200 ms avant), et un scénario de stress à 300 candidats
+sur 2000 cartes reste sous les 5 secondes (voir
+`repro-stress-2026-09-24.mts`, scratchpad) — une croissance désormais
+linéaire avec la taille de la collection/du nombre de candidats plutôt
+qu'explosive.
+
+**Vérification.** Niveau 1 : chronométrage avant/après sur un pool
+synthétique de taille comparable à celle signalée par Ben (pas de decklist
+réelle disponible, même technique de reproduction "par la forme" que le
+correctif précédent) ; l'intégralité de la suite de vérification niveau 1
+de la journée (tier-priorité, exclusion singleton, actions.ts) rejouée
+sans régression après ce refactor (mêmes assertions, mêmes résultats).
+Niveau 2 (Playwright, build de production, Scryfall mocké) : le scénario
+complet "commandants non possédés" (découverte + aperçu + retour) et les
+libellés tier-first du sélecteur de commandant, tous deux déjà vérifiés
+plus haut, rejoués après ce correctif sans régression.
+
+⚠️ Portée : ce correctif traite la cause identifiée par LECTURE DU CODE et
+confirmée par un scénario de reproduction construit à partir de la FORME
+du signalement de Ben (pas sa collection réelle, non disponible) — comme
+pour le correctif score/tier plus haut dans ce document. S'il reste un
+blocage après ce correctif sur la vraie collection de Ben, ce serait un
+signal que la cause est différente ou plus profonde qu'estimé ici (par
+exemple : nombre de candidats commandant bien au-delà de ce qui a été
+testé, ou un tout autre goulot d'étranglement) — à réinvestiguer plutôt
+qu'à supposer résolu sans confirmation de Ben.
+
 ## Stack
 
 Next.js 16 (App Router, TypeScript, Turbopack) + Tailwind CSS v4. Pas de

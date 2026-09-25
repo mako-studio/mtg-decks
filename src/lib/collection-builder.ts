@@ -117,18 +117,35 @@ const ARCHETYPE_MATCH_BONUS = 0.5;
  * `pickBestCards` pour chaque carte restante, un recalcul de
  * `classifyCard` à chaque fois serait un travail redondant inutile sur de
  * grosses collections.
+ *
+ * `powerScore` est de la même façon précalculé par l'appelant (voir
+ * `powerScoreCache` dans `prepareCandidatePool`) plutôt que recalculé ici
+ * via `cardPowerScore(card)` à chaque appel. ⚠️ Correctif de performance
+ * du 24/09/2026 (Ben : "le site est bloqué à cette étape avec 1000
+ * cartes" / "ça ne génère pas les commandants suggérés") : `priorityScore`
+ * est appelée par `pickBestCards` pour CHAQUE carte restante à CHAQUE
+ * itération de sa boucle (O(slots × cartes restantes) par appel de
+ * `pickBestCards`, lui-même appelé 2 à 4 fois par candidat) — `cardPowerScore`
+ * recalculant `classifyCard(card)` en interne (déjà disponible via
+ * `categories` ci-dessus, donc un pur doublon) sur CHACUN de ces appels
+ * transformait un simple calcul arithmétique en un travail regex-lourd
+ * répété des dizaines de milliers de fois par commandant candidat évalué
+ * (`rankCommanderCandidates`) — la cause dominante du blocage signalé,
+ * bien plus coûteuse que le filtrage/la classification déjà mise en
+ * cache côté `prepareCandidatePool`/`classifyCache`.
  */
 function priorityScore(
   card: ScryfallCard,
   format: FormatConfig,
   categories: DeckCategory[],
-  archetypeSignals: ArchetypeSignal[]
+  archetypeSignals: ArchetypeSignal[],
+  powerScore: number
 ): number {
   const { weights, targets } = format.categories;
   let score = 0;
   for (const cat of categories) score += weights[cat] / targets[cat];
 
-  score += cardPowerScore(card);
+  score += powerScore;
   if (typeof card.edhrec_rank === "number" && card.edhrec_rank > 0) {
     if (card.edhrec_rank <= 300) score += 0.25;
     else if (card.edhrec_rank <= 1500) score += 0.08;
@@ -196,6 +213,7 @@ function pickBestCards(
   format: FormatConfig,
   archetypeSignals: ArchetypeSignal[],
   classifyCache: Map<string, DeckCategory[]>,
+  powerScoreCache: Map<string, number>,
   cappedCount: (card: ScryfallCard) => number,
   categoryCountsSeed: Record<DeckCategory, number>
 ): { picked: Map<string, { card: ScryfallCard; count: number }>; categoryCounts: Record<DeckCategory, number> } {
@@ -223,7 +241,13 @@ function pickBestCards(
     let bestScore = -Infinity;
     for (const card of remaining.values()) {
       const cats = classifyCache.get(card.id) ?? [];
-      let score = priorityScore(card, format, cats, archetypeSignals);
+      // Repli défensif `?? cardPowerScore(card)` : ne devrait jamais être
+      // exercé en pratique (toute carte de `remaining` provient de
+      // `legalCards`/`usable`, déjà présente dans `powerScoreCache` — voir
+      // prepareCandidatePool), gardé seulement pour ne jamais planter si
+      // cette invariant venait à changer.
+      const power = powerScoreCache.get(card.id) ?? cardPowerScore(card);
+      let score = priorityScore(card, format, cats, archetypeSignals, power);
       if (weakest && cats.includes(weakest)) score += WEAKEST_CATEGORY_BONUS;
 
       const isBetter =
@@ -253,6 +277,64 @@ function pickBestCards(
   return { picked, categoryCounts };
 }
 
+/**
+ * Résultat de `prepareCandidatePool` (voir sa doc juste en dessous) —
+ * légalité dans le format + exclusion des synergies singleton mortes déjà
+ * appliquées, classification par pilier (`classifyCard`) déjà calculée
+ * pour chaque carte retenue.
+ */
+export interface PreparedPool {
+  legalCards: ScryfallCard[];
+  classifyCache: Map<string, DeckCategory[]>;
+  /** Voir la note du 24/09/2026 dans la doc de `priorityScore` — `cardPowerScore(card)` précalculé une fois par carte plutôt que recalculé à chaque itération de `pickBestCards`. */
+  powerScoreCache: Map<string, number>;
+}
+
+/**
+ * Précalcule, pour un `pool`/`format` donnés, tout ce qui NE DÉPEND PAS du
+ * commandant candidat : légalité (`isLegalInFormat`), exclusion des
+ * synergies singleton mortes (`hasDeadSingletonSynergy`, deck-score.ts) et
+ * classification par pilier (`classifyCard`, deck-score.ts — plusieurs
+ * dizaines de tests regex par carte, la partie la plus coûteuse).
+ *
+ * ⚠️ Correctif de performance du 24/09/2026 (Ben : "le site est bloqué à
+ * cette étape avec 1000 cartes", et "ça ne génère pas les commandants
+ * suggérés" pour "Découvrir des commandants") : avant ce correctif,
+ * `selectDeckFromPool` recalculait ce filtrage/cette classification DEPUIS
+ * ZÉRO à chaque appel — et `rankCommanderCandidates` (juste plus bas)
+ * l'appelle une fois PAR COMMANDANT CANDIDAT (jusqu'à ~175 pour
+ * "Découvrir des commandants", potentiellement plusieurs centaines pour
+ * les commandants possédés d'une grosse collection). Le coût, indépendant
+ * du commandant, était donc multiplié par le nombre de candidats au lieu
+ * de rester proportionnel à la taille de la collection — mesuré : ~7
+ * secondes en calcul pur (sans latence réseau) pour seulement 100
+ * candidats sur 1000 cartes (voir repro-1000-cards-2026-09-24.mts,
+ * scratchpad), largement de quoi dépasser un timeout de fonction
+ * serverless en production ou simplement donner l'impression que le site
+ * est bloqué. `rankCommanderCandidates` appelle désormais cette fonction
+ * UNE SEULE FOIS et réutilise son résultat pour chaque candidat ; seule
+ * l'identité couleur du commandant (qui, elle, varie par candidat) est
+ * encore filtrée à l'intérieur de `selectDeckFromPool`, un filtrage sans
+ * regex donc bien moins coûteux.
+ */
+export function prepareCandidatePool(pool: ScryfallCard[], format: FormatConfig): PreparedPool {
+  const legalCards = pool.filter((card) => {
+    if (!isLegalInFormat(card, format)) return false;
+    // Voir la note identique dans l'ancienne version de `selectDeckFromPool`
+    // (signalé par Ben le 24/09/2026, exemple : Mishra) — indépendant du
+    // commandant, donc calculable ici une bonne fois pour toutes.
+    if (format.maxCopies <= 1 && hasDeadSingletonSynergy(card)) return false;
+    return true;
+  });
+  const classifyCache = new Map<string, DeckCategory[]>();
+  const powerScoreCache = new Map<string, number>();
+  for (const card of legalCards) {
+    classifyCache.set(card.id, classifyCard(card));
+    powerScoreCache.set(card.id, cardPowerScore(card));
+  }
+  return { legalCards, classifyCache, powerScoreCache };
+}
+
 export interface SelectDeckParams {
   /** Cartes possédées déjà résolues auprès de Scryfall, hors commandant choisi. */
   pool: ScryfallCard[];
@@ -262,6 +344,18 @@ export interface SelectDeckParams {
   format: FormatConfig;
   /** Terrains de base résolus (Plains/Island/Swamp/Mountain/Forest/Wastes) pour compléter le deck — voir topUpLandCount dans actions.ts pour le même principe côté "Super Opti". */
   basics: Map<string, ScryfallCard>;
+  /**
+   * Résultat de `prepareCandidatePool` déjà calculé pour ce `pool`/`format`
+   * (24/09/2026, correctif de performance — voir sa doc). Optionnel :
+   * `rankCommanderCandidates` le calcule une fois et le fournit à chaque
+   * appel pour éviter de le refaire par candidat ; un appel isolé
+   * (`switchCollectionCommander`, `buildDeckWithUnownedCommander`,
+   * `buildDeckFromCollection` pour le deck final) peut l'omettre —
+   * `selectDeckFromPool` le calcule alors lui-même, un coût correct pour
+   * un appel unique (seule la MULTIPLICATION par le nombre de candidats
+   * posait problème).
+   */
+  prepared?: PreparedPool;
 }
 
 /**
@@ -307,19 +401,18 @@ export function selectDeckFromPool(params: SelectDeckParams): { name: string; co
   const { pool, ownedCounts, commander, format, basics } = params;
   const commanderKey = commander.name.toLowerCase();
 
-  const eligible = pool.filter((card) => {
+  // Légalité + exclusion singleton morte + classifyCard : indépendants du
+  // commandant, voir prepareCandidatePool (correctif de performance du
+  // 24/09/2026). Seule l'identité couleur (ci-dessous) dépend réellement
+  // du commandant candidat.
+  const {
+    legalCards,
+    classifyCache: preparedClassifyCache,
+    powerScoreCache: preparedPowerScoreCache,
+  } = params.prepared ?? prepareCandidatePool(pool, format);
+
+  const eligible = legalCards.filter((card) => {
     if (card.name.toLowerCase() === commanderKey) return false;
-    if (!isLegalInFormat(card, format)) return false;
-    // Format singleton (Commander/Duel Commander : maxCopies=1) : une
-    // carte dont la valeur dépend d'avoir PLUSIEURS exemplaires du même
-    // nom (ex: "search your library for a card with the same name as
-    // that spell") est structurellement inerte ici, sa bibliothèque ne
-    // contenant jamais de second exemplaire à trouver — voir
-    // hasDeadSingletonSynergy dans deck-score.ts (signalé par Ben le
-    // 24/09/2026, exemple : Mishra). En constructed 60 cartes
-    // (maxCopies=4), ce schéma est parfaitement fonctionnel, donc jamais
-    // filtré.
-    if (format.maxCopies <= 1 && hasDeadSingletonSynergy(card)) return false;
     return card.color_identity.every((c) => commander.color_identity.includes(c));
   });
 
@@ -333,22 +426,33 @@ export function selectDeckFromPool(params: SelectDeckParams): { name: string; co
   const lands = usable.filter((c) => isLand(c));
   const nonLands = usable.filter((c) => !isLand(c));
 
-  const classifyCache = new Map<string, DeckCategory[]>();
-  for (const card of usable) classifyCache.set(card.id, classifyCard(card));
+  // Sous-ensembles du cache partagé (toutes les cartes de `usable` sont
+  // dans `legalCards`, donc déjà présentes dans ces deux caches — aucun
+  // recalcul de `classifyCard`/`cardPowerScore` ici).
+  const classifyCache = preparedClassifyCache;
+  const powerScoreCache = preparedPowerScoreCache;
 
   const idealLandCount = Math.round(format.categories.idealLandRatio * format.deckSize);
   const nonLandTarget = format.deckSize - idealLandCount;
 
   const runSelection = (archetypeSignals: ArchetypeSignal[]) => {
-    const landsResult = pickBestCards(lands, idealLandCount, format, archetypeSignals, classifyCache, cappedCount, {
-      ...EMPTY_CATEGORY_COUNTS,
-    });
+    const landsResult = pickBestCards(
+      lands,
+      idealLandCount,
+      format,
+      archetypeSignals,
+      classifyCache,
+      powerScoreCache,
+      cappedCount,
+      { ...EMPTY_CATEGORY_COUNTS }
+    );
     const nonLandsResult = pickBestCards(
       nonLands,
       nonLandTarget,
       format,
       archetypeSignals,
       classifyCache,
+      powerScoreCache,
       cappedCount,
       landsResult.categoryCounts
     );
@@ -454,8 +558,21 @@ export interface RankCandidatesParams {
  * nécessaire ici) puis en calculant son score (`computeDeckStats`) ET son
  * tier (`computeDeckTier`), exactement comme le deck final affiché.
  * Aucun appel réseau ici (tout est déjà résolu en amont, voir
- * buildDeckFromCollection dans actions.ts), donc classer même une
- * vingtaine de candidats reste rapide.
+ * buildDeckFromCollection dans actions.ts).
+ *
+ * ⚠️ Correctif de performance du 24/09/2026 (Ben : "le site est bloqué à
+ * cette étape avec 1000 cartes" / "ça ne génère pas les commandants
+ * suggérés") : `selectDeckFromPool` filtre/classe désormais une bonne
+ * partie du pool (légalité, synergie singleton morte, `classifyCard`) de
+ * façon indépendante du commandant — voir `prepareCandidatePool`. Calculé
+ * ICI une seule fois pour tous les candidats plutôt que refait depuis
+ * zéro par `selectDeckFromPool` à chaque itération de la boucle
+ * ci-dessous : sans ça, ce travail (coûteux — dizaines de regex par
+ * carte) était multiplié par le nombre de candidats (jusqu'à ~175 pour
+ * "Découvrir des commandants", potentiellement plus pour les commandants
+ * possédés d'une grosse collection), au lieu de rester proportionnel à la
+ * taille de la collection. Voir la doc de `prepareCandidatePool` pour la
+ * mesure exacte (~7s pour 100 candidats sur 1000 cartes, en calcul pur).
  */
 export function rankCommanderCandidates(params: RankCandidatesParams): RankedCommanderCandidate[] {
   const { pool, ownedCounts, candidates, format, basics } = params;
@@ -463,9 +580,11 @@ export function rankCommanderCandidates(params: RankCandidatesParams): RankedCom
   for (const c of pool) byName.set(c.name.toLowerCase(), c);
   for (const c of basics.values()) byName.set(c.name.toLowerCase(), c);
 
+  const prepared = prepareCandidatePool(pool, format);
+
   const ranked = candidates.map((commander) => {
     const trialPool = pool.filter((c) => c.name.toLowerCase() !== commander.name.toLowerCase());
-    const deckCards = selectDeckFromPool({ pool: trialPool, ownedCounts, commander, format, basics });
+    const deckCards = selectDeckFromPool({ pool: trialPool, ownedCounts, commander, format, basics, prepared });
     const enriched = toEnriched(deckCards, byName);
     const stats = computeDeckStats(enriched, format.categories);
     const tier = computeDeckTier(enriched, [commander], stats, format.categories);
