@@ -98,6 +98,23 @@ Voir la section « Structure » du README pour l'arbre complet.
   (résolution Scryfall, candidats commandants, pool recommandé, classement,
   recherches de synergie pour le top 3) et `openProposedDeck` (délègue à
   `analyzeDeck`).
+- **`src/lib/partners.ts`** (25/09/2026, 2e passage) — règles des duos ;
+  le constructeur gère 1 ou 2 commandants (`commanders[]` partout).
+- **`src/lib/spellbook.ts`** (25/09/2026, 2e passage) — Commander Spellbook
+  en direct depuis le site déployé (find-my-combos, estimate-bracket),
+  appelé par `analyzeDeck` et le constructeur ; repli sur la base curatée.
+- **`src/lib/name-resolution.ts`** (25/09/2026, 2e passage) — autocorrection
+  des noms importés (cascade exact → nettoyage → approché → français →
+  autocomplétion), corrections affichées.
+- **`scripts/fetch-duel-meta.mjs`** — élargit l'échantillon Duel depuis
+  mtgtop8 et génère 3 index (méta, référence par commandant, synergies
+  apprises) ; à lancer par Ben sur son Mac, ou chaque lundi via
+  `scripts/install-weekly-duel-meta.sh` (LaunchAgent). `--rebuild-only`
+  recalcule sans télécharger. Archive cumulative :
+  `analysis/duelcommander/decks-mtgtop8.json` (344 decks au 25/09/2026).
+- **`src/lib/duel-reference.ts`** — lit les index de référence et de
+  co-occurrence ; utilisé par le constructeur (bonus référence en Duel,
+  synergies apprises dans les deux modes) et l'UI.
 - **`src/lib/synergy.ts`** — 16 thèmes + tribu, masques de bits,
   `synergySearchQueries`. **`src/lib/combos.ts`** + `src/data/combos.ts` —
   ~35 combos curatées. **`src/lib/duel-meta.ts`** + `src/data/duel-meta.json`.
@@ -126,7 +143,13 @@ Voir la section « Structure » du README pour l'arbre complet.
   (cloud ET VM du Mac ; `WebFetch` reçoit aussi un 403). Toute vérification
   touchant Scryfall se fait avec des données simulées. Le site déployé, lui,
   y accède. Inaccessibles aussi : EDHREC, mtgtop8, Commander Spellbook,
-  mtgjson. Accessibles : npm, `raw.githubusercontent.com`, recherche web.
+  mtgjson. Accessibles : npm, `raw.githubusercontent.com` (utile pour lire le
+  code source d'une API, ex. Commander Spellbook), recherche web (WebFetch
+  lit mtgtop8 page par page). **Ne pas** extraire des données en masse via
+  le navigateur intégré de l'app sur le Mac de Ben : tenté le 25/09/2026,
+  bloqué par un garde-fou de sécurité (contournement des restrictions
+  réseau). Voies légitimes : appel en direct depuis le site déployé
+  (Vercel), ou script que Ben lance lui-même sur son Mac.
 - **Pas d'API EDHREC** : score/suggestions = moteur heuristique interne.
   Décision assumée, ne pas la remettre en cause sans Ben.
 - **Tier = heuristique** inspirée des Brackets WotC, pas le système
@@ -138,8 +161,8 @@ Voir la section « Structure » du README pour l'arbre complet.
 - **Constructeur compétitif, non vérifié en réel** : requêtes Scryfall
   (`is:commander`, recherches de synergie), temps total en production,
   limite `maxDuration` du plan Vercel, orthographe exacte de chaque nom
-  curaté, base de combos non recoupée avec Commander Spellbook. Commandant
-  unique (pas de partenaires/Background).
+  curaté, format exact des réponses Commander Spellbook (déduit de son code
+  source), script mtgtop8 jamais exécuté en réel.
 - **Méta Duel** : échantillon court (82 decks, 01→04/09/2026), part calculée
   sur tous les decks (favorise les couleurs dominantes), couleurs/raretés du
   classeur estimées sans Scryfall (ignorées par le générateur).
@@ -211,7 +234,9 @@ se lit dans `01-app/03-api-reference/03-file-conventions/02-route-segment-config
 
 Se fier à `git status`/`git log` réels plutôt qu'à ce paragraphe.
 
-Au 25/09/2026 : constructeur de decks compétitif livré sur le Mac (non
+Au 25/09/2026 (2e passage) : duos, Commander Spellbook en direct,
+autocorrection des noms, script méta Duel — livrés sur le Mac, non commités
+par Ben au moment de l'écriture. Avant : constructeur de decks compétitif livré sur le Mac (non
 commité par Ben au moment de l'écriture). Détail complet dans la section
 README « Constructeur de decks compétitif (25/09/2026) ». En attente :
 retour de Ben en usage réel (temps de réponse en production, pertinence
@@ -227,10 +252,7 @@ constructeur compétitif.
 
 ## 10. Pistes (jamais demandées — ne rien lancer sans Ben)
 
-- Partenaires / Background dans le constructeur.
-- Recouper `src/data/combos.ts` avec Commander Spellbook si l'API devient
-  accessible ; élargir la base.
-- Rafraîchir `duel-meta.json` avec un échantillon de tournois plus long.
+- Confirmer en réel Commander Spellbook et le script mtgtop8 (retour de Ben).
 - Recalibrer les seuils de tier sur des decks réels de Ben.
 - Vérifier en réel les requêtes Scryfall du constructeur.
 - Données équivalentes au méta Duel pour le multijoueur (cEDH), si une

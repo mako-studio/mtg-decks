@@ -3,6 +3,7 @@ import { classifyCard, computeDeckStats, EMPTY_CATEGORY_COUNTS, hasDeadSingleton
 import {
   cardTierSignals,
   computeDeckTier,
+  tierWithSpellbook,
   EMPTY_TIER_COUNTS,
   powerIndexFromComponents,
   tierComponentsFromCounts,
@@ -13,14 +14,18 @@ import {
 import {
   cardSynergyFeatures,
   commanderProfile,
+  mergeProfiles,
   sharedThemeLabels,
   synergyScore,
   type CardSynergyFeatures,
   type CommanderProfile,
 } from "./synergy";
-import { ALL_COMBO_PIECES, findCompleteCombos, type ComboDef } from "./combos";
+import { comboPieceSet, CURATED_COMBOS, findCompleteCombos, type ComboDef } from "./combos";
+import { canHavePartner, canPair } from "./partners";
+import { cooccurrenceKey, learnedPartners, referenceFor, referenceShare, type CommanderReference } from "./duel-reference";
 import { BASIC_LAND_BY_COLOR, isLegalInFormat } from "./collection-builder";
 import { getDisplayOracleText } from "./scryfall";
+import { duelMetaPresence, duelMetaPresenceInColors } from "./duel-meta";
 
 /**
  * Constructeur de decks COMPÉTITIF (25/09/2026, demande de Ben) :
@@ -82,6 +87,10 @@ export type BuildMode = "multi" | "duel";
  *   mana rapide). Pratique courante des decks haute puissance.
  */
 export interface ModeProfile {
+  /** Poids de la part d'une carte dans les decks de tournoi de CE commandant (duel-reference.ts). */
+  referenceWeight: number;
+  /** Poids des synergies apprises (co-occurrence entre commandants, duel-reference.ts). */
+  learnedSynergyWeight: number;
   curveSoftCap: number;
   curvePenalty: number;
   cheapInteractionBonus: number;
@@ -90,8 +99,14 @@ export interface ModeProfile {
 }
 
 export const MODE_PROFILES: Record<BuildMode, ModeProfile> = {
-  multi: { curveSoftCap: 5, curvePenalty: 0.4, cheapInteractionBonus: 0.5, metaWeight: 0, maxLandCut: 3 },
-  duel: { curveSoftCap: 4, curvePenalty: 0.9, cheapInteractionBonus: 1.3, metaWeight: 5, maxLandCut: 3 },
+  // referenceWeight 6 : une carte jouée par 100% des decks de tournoi de ce
+  // commandant gagne 6 points — l'équivalent d'un Game Changer suivant ;
+  // la référence oriente fortement, sans écraser le 1er Game Changer (+10).
+  // learnedSynergyWeight : appliqué à chaque partenaire déjà choisi (lift
+  // plafonné à 6, voir greedyPick) ; moitié moins en multi, les données
+  // venant du Duel.
+  multi: { referenceWeight: 0, learnedSynergyWeight: 0.5, curveSoftCap: 5, curvePenalty: 0.4, cheapInteractionBonus: 0.5, metaWeight: 0, maxLandCut: 3 },
+  duel: { referenceWeight: 6, learnedSynergyWeight: 1, curveSoftCap: 4, curvePenalty: 0.9, cheapInteractionBonus: 1.3, metaWeight: 5, maxLandCut: 3 },
 };
 
 export function modeForFormat(format: FormatConfig): BuildMode {
@@ -129,10 +144,17 @@ export interface CardFeatures {
   synergy: CardSynergyFeatures;
   isLand: boolean;
   isBasic: boolean;
+  /** Pièce d'une combo de la base CURATÉE (les combos Commander Spellbook sont gérées par build, voir BuildContext.combos). */
   comboPiece: boolean;
   /** Terrain qui cherche un terrain d'un type de base (fetchland) — compte comme fixing. */
   fetchesBasicType: boolean;
+  /** Part des decks de tournoi Duel qui la jouent, à couleurs égales si disponible (duel-meta.ts) — signal de CHOIX ; le tier utilise `tier.duelMeta`. */
+  duelMetaChoice: number;
+  /** Part globale (pour l'affichage si pas de part à couleurs égales). */
+  duelMetaGlobal: number;
 }
+
+const CURATED_PIECES = comboPieceSet(CURATED_COMBOS);
 
 const BASIC_TYPE_FETCH = /search your library for an? [^.]*(plains|island|swamp|mountain|forest)/i;
 
@@ -160,8 +182,10 @@ export function buildFeatureIndex(cards: Iterable<ScryfallCard>, format: FormatC
       synergy: cardSynergyFeatures(card),
       isLand,
       isBasic: Boolean(card.type_line?.includes("Basic Land")),
-      comboPiece: ALL_COMBO_PIECES.has(key),
+      comboPiece: CURATED_PIECES.has(key),
       fetchesBasicType: isLand && BASIC_TYPE_FETCH.test(getDisplayOracleText(card)),
+      duelMetaChoice: duelMetaPresenceInColors(card.name),
+      duelMetaGlobal: duelMetaPresence(card.name),
     });
   }
   return index;
@@ -172,10 +196,17 @@ function inIdentity(card: ScryfallCard, identity: string[]): boolean {
 }
 
 interface PickState {
+  /** Pièces de combo (minuscules) des combos utilisées pour ce build. */
+  pieceSet: Set<string>;
+  combos: readonly ComboDef[];
   categoryCounts: Record<DeckCategory, number>;
   tierCounts: TierCounts;
   pickedKeys: Set<string>;
   comboPiecesPicked: Set<string>;
+  /** Clés de co-occurrence (face avant, minuscules) des cartes déjà choisies. */
+  pickedCoKeys: Set<string>;
+  /** Référence tournoi du/des commandant(s), si disponible (Duel). */
+  reference: CommanderReference | null;
 }
 
 interface PickedEntry {
@@ -207,7 +238,8 @@ function addToTierCounts(counts: TierCounts, f: CardFeatures, count: number): Ti
 }
 
 export interface BuildContext {
-  commander: ScryfallCard;
+  /** 1 commandant, ou 2 pour un duo (partenaires, Background... voir partners.ts). */
+  commanders: ScryfallCard[];
   format: FormatConfig;
   mode: BuildMode;
   features: Map<string, CardFeatures>;
@@ -219,13 +251,18 @@ export interface BuildContext {
   maxAcquisitions: number;
   /** Terrains de base résolus (clé minuscule). Supposés toujours disponibles. */
   basics: Map<string, ScryfallCard>;
-  /** Profil de synergie précalculé du commandant (sinon calculé). */
+  /** Profil de synergie précalculé du/des commandant(s) (sinon calculé). */
   profile?: CommanderProfile;
+  /** Combos à viser (défaut : base curatée ; en production, enrichies par Commander Spellbook). */
+  combos?: readonly ComboDef[];
+  /** Référence tournoi ; par défaut recherchée automatiquement en Duel (duel-reference.ts). */
+  reference?: CommanderReference | null;
 }
 
 export interface BuiltDeck {
-  commander: ScryfallCard;
-  commanderOwned: boolean;
+  commanders: ScryfallCard[];
+  /** Chaque commandant est-il possédé ? (même ordre que `commanders`) */
+  commandersOwned: boolean[];
   cards: { name: string; count: number }[];
   /** Cartes du deck qui ne sont PAS dans la collection (hors commandant), de la plus impactante à la moins impactante. */
   acquisitions: { name: string; card: ScryfallCard; reasons: string[]; tierGain: number; score: number }[];
@@ -234,6 +271,7 @@ export interface BuiltDeck {
   stats: DeckStats;
   tier: DeckTierResult;
   profile: CommanderProfile;
+  reference: CommanderReference | null;
 }
 
 /**
@@ -242,7 +280,14 @@ export interface BuiltDeck {
  * d'affinité commandant ↔ collection. Approximation volontaire du gain de
  * tier (valeurs typiques du gain marginal, voir TIER_WEIGHT).
  */
-function staticScore(f: CardFeatures, profile: CommanderProfile, format: FormatConfig, mode: BuildMode): number {
+function staticScore(
+  f: CardFeatures,
+  profile: CommanderProfile,
+  format: FormatConfig,
+  mode: BuildMode,
+  pieceSet: Set<string> = CURATED_PIECES,
+  reference: CommanderReference | null = null
+): number {
   const { weights, targets } = format.categories;
   const p = MODE_PROFILES[mode];
   let s = 0;
@@ -251,8 +296,9 @@ function staticScore(f: CardFeatures, profile: CommanderProfile, format: FormatC
   if (f.tier.fastMana) s += 3;
   if (f.tier.tutor) s += 10 / Math.max(1, targets.tutor);
   if (f.tier.extraTurn) s += 1.5;
-  if (f.comboPiece) s += 1;
-  s += f.tier.duelMeta * p.metaWeight;
+  if (pieceSet.has(f.key)) s += 1;
+  s += f.duelMetaChoice * p.metaWeight;
+  s += referenceShare(reference, f.card.name) * p.referenceWeight;
   s += synergyScore(f.synergy, profile);
   if (!f.isLand && f.card.cmc > p.curveSoftCap) s -= (f.card.cmc - p.curveSoftCap) * p.curvePenalty;
   if (typeof f.card.edhrec_rank === "number" && f.card.edhrec_rank > 0) {
@@ -333,7 +379,7 @@ function greedyPick(
 
       // Combo complétée par cette carte ?
       let completes = 0;
-      if (f.comboPiece) {
+      if (state.pieceSet.has(f.key)) {
         comboPiecesLower.forEach((pieces) => {
           if (!pieces.includes(f.key)) return;
           const others = pieces.filter((x) => x !== f.key);
@@ -367,14 +413,46 @@ function greedyPick(
         if (labels.length) reasons.push(`Synergie : ${labels.join(", ")}`);
       }
 
-      if (f.comboPiece && comboPiecesLower.some((pieces) => pieces.includes(f.key))) {
+      if (state.pieceSet.has(f.key) && comboPiecesLower.some((pieces) => pieces.includes(f.key))) {
         score += COMBO_PIECE_BONUS;
         if (completes === 0) reasons.push("Pièce de combo");
       }
 
-      if (p.metaWeight > 0 && f.tier.duelMeta > 0) {
-        score += f.tier.duelMeta * p.metaWeight;
-        if (f.tier.duelMeta >= 0.1) reasons.push(`Jouée dans ${Math.round(f.tier.duelMeta * 100)}% des decks de tournoi Duel`);
+      if (p.metaWeight > 0 && f.duelMetaChoice > 0) {
+        score += f.duelMetaChoice * p.metaWeight;
+        if (f.duelMetaChoice >= 0.1) {
+          reasons.push(
+            f.duelMetaChoice !== f.duelMetaGlobal
+              ? `Jouée dans ${Math.round(f.duelMetaChoice * 100)}% des decks de tournoi Duel de ses couleurs`
+              : `Jouée dans ${Math.round(f.duelMetaChoice * 100)}% des decks de tournoi Duel`
+          );
+        }
+      }
+
+      if (p.referenceWeight > 0 && state.reference) {
+        const share = referenceShare(state.reference, f.card.name);
+        if (share > 0) {
+          score += share * p.referenceWeight;
+          if (share >= 0.4) {
+            reasons.push(
+              `Dans ${Math.round(share * 100)}% des decks de tournoi de ce commandant (${state.reference.deckCount} decks)`
+            );
+          }
+        }
+      }
+
+      if (p.learnedSynergyWeight > 0) {
+        let learned = 0;
+        let bestMate: string | null = null;
+        for (const mate of learnedPartners(f.card.name)) {
+          if (!state.pickedCoKeys.has(mate.key)) continue;
+          learned += (Math.min(mate.lift, 6) / 6) * p.learnedSynergyWeight;
+          bestMate ??= mate.name;
+        }
+        if (learned > 0) {
+          score += Math.min(2.5, learned);
+          reasons.push(`Souvent jouée avec ${bestMate} en tournoi`);
+        }
       }
 
       if (f.isLand) {
@@ -412,10 +490,11 @@ function greedyPick(
     // Mise à jour de l'état partagé (piliers, compteurs de tier, combos).
     for (const cat of f.categories) state.categoryCounts[cat] += count;
     const next = addToTierCounts(state.tierCounts, f, count);
-    if (f.comboPiece) state.comboPiecesPicked.add(f.key);
-    next.combos = findCompleteCombos([...state.comboPiecesPicked]).length;
+    if (state.pieceSet.has(f.key)) state.comboPiecesPicked.add(f.key);
+    next.combos = findCompleteCombos([...state.comboPiecesPicked], state.combos).filter((c) => !c.minor).length;
     state.tierCounts = next;
     state.pickedKeys.add(f.key);
+    state.pickedCoKeys.add(cooccurrenceKey(f.card.name));
 
     picked.push({ f, count, acquired, score: best.score, tierGain: best.tierGain, reasons: best.reasons });
     if (acquired) acquiredCount++;
@@ -478,11 +557,23 @@ function distributeBasics(
     .map((c) => ({ name: BASIC_LAND_BY_COLOR[c], count: counts[c] }));
 }
 
+/** Identité couleur d'un ou deux commandants (union, ordre WUBRG). */
+export function unionIdentity(commanders: ScryfallCard[]): string[] {
+  const set = new Set(commanders.flatMap((c) => c.color_identity));
+  return ["W", "U", "B", "R", "G"].filter((c) => set.has(c));
+}
+
+/** Nombre de cartes hors commandant(s) : 99 avec un commandant, 98 avec un duo (deck de 100 cartes au total). */
+export function mainDeckSize(format: FormatConfig, commanderCount: number): number {
+  return format.deckSize + 1 - commanderCount;
+}
+
 /**
- * Construit le meilleur deck possible pour UN commandant. Étapes :
- * 1. candidats = cartes de l'index dans l'identité du commandant,
- *    possédées OU acquérables (hors commandant et terrains de base) ;
- * 2. présélection statique (NONLAND_SHORTLIST/LAND_SHORTLIST) ;
+ * Construit le meilleur deck possible pour UN commandant ou UN DUO. Étapes :
+ * 1. candidats = cartes de l'index dans l'identité (union en duo),
+ *    possédées OU acquérables (hors commandants et terrains de base) ;
+ * 2. présélection statique (NONLAND_SHORTLIST/LAND_SHORTLIST), pièces de
+ *    combo réalisables toujours gardées ;
  * 3. terrains d'abord (leur fixing alimente le pilier « landfix »), puis
  *    non-terrains, par sélection gloutonne au gain marginal (greedyPick) ;
  *    la passe non-terrains prend `maxLandCut` créneaux de plus en réserve ;
@@ -505,34 +596,49 @@ export function buildDeckForCommander(ctx: BuildContext): BuiltDeck {
 }
 
 function buildOnce(ctx: BuildContext): BuiltDeck {
-  const { commander, format, mode, features, owned, acquirable, basics } = ctx;
-  const profile = ctx.profile ?? commanderProfile(commander);
-  const identity = commander.color_identity;
-  const commanderKey = commander.name.toLowerCase();
+  const { commanders, format, mode, features, owned, acquirable, basics } = ctx;
+  const profile = ctx.profile ?? mergeProfiles(commanders.map(commanderProfile));
+  const identity = unionIdentity(commanders);
+  const commanderKeys = new Set(commanders.map((c) => c.name.toLowerCase()));
   const p = MODE_PROFILES[mode];
+  const deckSize = mainDeckSize(format, commanders.length);
+  const comboDefs = ctx.combos ?? CURATED_COMBOS;
+  const reference = ctx.reference !== undefined ? ctx.reference : mode === "duel" ? referenceFor(commanders.map((c) => c.name)) : null;
 
   const available: CardFeatures[] = [];
   for (const f of features.values()) {
-    if (f.key === commanderKey || f.isBasic) continue;
+    if (commanderKeys.has(f.key) || f.isBasic) continue;
     if (!inIdentity(f.card, identity)) continue;
     const isOwned = (owned.get(f.key) ?? 0) > 0;
     if (!isOwned && !acquirable.has(f.key)) continue;
     available.push(f);
   }
 
-  const combosAvailable = findCompleteCombos([commander.name, ...available.map((f) => f.card.name)]);
+  // Combos réalisables avec ce qui est disponible (commandants compris). Les
+  // combos à « modèle » générique (Commander Spellbook : « un outil de
+  // sacrifice »...) ne sont pas visées carte par carte : on ne sait pas quelle
+  // carte remplit le modèle — elles restent détectées sur le deck final.
+  const combosAvailable = findCompleteCombos(
+    [...commanders.map((c) => c.name), ...available.map((f) => f.card.name)],
+    comboDefs
+  ).filter((c) => !c.templates?.length && !c.minor);
+  const pieceSet = comboPieceSet(combosAvailable);
 
   const byStatic = (list: CardFeatures[], limit: number) =>
     list
-      .map((f) => ({ f, s: staticScore(f, profile, format, mode) - ((owned.get(f.key) ?? 0) > 0 ? 0 : ACQUISITION_PENALTY) }))
+      .map((f) => ({
+        f,
+        s:
+          staticScore(f, profile, format, mode, pieceSet, reference) -
+          ((owned.get(f.key) ?? 0) > 0 ? 0 : ACQUISITION_PENALTY),
+      }))
       .sort((a, b) => b.s - a.s || a.f.card.name.localeCompare(b.f.card.name))
       .slice(0, limit)
       .map((x) => x.f);
 
-  const comboKeys = new Set(combosAvailable.flatMap((c) => c.pieces.map((x) => x.toLowerCase())));
   const withCombos = (short: CardFeatures[], all: CardFeatures[]) => {
     const inShort = new Set(short.map((f) => f.key));
-    return [...short, ...all.filter((f) => comboKeys.has(f.key) && !inShort.has(f.key))];
+    return [...short, ...all.filter((f) => pieceSet.has(f.key) && !inShort.has(f.key))];
   };
 
   const landsAll = available.filter((f) => f.isLand);
@@ -540,21 +646,29 @@ function buildOnce(ctx: BuildContext): BuiltDeck {
   const lands = withCombos(byStatic(landsAll, LAND_SHORTLIST), landsAll);
   const nonLands = withCombos(byStatic(nonLandsAll, NONLAND_SHORTLIST), nonLandsAll);
 
-  const landTarget = Math.round(format.categories.idealLandRatio * format.deckSize);
-  const nonLandTarget = format.deckSize - landTarget;
+  const landTarget = Math.round(format.categories.idealLandRatio * deckSize);
+  const nonLandTarget = deckSize - landTarget;
 
   const state: PickState = {
+    pieceSet,
+    combos: combosAvailable,
     categoryCounts: { ...EMPTY_CATEGORY_COUNTS },
     tierCounts: { ...EMPTY_TIER_COUNTS },
     pickedKeys: new Set(),
     comboPiecesPicked: new Set(),
+    pickedCoKeys: new Set(commanders.map((c) => cooccurrenceKey(c.name))),
+    reference,
   };
-  // Le commandant compte pour les combos, les Game Changers, la synergie —
-  // mais pas pour les piliers/la courbe (même convention que computeDeckStats).
-  if (ALL_COMBO_PIECES.has(commanderKey)) state.comboPiecesPicked.add(commanderKey);
-  if (commander.game_changer) state.tierCounts.gameChangers += 1;
+  // Les commandants comptent pour les combos et les Game Changers — pas pour
+  // les piliers/la courbe (même convention que computeDeckStats).
+  for (const c of commanders) {
+    const key = c.name.toLowerCase();
+    if (pieceSet.has(key)) state.comboPiecesPicked.add(key);
+    if (c.game_changer) state.tierCounts.gameChangers += 1;
+  }
+  state.tierCounts.combos = findCompleteCombos([...state.comboPiecesPicked], combosAvailable).length;
 
-  const commanderOwned = (owned.get(commanderKey) ?? 0) > 0;
+  const commandersOwned = commanders.map((c) => (owned.get(c.name.toLowerCase()) ?? 0) > 0);
 
   const landPicks = greedyPick(lands, landTarget, ctx, profile, state, combosAvailable, identity);
   const landAcq = landPicks.filter((x) => x.acquired).length;
@@ -584,15 +698,13 @@ function buildOnce(ctx: BuildContext): BuiltDeck {
   basicsCount -= fromBasics;
   toCut -= fromBasics;
   if (toCut > 0) finalLandPicks = landPicks.slice(0, Math.max(0, landPicks.length - toCut));
-  const landsRemoved = cut;
 
-  const finalNonLands = nonLandPicks.slice(0, nonLandTarget + landsRemoved);
+  const finalNonLands = nonLandPicks.slice(0, nonLandTarget + cut);
   // Si le pool est trop petit, les créneaux non-terrain manquants deviennent
-  // des terrains de base (deck toujours jouable à exactement deckSize cartes,
-  // même convention que selectDeckFromPool).
+  // des terrains de base (deck toujours jouable à exactement deckSize cartes).
   const nonLandCount = finalNonLands.reduce((s, x) => s + x.count, 0);
   const landCount = finalLandPicks.reduce((s, x) => s + x.count, 0);
-  basicsCount += Math.max(0, format.deckSize - nonLandCount - landCount - basicsCount);
+  basicsCount += Math.max(0, deckSize - nonLandCount - landCount - basicsCount);
 
   const basicsList = distributeBasics(basicsCount, identity, finalNonLands.map((x) => x.f), basics);
 
@@ -608,10 +720,10 @@ function buildOnce(ctx: BuildContext): BuiltDeck {
   for (const b of basicsList) add(b.name, b.count);
   // Ajustement final exact à deckSize (arrondis de répartition).
   let total = Array.from(cards.values()).reduce((s, c) => s + c.count, 0);
-  if (total > format.deckSize) {
+  if (total > deckSize) {
     for (const b of [...basicsList].reverse()) {
       const e = cards.get(b.name.toLowerCase());
-      while (e && e.count > 0 && total > format.deckSize) {
+      while (e && e.count > 0 && total > deckSize) {
         e.count--;
         total--;
       }
@@ -629,18 +741,19 @@ function buildOnce(ctx: BuildContext): BuiltDeck {
   for (const x of allPicks) if (x.reasons.length) reasonsByName[x.f.card.name] = x.reasons;
 
   const deckList = Array.from(cards.values());
-  const { stats, tier } = evaluateDeck(deckList, commander, features, basics, format);
+  const { stats, tier } = evaluateDeck(deckList, commanders, features, basics, format, comboDefs);
 
-  return { commander, commanderOwned, cards: deckList, acquisitions, reasonsByName, stats, tier, profile };
+  return { commanders, commandersOwned, cards: deckList, acquisitions, reasonsByName, stats, tier, profile, reference };
 }
 
 /** Score + tier d'une liste, avec les mêmes fonctions que le tableau de bord (computeDeckStats/computeDeckTier). */
 export function evaluateDeck(
   list: { name: string; count: number }[],
-  commander: ScryfallCard,
+  commanders: ScryfallCard[],
   features: Map<string, CardFeatures>,
   basics: Map<string, ScryfallCard>,
-  format: FormatConfig
+  format: FormatConfig,
+  comboDefs: readonly ComboDef[] = CURATED_COMBOS
 ): { stats: DeckStats; tier: DeckTierResult } {
   const enriched: EnrichedCard[] = list.map((e) => ({
     name: e.name,
@@ -649,20 +762,50 @@ export function evaluateDeck(
     card: features.get(e.name.toLowerCase())?.card ?? basics.get(e.name.toLowerCase()) ?? null,
   }));
   const stats = computeDeckStats(enriched, format.categories);
-  const tier = computeDeckTier(enriched, [commander], stats, format.categories, format.key);
+  const tier = computeDeckTier(enriched, commanders, stats, format.categories, format.key, comboDefs);
   return { stats, tier };
 }
 
+/**
+ * Remplace le tier d'un deck construit par celui calculé avec l'estimation
+ * Commander Spellbook (combos confirmées + bracket), même formule
+ * (tierWithSpellbook, deck-tier.ts). Le deck lui-même ne change pas.
+ */
+export function rescoreWithSpellbook(
+  deck: BuiltDeck,
+  features: Map<string, CardFeatures>,
+  basics: Map<string, ScryfallCard>,
+  format: FormatConfig,
+  estimate: { bracketTag: string; label: string; combos: ComboDef[] }
+): BuiltDeck {
+  const enriched: EnrichedCard[] = deck.cards.map((e) => ({
+    name: e.name,
+    count: e.count,
+    isCommander: false,
+    card: features.get(e.name.toLowerCase())?.card ?? basics.get(e.name.toLowerCase()) ?? null,
+  }));
+  const tier = tierWithSpellbook(enriched, deck.commanders, deck.stats, format.categories, format.key, estimate);
+  return { ...deck, tier };
+}
+
+export type CandidateSource = "collection" | "popular" | "high-power" | "duel-meta";
+
+/** Un commandant seul OU un duo. */
 export interface CommanderCandidate {
-  card: ScryfallCard;
-  owned: boolean;
-  /** D'où vient ce candidat (affiché dans l'UI). */
-  source: "collection" | "popular" | "high-power" | "duel-meta";
+  cards: ScryfallCard[];
+  /** Possession de chaque commandant (même ordre que `cards`). */
+  owned: boolean[];
+  /** D'où vient ce candidat (affiché dans l'UI) — pour un duo, la source du 1er commandant. */
+  source: CandidateSource;
+}
+
+export function candidateKey(c: { cards: ScryfallCard[] }): string {
+  return c.cards.map((x) => x.name).join(" + ");
 }
 
 export interface DeckProposal {
   candidate: CommanderCandidate;
-  /** Deck avec UNIQUEMENT les cartes possédées (+ le commandant, possédé ou non). */
+  /** Deck avec UNIQUEMENT les cartes possédées (+ les commandants, possédés ou non). */
   ownedDeck: BuiltDeck;
   /** Deck avec le pool recommandé autorisé (jusqu'à maxAcquisitions cartes). */
   upgradedDeck: BuiltDeck;
@@ -670,54 +813,110 @@ export interface DeckProposal {
 }
 
 /**
- * Affinité rapide commandant ↔ collection (présélection des commandants
- * avant la construction complète, coûteuse) : somme des meilleurs scores
- * statiques des cartes POSSÉDÉES jouables avec ce commandant, plus la
- * puissance propre du commandant. Un commandant dont l'identité ne couvre
- * presque rien de la collection a une affinité faible et n'est pas évalué
- * en détail.
+ * Affinité rapide commandant(s) ↔ collection (présélection avant la
+ * construction complète, coûteuse) : somme des meilleurs scores statiques
+ * des cartes POSSÉDÉES jouables dans l'identité, plus la puissance propre
+ * des commandants. Un duo élargit l'identité : son affinité est
+ * naturellement plus haute s'il ouvre des couleurs bien fournies dans la
+ * collection.
  */
 export function commanderAffinity(
-  commander: ScryfallCard,
+  commanders: ScryfallCard[],
   features: Map<string, CardFeatures>,
   owned: Map<string, number>,
   format: FormatConfig,
   mode: BuildMode
 ): number {
-  const profile = commanderProfile(commander);
-  const identity = commander.color_identity;
+  const profile = mergeProfiles(commanders.map(commanderProfile));
+  const identity = unionIdentity(commanders);
+  const keys = new Set(commanders.map((c) => c.name.toLowerCase()));
+  const reference = mode === "duel" ? referenceFor(commanders.map((c) => c.name)) : null;
   const scores: number[] = [];
   for (const f of features.values()) {
     if (f.isBasic || f.isLand) continue;
     if ((owned.get(f.key) ?? 0) <= 0) continue;
-    if (f.key === commander.name.toLowerCase()) continue;
+    if (keys.has(f.key)) continue;
     if (!inIdentity(f.card, identity)) continue;
-    scores.push(staticScore(f, profile, format, mode));
+    scores.push(staticScore(f, profile, format, mode, CURATED_PIECES, reference));
   }
   scores.sort((a, b) => b - a);
   const top = scores.slice(0, 55).reduce((s, x) => s + Math.max(0, x), 0);
-  const self = (commander.game_changer ? 8 : 0) + (ALL_COMBO_PIECES.has(commander.name.toLowerCase()) ? 2 : 0);
+  const self = commanders.reduce(
+    (s, c) => s + (c.game_changer ? 8 : 0) + (CURATED_PIECES.has(c.name.toLowerCase()) ? 2 : 0),
+    0
+  );
   return top + self;
+}
+
+/**
+ * Duos possibles parmi les candidats (25/09/2026, voir partners.ts pour les
+ * règles). Pour borner le coût : on ne considère que les `perSide`
+ * meilleurs candidats « à partenaire » (par affinité seul), puis on évalue
+ * l'affinité de chaque duo compatible et on garde les `limit` meilleurs.
+ * `mates` : cartes qui ne peuvent être commandant QU'en duo (Background),
+ * absentes de la liste des candidats seuls.
+ */
+export function generatePairs(
+  singles: { c: CommanderCandidate; affinity: number }[],
+  mates: CommanderCandidate[],
+  features: Map<string, CardFeatures>,
+  owned: Map<string, number>,
+  format: FormatConfig,
+  mode: BuildMode,
+  perSide = 25,
+  limit = 12
+): { c: CommanderCandidate; affinity: number }[] {
+  const partnerCapable = singles.filter((x) => canHavePartner(x.c.cards[0])).slice(0, perSide);
+  const pool = [...partnerCapable.map((x) => x.c), ...mates.slice(0, perSide)];
+  const out: { c: CommanderCandidate; affinity: number }[] = [];
+  const seen = new Set<string>();
+  for (let i = 0; i < pool.length; i++) {
+    for (let j = i + 1; j < pool.length; j++) {
+      const a = pool[i].cards[0];
+      const b = pool[j].cards[0];
+      if (!canPair(a, b)) continue;
+      // Ordre d'affichage : le Background en second, sinon ordre alphabétique.
+      const isBg = (x: ScryfallCard) => Boolean(x.type_line?.includes("Background"));
+      const cards = [a, b].sort((x, y) => Number(isBg(x)) - Number(isBg(y)) || x.name.localeCompare(y.name));
+      const key = cards.map((x) => x.name).join(" + ");
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const byName = new Map([...pool].map((p) => [p.cards[0].name, p] as const));
+      const cand: CommanderCandidate = {
+        cards,
+        owned: cards.map((x) => byName.get(x.name)?.owned[0] ?? false),
+        source: byName.get(cards[0].name)?.source ?? "popular",
+      };
+      out.push({ c: cand, affinity: commanderAffinity(cards, features, owned, format, mode) });
+    }
+  }
+  out.sort((x, y) => y.affinity - x.affinity || candidateKey(x.c).localeCompare(candidateKey(y.c)));
+  return out.slice(0, limit);
 }
 
 export interface RankParams {
   candidates: CommanderCandidate[];
+  /** Cartes qui ne peuvent être commandant qu'en duo (Background). */
+  mates?: CommanderCandidate[];
   features: Map<string, CardFeatures>;
   owned: Map<string, number>;
   acquirable: Set<string>;
   maxAcquisitions: number;
   format: FormatConfig;
   basics: Map<string, ScryfallCard>;
-  /** Nombre de commandants évalués en détail après présélection par affinité. */
+  /** Nombre de commandants SEULS évalués en détail après présélection par affinité. */
   maxTrials?: number;
   /** Nombre minimal de commandants POSSÉDÉS évalués en détail (s'il y en a). */
   minOwnedTrials?: number;
+  /** Nombre de DUOS évalués en détail. */
+  maxPairTrials?: number;
+  combos?: readonly ComboDef[];
 }
 
 /**
- * Classe les commandants candidats (possédés ET non possédés, un seul
- * classement comme demandé par Ben) par TIER du deck constructible avec
- * les cartes possédées, puis tier potentiel (avec le pool recommandé),
+ * Classe les candidats (possédés ET non possédés, seuls ET en duo — un
+ * seul classement comme demandé par Ben) par TIER du deck constructible
+ * avec les cartes possédées, puis tier potentiel (avec le pool recommandé),
  * puis score de complétude. Convention du projet (HANDOFF §11) : tier
  * d'abord, score en départage.
  */
@@ -726,24 +925,30 @@ export function rankProposals(params: RankParams): DeckProposal[] {
   const mode = modeForFormat(format);
   const maxTrials = params.maxTrials ?? 30;
   const minOwned = params.minOwnedTrials ?? 8;
+  const maxPairs = params.maxPairTrials ?? 10;
 
   const withAffinity = candidates.map((c) => ({
     c,
-    affinity: commanderAffinity(c.card, features, owned, format, mode),
+    affinity: commanderAffinity(c.cards, features, owned, format, mode),
   }));
-  withAffinity.sort((a, b) => b.affinity - a.affinity || a.c.card.name.localeCompare(b.c.card.name));
+  withAffinity.sort((a, b) => b.affinity - a.affinity || candidateKey(a.c).localeCompare(candidateKey(b.c)));
 
   const chosen = new Map<string, (typeof withAffinity)[number]>();
-  for (const x of withAffinity.filter((x) => x.c.owned).slice(0, minOwned)) chosen.set(x.c.card.name, x);
+  for (const x of withAffinity.filter((x) => x.c.owned.every(Boolean)).slice(0, minOwned)) chosen.set(candidateKey(x.c), x);
   for (const x of withAffinity) {
     if (chosen.size >= maxTrials) break;
-    if (!chosen.has(x.c.card.name)) chosen.set(x.c.card.name, x);
+    if (!chosen.has(candidateKey(x.c))) chosen.set(candidateKey(x.c), x);
+  }
+  if (maxPairs > 0) {
+    for (const x of generatePairs(withAffinity, params.mates ?? [], features, owned, format, mode, 25, maxPairs)) {
+      chosen.set(candidateKey(x.c), x);
+    }
   }
 
   const proposals: DeckProposal[] = [];
   for (const { c, affinity } of chosen.values()) {
-    const profile = commanderProfile(c.card);
-    const base = { commander: c.card, format, mode, features, owned, basics, profile };
+    const profile = mergeProfiles(c.cards.map(commanderProfile));
+    const base = { commanders: c.cards, format, mode, features, owned, basics, profile, combos: params.combos };
     const ownedDeck = buildDeckForCommander({ ...base, acquirable: new Set(), maxAcquisitions: 0 });
     const upgradedDeck =
       acquirable.size > 0 && maxAcquisitions > 0
@@ -752,15 +957,20 @@ export function rankProposals(params: RankParams): DeckProposal[] {
     proposals.push({ candidate: c, ownedDeck, upgradedDeck, affinity });
   }
 
+  sortProposals(proposals);
+  return proposals;
+}
+
+/** Tri « tier d'abord » (partagé avec competitive-actions.ts après enrichissement Commander Spellbook). */
+export function sortProposals(proposals: DeckProposal[]): void {
   proposals.sort(
     (a, b) =>
       b.ownedDeck.tier.powerIndex - a.ownedDeck.tier.powerIndex ||
       b.upgradedDeck.tier.powerIndex - a.upgradedDeck.tier.powerIndex ||
       b.ownedDeck.stats.score - a.ownedDeck.stats.score ||
-      Number(b.candidate.owned) - Number(a.candidate.owned) ||
-      a.candidate.card.name.localeCompare(b.candidate.card.name)
+      Number(b.candidate.owned.every(Boolean)) - Number(a.candidate.owned.every(Boolean)) ||
+      candidateKey(a.candidate).localeCompare(candidateKey(b.candidate))
   );
-  return proposals;
 }
 
 /** Seuil d'indice du Tier 4 (tierFromPowerIndex : paliers de 20 points). */

@@ -1602,6 +1602,144 @@ l'échantillon de tournoi est court (4 jours, 82 decks) et favorise les
 couleurs dominantes du moment ; les terrains de base sont supposés
 disponibles en quantité illimitée.
 
+### Constructeur compétitif, 2e passage : duos, Commander Spellbook, méta Duel, autocorrection (25/09/2026)
+
+**Demande de Ben** : « gère les duos de partenaires, augmente l'échantillon
+duel, augmente ta liste de combos, trouve des moyens de contourner
+Scryfall et Commander Spellbook, inclus aussi des orthographes proches ou
+autocorrect sur les noms ».
+
+**Duos de commandants** (`partners.ts`) : Partner, Partner with <nom>
+(uniquement avec la carte nommée), Partner—<groupe>, Friends forever,
+Choose a Background (+ carte Background), Doctor's companion (+ Time Lord
+Doctor). Le moteur (`competitive-builder.ts`) travaille désormais sur 1 ou
+2 commandants : identité = union, profil de synergie fusionné
+(`mergeProfiles`), 98 cartes au lieu de 99 en duo (`mainDeckSize`).
+`generatePairs` forme les duos parmi les 25 meilleurs candidats « à
+partenaire » + les Backgrounds (recherche `t:background`), évalue leur
+affinité et en construit 10 en entier, classés avec les commandants seuls
+(tier d'abord). Types renommés : `CommanderCandidate.cards[]`/`owned[]`,
+`BuildContext.commanders[]`, `BuiltDeck.commanders[]`.
+
+**Commander Spellbook en direct** (`spellbook.ts`) : l'API est inaccessible
+depuis les environnements de dev mais pas depuis Vercel — le site
+l'interroge côté serveur. Format lu dans le code source officiel
+(github.com/SpaceCowMedia/commander-spellbook-backend : `find_my_combos.py`,
+`estimate_bracket.py`, `common/serializers.py`, rendu camelCase) :
+- `POST /find-my-combos` `{main:[{card,quantity}], commanders:[…]}` (600
+  lignes max) → `results.included` / `results.almostIncluded` ;
+- `POST /estimate-bracket` → `bracketTag` (R/S/P/O/C/E/B) + combos
+  classées (`relevant`, `definitelyTwoCard`, `speed`).
+Usage : (1) `analyzeDeck` (toutes les pages deck) appelle estimate-bracket
+et recalcule le tier avec les combos confirmées (`tierWithSpellbook`,
+deck-tier.ts — variantes dédoublonnées par ensemble de cartes, combos non
+« pertinentes » affichées mais non comptées) + affiche le bracket CSB en
+2e avis ; (2) le constructeur, pour ses 6 meilleures propositions, appelle
+find-my-combos sur le pool (cartes possédées puis recommandées), vise les
+combos disponibles (sans « modèle » générique), propose les pièces
+manquantes des combos à une carte près, puis estime le bracket des deux
+decks finaux. Cache mémoire 1 h, timeout 8 s, repli sur la base curatée
+(passée de 36 à 64 combos) si l'API ne répond pas. On ne télécharge jamais
+la base entière (demande explicite de Commander Spellbook).
+
+**Échantillon Duel** : `scripts/fetch-duel-meta.mjs` (`npm run
+fetch-duel-meta -- --weeks 12`), **à lancer sur le Mac de Ben** (mtgtop8 et
+Scryfall inaccessibles depuis les environnements Claude). Structure
+mtgtop8 vérifiée sur de vraies pages le 25/09/2026 (liste
+`format?f=EDH&meta=115&cp=N`, decks `event?e=…&d=…`, export
+`mtgo?d=…` avec les commandants sous « Sideboard »). Archive cumulative
+`analysis/duelcommander/decks-mtgtop8.json`, puis `duel-meta.json` recalculé
+avec une nouvelle part `cardsInColors` (part parmi les decks dont l'identité
+permet de jouer la carte, identités lues sur Scryfall) utilisée pour
+CHOISIR les cartes (`duelMetaPresenceInColors`) ; le tier reste calibré sur
+la part globale. Non exécuté depuis l'environnement de dev (seul le parseur
+d'export a été testé sur un vrai export) : le premier lancement par Ben
+fait office de test réel. `--dry-run` parcourt 2 événements sans rien écrire.
+
+**Autocorrection des noms** (`name-resolution.ts`) : exact → nettoyage des
+décorations d'export (« (MH2) 123 », « *F* », « [Set] », « A/B » → « A // B »,
+apostrophes typographiques) → recherche approchée Scryfall → nom français →
+autocomplétion + distance d'édition (≤ 30% de la longueur). Étapes lentes
+plafonnées à 60 requêtes. Chaque correction est listée à Ben (« vérifie que
+c'est bien la bonne carte »), jamais silencieuse.
+
+**Contournement tenté et abandonné** : récupérer en masse des données
+(Commander Spellbook, mtgtop8) via le navigateur intégré de l'app sur le Mac
+de Ben a été bloqué par un garde-fou de sécurité (extraction de données
+vers l'environnement Claude en contournant ses restrictions réseau). Les
+solutions retenues passent par le site déployé (Commander Spellbook en
+direct) ou par un script que Ben lance lui-même (méta Duel).
+
+**Vérification** : niveau 1 — 41 assertions OK (dont duos valides/invalides,
+98 cartes en duo, combos externes à 3 cartes assemblées, dédoublonnage des
+variantes, combos mineures non comptées, nettoyage des noms) ; niveau 2 —
+build de prod + Scryfall ET Commander Spellbook simulés + Playwright :
+corrections affichées (« Sol Rinng » → Sol Ring), nom introuvable signalé,
+duo Thrasios + Tymna proposé et ouvert dans le simulateur (« Commandants »,
+« Deck (98 cartes) »), 2e avis Spellbook, combos à une carte près, pas de
+débordement à 390 px, aucune erreur console. **Non vérifié en réel** : les
+réponses exactes de Commander Spellbook (format déduit du code source), le
+temps total avec ~18 appels Spellbook supplémentaires, le script mtgtop8.
+
+### Base de construction Duel : mise à jour hebdomadaire, decks de référence, synergies apprises (25/09/2026)
+
+**Demande de Ben** : faire de l'archive mtgtop8 une vraie base de
+construction — (1) mise à jour automatique, (2) decks de référence par
+commandant, (3) synergies apprises.
+
+**Collecte corrigée** (`scripts/fetch-duel-meta.mjs`) : 1er vrai lancement
+par Ben le 25/09/2026 → 344 decks archivés, mais 54 dataient de 2013-2018 (la
+page de liste mtgtop8 affiche aussi d'anciens événements en colonne annexe)
+et leurs dates arrêtaient la pagination trop tôt (septembre seulement). Le
+script lit désormais la date sur la page de CHAQUE événement, ignore ceux
+hors fenêtre, et s'arrête quand une page ne contient plus aucun événement
+récent. `--rebuild-only` recalcule les fichiers depuis l'archive sans rien
+télécharger.
+
+**(1) Mise à jour hebdomadaire** : `zsh scripts/install-weekly-duel-meta.sh`
+installe un LaunchAgent macOS (lundi 8h17, `--weeks 4`, notification à la
+fin, journal `~/Library/Logs/mtg-opti-duel-meta.log`), `--uninstall` pour le
+retirer, `--run-now` pour tester. Ne commite rien : Ben relit et commite.
+Testé dans l'environnement de dev avec un `launchctl` simulé (le plist
+généré est valide, la commande décodée est correcte) — pas sur un vrai macOS.
+
+**(2) Decks de référence par commandant** : `src/data/duel-commander-reference.json`
+(généré par le script : pour chaque commandant ou duo joué dans ≥ 2 decks,
+part de chaque carte dans SES decks, cartes ≥ 25%, 3 decks d'exemple).
+`duel-reference.ts` le lit (recherche tolérante : duo dans n'importe quel
+ordre, recto-verso par face ou nom complet). En Duel, le constructeur
+ajoute `part × 6` au score d'une carte (une carte jouée par 100% des decks de
+tournoi de ce commandant vaut l'équivalent d'un Game Changer suivant), les
+cartes du « cœur » (≥ 50%) entrent dans le pool recommandé, et l'UI affiche
+« Comparé aux decks de tournoi de ce commandant » : couverture du cœur,
+cartes manquantes (possédées ou à acquérir), liens vers 3 decks.
+
+**(3) Synergies apprises** : `src/data/duel-cooccurrence.json`. Premier
+essai compté par deck : sur les vrais decks, il faisait surtout ressortir
+« le deck de Cloud » (20 listes quasi identiques gonflent toutes leurs
+paires) — de l'archétype, déjà couvert par (2). Version retenue : une voix
+par COMMANDANT (carte comptée si dans ≥ 50% de ses decks), terrains exclus,
+lift ≥ 2 parmi les commandants aux couleurs compatibles, ensemble chez ≥ 4
+commandants, confiance ≥ 70%, chaque carte chez ≥ 5 commandants. Sur une
+archive synthétique de 700 decks avec une synergie plantée : synergie
+retrouvée, 0 faux positif (contre 754 avec le lift seul). Dans le
+constructeur : bonus pour chaque partenaire déjà choisi (lift plafonné à 6,
+poids 1 en Duel, 0.5 en multi), raison « Souvent jouée avec X en tournoi ».
+
+**Fichiers livrés provisoires** : les deux index ont été générés dans
+l'environnement de dev depuis l'archive réelle de Ben mais SANS Scryfall
+(noms mtgtop8 bruts, identités couleur inconnues, donc terrains non filtrés
+par type) — à régénérer sur le Mac avec `node scripts/fetch-duel-meta.mjs
+--rebuild-only` (noms canoniques + couleurs).
+
+**Vérification** : niveau 1 — 48 assertions OK (dont référence de Cloud
+trouvée, duo trouvé quel que soit l'ordre, recto-verso par nom complet,
+cœur retenu face à du removal générique en Duel, raison affichée, synergie
+apprise appliquée, pas de bonus de référence en multi) ; calcul des index :
+160 ms sur les 290 decks réels ; niveau 2 — section « Comparé aux decks de
+tournoi » affichée pour Cloud (22 decks, cœur de 70 cartes, liens), aucune
+erreur, pas de débordement mobile.
+
 ## Stack
 
 Next.js 16 (App Router, TypeScript, Turbopack) + Tailwind CSS v4. Pas de
@@ -1938,6 +2076,10 @@ src/
     synergy.ts                     # Thèmes/tribus d'un commandant, synergie carte↔commandant
     combos.ts                      # Détection de combos connues (par noms)
     duel-meta.ts                   # Présence des cartes en tournoi Duel (duel-meta.json)
+    partners.ts                    # Règles des duos de commandants (Partner, Background...)
+    spellbook.ts                   # Client Commander Spellbook (find-my-combos, estimate-bracket)
+    name-resolution.ts             # Résolution tolérante des noms importés (autocorrection)
+    duel-reference.ts              # Decks de référence par commandant + synergies apprises (Duel)
   data/
     commander-decks.json          # Snapshot Commander papier
     duelcommander-decks.json      # Snapshot Duel Commander (11 decks, collecte manuelle mtgtop8)
@@ -1946,13 +2088,17 @@ src/
     glossary.ts                   # Contenu du glossaire (~55 termes, sourcés)
     tracked-sets.ts               # Codes des ~58 sets couverts par la section Extensions
     set-notes.json                 # Mécaniques introduites + contexte par set (58 entrées, sourcées)
-    duel-meta.json                 # Présence des cartes dans 82 decks de tournoi Duel (mtgtop8, 09/2026)
+    duel-meta.json                 # Présence des cartes dans les decks de tournoi Duel (mtgtop8)
+    duel-commander-reference.json  # Cartes jouées par commandant en tournoi Duel
+    duel-cooccurrence.json         # Synergies apprises (paires jouées ensemble par plusieurs commandants)
     game-changers.ts               # Liste des Game Changers (09/02/2026) — noms à proposer
     competitive-staples.ts         # Staples par rôle + commandants haute puissance (curatés)
     combos.ts                      # Base curatée de combos connues
 scripts/
   fetch-precon-decks.mjs          # Génère les 3 fichiers src/data/*.json
-  build-duel-meta.py              # Génère src/data/duel-meta.json depuis l'analyse mtgtop8 (openpyxl)
+  build-duel-meta.py              # Génère src/data/duel-meta.json depuis l'ancien classeur xlsx (historique)
+  fetch-duel-meta.mjs             # Élargit l'échantillon Duel depuis mtgtop8 (à lancer sur le Mac) + index
+  install-weekly-duel-meta.sh     # Programme la collecte chaque lundi (LaunchAgent macOS)
 ```
 
 ## Prochaines étapes suggérées
@@ -1972,9 +2118,9 @@ scripts/
   navigateur d'origine via localStorage).
 - Gérer le sideboard et le companion dans l'analyse Arena (actuellement
   seul le deck principal est analysé).
-- Constructeur compétitif : partenaires/Background ; recouper la base de
-  combos avec Commander Spellbook si son API devient accessible ;
-  rafraîchir `duel-meta.json` avec un échantillon de tournois plus long.
+- Constructeur compétitif : lancer `npm run fetch-duel-meta` régulièrement
+  sur le Mac pour grossir l'échantillon Duel ; confirmer en réel le format
+  des réponses Commander Spellbook.
 
 ## Attribution
 

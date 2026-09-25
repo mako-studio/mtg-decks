@@ -17,7 +17,8 @@ import { BASIC_LAND_BY_COLOR } from "./collection-builder";
 import { loadEnrichedDeck } from "./deck-loader";
 import { buildRemovalCandidates, evaluateCardCompatibility, suggestImprovements } from "./recommend";
 import { computeDeckStats } from "./deck-score";
-import { computeDeckTier, type DeckTierResult } from "./deck-tier";
+import { computeDeckTier, tierWithSpellbook, type DeckTierResult } from "./deck-tier";
+import { estimateBracket } from "./spellbook";
 import { detectArchetypes } from "./archetype";
 import { getFormat } from "./formats";
 import {
@@ -126,9 +127,21 @@ export async function analyzeDeck(input: {
     // de sens pour Standard/Historic/etc. Calculé sur les mêmes
     // `nonCommanderCards`/`commanderCards`/`currentStats` que le reste de
     // cette fonction, pas de résolution Scryfall supplémentaire.
-    const tier = format.hasCommander
+    let tier = format.hasCommander
       ? computeDeckTier(nonCommanderCards, commanderCards, currentStats, format.categories, format.key)
       : null;
+    // 25/09/2026 : 2e avis Commander Spellbook (estimate-bracket) + sa
+    // détection de combos, bien plus complète que la base curatée. En cas
+    // d'échec (API injoignable), on garde le tier calculé ci-dessus.
+    if (tier) {
+      const estimate = await estimateBracket(
+        nonCommanderCards.filter((c) => c.card).map((c) => c.card!.name),
+        commanderCards.map((c) => c.name)
+      );
+      if (estimate) {
+        tier = tierWithSpellbook(nonCommanderCards, commanderCards, currentStats, format.categories, format.key, estimate);
+      }
+    }
 
     const exportText = format.arenaOnly
       ? serializeArenaDeck({

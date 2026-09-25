@@ -123,11 +123,18 @@ function TierBadge({ tier, label }: { tier: PowerTierLevel; label: string }) {
   return <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${TIER_CLASS[tier]}`}>{label}</span>;
 }
 
-function sourceLabel(p: ProposalSummary): string {
-  if (p.commanderOwned) return "Dans ta liste";
-  const price = p.commanderPriceEur !== null ? ` · ≈ ${formatEur(p.commanderPriceEur)}` : "";
-  return `Commandant à acquérir${price}`;
+function allOwned(p: ProposalSummary): boolean {
+  return p.commanders.every((c) => c.owned);
 }
+
+function sourceLabel(p: ProposalSummary): string {
+  if (allOwned(p)) return p.commanders.length > 1 ? "Duo dans ta liste" : "Dans ta liste";
+  const missing = p.commanders.filter((c) => !c.owned);
+  const price = missing.reduce((s, c) => s + (c.priceEur ?? 0), 0);
+  const who = p.commanders.length > 1 ? `${missing.map((c) => c.name.split(",")[0]).join(" et ")} à acquérir` : "Commandant à acquérir";
+  return `${who}${price > 0 ? ` · ≈ ${formatEur(price)}` : ""}`;
+}
+
 
 export function CompetitiveBuilder() {
   const [inputMode, setInputMode] = useState<"text" | "csv">("text");
@@ -167,7 +174,7 @@ export function CompetitiveBuilder() {
     const acquisitionNames = v === "upgraded" ? p.acquisitions.map((a) => a.name) : [];
     const opened = await openProposedDeck({
       formatKey: res.formatKey,
-      commander: p.commander,
+      commanders: p.commanders.map((c) => c.name),
       cards: deck.cards,
       acquisitionNames,
       label: `${p.commander} — ${v === "upgraded" ? "optimisé" : "avec mes cartes"}`,
@@ -445,6 +452,21 @@ export function CompetitiveBuilder() {
           {result.candidateCount} commandants considérés, {result.evaluatedCount} évalués avec un deck complet. Barre
           pleine : avec tes cartes · barre claire : avec les cartes recommandées · trait orange : seuil du Tier 4.
         </p>
+        {result.corrections.length > 0 && (
+          <details className="mt-2 rounded-lg bg-accent-soft px-3 py-2 text-xs text-accent">
+            <summary className="cursor-pointer">
+              {result.corrections.length} nom{result.corrections.length > 1 ? "s" : ""} corrigé
+              {result.corrections.length > 1 ? "s" : ""} automatiquement — vérifie que c&apos;est bien la bonne carte
+            </summary>
+            <ul className="mt-1 space-y-0.5">
+              {result.corrections.map((c) => (
+                <li key={c.input}>
+                  « {c.input} » → <strong>{c.resolved}</strong> <span className="opacity-70">({c.method})</span>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
         {result.unresolvedNames.length > 0 && (
           <p className="mt-2 rounded-lg bg-warning-soft px-3 py-2 text-xs text-warning">
             Non reconnues par Scryfall (ignorées) : {result.unresolvedNames.join(", ")}.
@@ -454,7 +476,7 @@ export function CompetitiveBuilder() {
 
       <ol className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {result.proposals.map((prop, i) => (
-          <li key={prop.commander}>
+          <li key={prop.commander} className="min-w-0">
             <button
               type="button"
               onClick={() => select(i, variant)}
@@ -467,9 +489,12 @@ export function CompetitiveBuilder() {
                   <p className="truncate text-sm font-semibold" title={prop.commander}>
                     {prop.commander}
                   </p>
-                  <div className="mt-0.5 flex items-center gap-1.5">
+                  <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
                     <ManaCost cost={identityCost(prop.colorIdentity)} />
-                    <span className={`text-[11px] ${prop.commanderOwned ? "text-success" : "text-warning"}`}>{sourceLabel(prop)}</span>
+                    <span className={`text-[11px] ${allOwned(prop) ? "text-success" : "text-warning"}`}>{sourceLabel(prop)}</span>
+                    {prop.pairLabel && (
+                      <span className="rounded-full bg-synergy-soft px-1.5 text-[10px] font-medium text-synergy">{prop.pairLabel}</span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -494,10 +519,21 @@ export function CompetitiveBuilder() {
       {p && shownDeck && (
         <section className="rounded-xl border border-border bg-surface p-5">
           <div className="flex flex-wrap gap-5">
-            {p.imageUrl && (
-              <CardImageHover src={p.imageUrl} zoomSrc={p.imageUrl} alt={p.commander} width={150} className="shadow-md" />
-            )}
-            <div className="min-w-0 flex-1 space-y-3">
+            <div className="flex shrink-0 gap-2">
+              {p.commanders.map((c) =>
+                c.imageUrl ? (
+                  <CardImageHover
+                    key={c.name}
+                    src={c.imageUrl}
+                    zoomSrc={c.imageUrl}
+                    alt={c.name}
+                    width={p.commanders.length > 1 ? 110 : 150}
+                    className="shadow-md"
+                  />
+                ) : null
+              )}
+            </div>
+            <div className="min-w-[260px] flex-1 space-y-3">
               <div>
                 <p className="text-xs font-medium uppercase tracking-wide text-muted">
                   Deck #{selected + 1} · {formatLabel}
@@ -505,7 +541,8 @@ export function CompetitiveBuilder() {
                 <h2 className="text-xl font-semibold tracking-tight">{p.commander}</h2>
                 <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
                   <ManaCost cost={identityCost(p.colorIdentity)} size="md" />
-                  <span className={p.commanderOwned ? "text-success" : "text-warning"}>{sourceLabel(p)}</span>
+                  <span className={allOwned(p) ? "text-success" : "text-warning"}>{sourceLabel(p)}</span>
+                  {p.pairLabel && <span className="rounded-full bg-synergy-soft px-2 py-0.5 text-synergy">Duo · {p.pairLabel}</span>}
                   {[...p.themes, ...p.tribes.map((t) => `Tribu ${t}`)].map((t) => (
                     <span key={t} className="rounded-full bg-synergy-soft px-2 py-0.5 text-synergy">
                       {t}
@@ -535,7 +572,7 @@ export function CompetitiveBuilder() {
                       </div>
                       <p className="mt-1 text-[11px] text-muted">
                         {v === "owned"
-                          ? `${d.ownedCount}/99 cartes de ta liste (le reste : terrains de base)`
+                          ? `${d.ownedCount}/${d.deckSize} cartes de ta liste (le reste : terrains de base)`
                           : disabled
                             ? "Désactivé (aucune carte hors liste autorisée)"
                             : p.acquisitions.length === 0
@@ -548,6 +585,13 @@ export function CompetitiveBuilder() {
               </div>
 
               <TierBar owned={p.owned.tier.powerIndex} potential={p.upgraded.tier.powerIndex} />
+              {shownDeck.tier.spellbook && (
+                <p className="text-xs text-muted">
+                  2e avis Commander Spellbook pour cette version :{" "}
+                  <strong className="text-foreground">{shownDeck.tier.spellbook.label}</strong> (leur estimation, calculée
+                  par leur propre méthode ; la correspondance avec les brackets est approximative).
+                </p>
+              )}
 
               <div className="grid gap-4 lg:grid-cols-2">
                 <div>
@@ -559,18 +603,30 @@ export function CompetitiveBuilder() {
                   </ul>
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold">Combos détectées</h3>
+                  <h3 className="text-sm font-semibold">
+                    Combos détectées
+                    <span className="ml-1 text-[11px] font-normal text-muted">
+                      ({shownDeck.tier.signals.comboSource === "spellbook" ? "Commander Spellbook" : "base curatée"})
+                    </span>
+                  </h3>
                   {shownDeck.tier.signals.combos.length === 0 ? (
-                    <p className="mt-1 text-xs text-muted">Aucune combo de la base curatée dans cette version du deck.</p>
+                    <p className="mt-1 text-xs text-muted">
+                      Aucune combo détectée dans cette version du deck
+                      {shownDeck.tier.signals.comboSource === "curated" ? " (base curatée hors ligne seulement)" : ""}.
+                    </p>
                   ) : (
                     <ul className="mt-1 space-y-1 text-xs">
-                      {shownDeck.tier.signals.combos.map((c) => (
-                        <li key={c.id}>
+                      {shownDeck.tier.signals.combos.slice(0, 12).map((c) => (
+                        <li key={c.id} className={c.minor ? "opacity-60" : ""}>
                           <span className="font-medium">{c.pieces.join(" + ")}</span>
                           <span className="text-muted"> — {c.result}</span>
+                          {c.minor && <span className="text-muted"> (jugée mineure par Commander Spellbook, non comptée)</span>}
                           {c.note && <span className="block text-muted">⚠ {c.note}</span>}
                         </li>
                       ))}
+                      {shownDeck.tier.signals.combos.length > 12 && (
+                        <li className="text-muted">… et {shownDeck.tier.signals.combos.length - 12} autres.</li>
+                      )}
                     </ul>
                   )}
                 </div>
@@ -620,6 +676,61 @@ export function CompetitiveBuilder() {
                   </tbody>
                 </table>
               </div>
+            </div>
+          )}
+
+          {p.reference && (
+            <div className="mt-5 rounded-lg border border-border p-3">
+              <h3 className="text-sm font-semibold">
+                Comparé aux decks de tournoi de ce commandant ({p.reference.deckCount} decks mtgtop8)
+              </h3>
+              <p className="mt-0.5 text-xs text-muted">
+                Cœur = cartes jouées dans au moins la moitié de ces decks ({p.reference.coreSize} cartes). Ton deck en
+                contient {p.reference.coverageOwned}% avec tes cartes
+                {p.reference.coverageUpgraded !== p.reference.coverageOwned
+                  ? `, ${p.reference.coverageUpgraded}% en version optimisée`
+                  : ""}
+                .
+              </p>
+              {p.reference.missingCore.length > 0 && (
+                <ul className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
+                  {p.reference.missingCore.map((c) => (
+                    <li
+                      key={c.name}
+                      className={`rounded-full px-2 py-0.5 ${c.owned ? "bg-success-soft text-success" : "bg-surface-muted text-muted"}`}
+                      title={c.owned ? "Dans ta liste mais pas retenue par le moteur" : "À acquérir"}
+                    >
+                      {c.name} · {Math.round(c.share * 100)}%{c.owned ? " · possédée" : ""}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {p.reference.samples.length > 0 && (
+                <p className="mt-2 text-[11px] text-muted">
+                  Exemples :{" "}
+                  {p.reference.samples.map((s, i) => (
+                    <a key={s.url} href={s.url} target="_blank" rel="noreferrer" className="underline hover:text-foreground">
+                      deck {i + 1}
+                      {s.date ? ` (${s.date})` : ""}
+                      {i < p.reference!.samples.length - 1 ? ", " : ""}
+                    </a>
+                  ))}
+                </p>
+              )}
+            </div>
+          )}
+
+          {p.comboOpportunities.length > 0 && (
+            <div className="mt-5">
+              <h3 className="text-sm font-semibold">Combos à une carte près (Commander Spellbook)</h3>
+              <ul className="mt-1 space-y-1 text-xs">
+                {p.comboOpportunities.map((o) => (
+                  <li key={o.pieces.join("|")}>
+                    Il manque <strong>{o.missing.join(" + ")}</strong> pour {o.pieces.join(" + ")}
+                    <span className="text-muted"> — {o.result}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
 

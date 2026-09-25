@@ -6,18 +6,28 @@ import { BASIC_LAND_BY_COLOR, isCommanderEligible, isLegalInFormat } from "./col
 import {
   buildDeckForCommander,
   buildFeatureIndex,
+  candidateKey,
   modeForFormat,
   rankProposals,
+  rescoreWithSpellbook,
+  sortProposals,
   TIER4_THRESHOLD,
+  unionIdentity,
   type BuiltDeck,
+  type CandidateSource,
+  type CardFeatures,
   type CommanderCandidate,
   type DeckProposal,
 } from "./competitive-builder";
 import type { DeckTierResult } from "./deck-tier";
 import { getCardsByNames, getDisplayImageUrl, searchCards } from "./scryfall";
-import { synergySearchQueries } from "./synergy";
-import { allComboPieceNames } from "./combos";
+import { commanderProfile, mergeProfiles, synergySearchQueries } from "./synergy";
+import { allComboPieceNames, CURATED_COMBOS, mergeCombos, type ComboDef } from "./combos";
 import { duelMetaCardNames, duelMetaCommanderNames, DUEL_META_INFO } from "./duel-meta";
+import { canHavePartner, pairLabel } from "./partners";
+import { referenceCardNames, type CommanderReference } from "./duel-reference";
+import { distinctCombos, estimateBracket, findMyCombos } from "./spellbook";
+import { resolveCardNames, type NameCorrection } from "./name-resolution";
 import { GAME_CHANGER_NAMES } from "@/data/game-changers";
 import { HIGH_POWER_COMMANDERS, STAPLES_BY_ROLE } from "@/data/competitive-staples";
 import { analyzeDeck, type DeckAnalysisResult } from "./actions";
@@ -25,9 +35,12 @@ import { analyzeDeck, type DeckAnalysisResult } from "./actions";
 /**
  * Server Actions du constructeur compétitif (25/09/2026, demande de Ben —
  * voir competitive-builder.ts pour le moteur, et le README pour le
- * parcours complet). Fichier séparé d'actions.ts (déjà ~1300 lignes) :
- * même conventions (fonctions "use server", erreurs Scryfall rattrapées en
- * message lisible), mais une fonctionnalité autonome.
+ * parcours complet). Fichier séparé d'actions.ts : mêmes conventions
+ * (fonctions "use server", erreurs rattrapées en message lisible).
+ *
+ * 2e passage du 25/09/2026 : duos de commandants (partners.ts), résolution
+ * tolérante des noms (name-resolution.ts), combos et estimation de bracket
+ * Commander Spellbook en direct (spellbook.ts).
  */
 
 export type AcquisitionOption = 0 | 5 | 10 | 15 | 25;
@@ -42,16 +55,44 @@ export interface ProposalCard {
   typeLine: string;
 }
 
-export interface ProposalSummary {
-  commander: string;
-  commanderOwned: boolean;
-  source: CommanderCandidate["source"];
-  colorIdentity: string[];
+export interface ProposalCommander {
+  name: string;
+  owned: boolean;
+  priceEur: number | null;
   imageUrl: string | null;
-  commanderPriceEur: number | null;
+}
+
+export interface ComboOpportunity {
+  missing: string[];
+  pieces: string[];
+  result: string;
+  bracketTag?: string;
+}
+
+/** Comparaison avec les decks de tournoi de ce commandant (Duel, duel-reference.ts). */
+export interface ReferenceSummary {
+  label: string;
+  deckCount: number;
+  /** Part du « cœur » (cartes dans ≥ 50% des decks de tournoi) présente dans chaque version du deck. */
+  coverageOwned: number;
+  coverageUpgraded: number;
+  coreSize: number;
+  /** Cartes du cœur absentes du deck optimisé, de la plus jouée à la moins jouée. */
+  missingCore: { name: string; share: number; owned: boolean }[];
+  samples: { url: string; date: string | null }[];
+}
+
+export interface ProposalSummary {
+  /** Libellé : « A » ou « A + B » pour un duo. */
+  commander: string;
+  commanders: ProposalCommander[];
+  /** Type de duo (« Partner », « Background »...), null pour un commandant seul. */
+  pairLabel: string | null;
+  source: CandidateSource;
+  colorIdentity: string[];
   themes: string[];
   tribes: string[];
-  /** Deck avec les seules cartes possédées (+ commandant). */
+  /** Deck avec les seules cartes possédées (+ commandants). */
   owned: DeckVariant;
   /** Deck avec le pool recommandé. */
   upgraded: DeckVariant;
@@ -59,8 +100,12 @@ export interface ProposalSummary {
   acquisitions: ProposalCard[];
   acquisitionCostEur: number;
   acquisitionPriceUnknown: number;
+  /** Combos à une carte près (Commander Spellbook), hors celles déjà complétées par le deck optimisé. */
+  comboOpportunities: ComboOpportunity[];
   /** Pistes concrètes pour atteindre le Tier 4 (seuil d'indice TIER4_THRESHOLD). */
   pathToTier4: string[];
+  /** Comparaison avec les decks de tournoi de ce commandant, si disponible (Duel). */
+  reference: ReferenceSummary | null;
 }
 
 export interface DeckVariant {
@@ -68,6 +113,7 @@ export interface DeckVariant {
   score: number;
   cards: { name: string; count: number }[];
   ownedCount: number;
+  deckSize: number;
 }
 
 export interface CompetitiveBuildResult {
@@ -77,10 +123,14 @@ export interface CompetitiveBuildResult {
   maxAcquisitions: AcquisitionOption;
   collectionCards: { name: string; count: number }[];
   unresolvedNames: string[];
+  /** Noms corrigés automatiquement (orthographe proche, nom français...). */
+  corrections: NameCorrection[];
   proposals: ProposalSummary[];
   /** Nombre de commandants considérés / évalués en détail — transparence sur l'étendue de la recherche. */
   candidateCount: number;
   evaluatedCount: number;
+  /** Commander Spellbook a-t-il répondu pour au moins une proposition ? */
+  spellbookUsed: boolean;
   notes: string[];
 }
 
@@ -91,9 +141,11 @@ const EMPTY: CompetitiveBuildResult = {
   maxAcquisitions: 15,
   collectionCards: [],
   unresolvedNames: [],
+  corrections: [],
   proposals: [],
   candidateCount: 0,
   evaluatedCount: 0,
+  spellbookUsed: false,
   notes: [],
 };
 
@@ -111,6 +163,8 @@ function priceEur(card: ScryfallCard): number | null {
 const PROPOSALS_LIMIT = 8;
 /** Propositions dont le pool recommandé est élargi par des recherches de synergie (requêtes Scryfall supplémentaires). */
 const SYNERGY_SEARCH_TOP = 3;
+/** Propositions enrichies par Commander Spellbook (1 find-my-combos + 2 estimate-bracket chacune). */
+const SPELLBOOK_TOP = 6;
 /** Pages Scryfall de commandants populaires (175 cartes/page). */
 const POPULAR_COMMANDER_PAGES = 2;
 
@@ -153,10 +207,46 @@ function variantOf(deck: BuiltDeck, owned: Map<string, number>): DeckVariant {
     score: deck.stats.score,
     cards: deck.cards,
     ownedCount: deck.cards.filter((c) => (owned.get(c.name.toLowerCase()) ?? 0) > 0).reduce((s, c) => s + c.count, 0),
+    deckSize: deck.cards.reduce((s, c) => s + c.count, 0),
   };
 }
 
-function summarize(p: DeckProposal, owned: Map<string, number>, isDuel: boolean): ProposalSummary {
+function referenceSummary(
+  ref: CommanderReference | null,
+  ownedDeck: BuiltDeck,
+  upgradedDeck: BuiltDeck,
+  owned: Map<string, number>
+): ReferenceSummary | null {
+  if (!ref) return null;
+  const core = Array.from(ref.shares.values()).filter((v) => v.share >= 0.5);
+  if (core.length === 0) return null;
+  const front = (n: string) => n.toLowerCase().split(" // ")[0];
+  const setOf = (d: BuiltDeck) => new Set(d.cards.map((c) => front(c.name)));
+  const inOwned = setOf(ownedDeck);
+  const inUp = setOf(upgradedDeck);
+  const ownedFront = new Set(Array.from(owned.keys()).map(front));
+  const cov = (set: Set<string>) => Math.round((core.filter((c) => set.has(front(c.name))).length / core.length) * 100);
+  return {
+    label: ref.label,
+    deckCount: ref.deckCount,
+    coverageOwned: cov(inOwned),
+    coverageUpgraded: cov(inUp),
+    coreSize: core.length,
+    missingCore: core
+      .filter((c) => !inUp.has(front(c.name)))
+      .sort((a, b) => b.share - a.share)
+      .slice(0, 15)
+      .map((c) => ({ name: c.name, share: Math.round(c.share * 100) / 100, owned: ownedFront.has(front(c.name)) })),
+    samples: ref.samples,
+  };
+}
+
+function summarize(
+  p: DeckProposal,
+  owned: Map<string, number>,
+  isDuel: boolean,
+  opportunities: ComboOpportunity[]
+): ProposalSummary {
   const acquisitions: ProposalCard[] = p.upgradedDeck.acquisitions.map((a) => ({
     name: a.name,
     reasons: a.reasons,
@@ -167,14 +257,19 @@ function summarize(p: DeckProposal, owned: Map<string, number>, isDuel: boolean)
     typeLine: a.card.type_line,
   }));
   const known = acquisitions.filter((a) => a.priceEur !== null);
-  const commander = p.candidate.card;
+  const cards = p.candidate.cards;
+  const inUpgraded = new Set(p.upgradedDeck.cards.map((c) => c.name.toLowerCase()));
   return {
-    commander: commander.name,
-    commanderOwned: p.candidate.owned,
+    commander: candidateKey(p.candidate),
+    commanders: cards.map((c, i) => ({
+      name: c.name,
+      owned: p.candidate.owned[i],
+      priceEur: p.candidate.owned[i] ? null : priceEur(c),
+      imageUrl: getDisplayImageUrl(c, "normal"),
+    })),
+    pairLabel: cards.length === 2 ? pairLabel(cards[0], cards[1]) : null,
     source: p.candidate.source,
-    colorIdentity: commander.color_identity,
-    imageUrl: getDisplayImageUrl(commander, "normal"),
-    commanderPriceEur: p.candidate.owned ? null : priceEur(commander),
+    colorIdentity: unionIdentity(cards),
     themes: p.ownedDeck.profile.themes.map((t) => t.label),
     tribes: p.ownedDeck.profile.tribes,
     owned: variantOf(p.ownedDeck, owned),
@@ -182,25 +277,43 @@ function summarize(p: DeckProposal, owned: Map<string, number>, isDuel: boolean)
     acquisitions,
     acquisitionCostEur: Math.round(known.reduce((s, a) => s + (a.priceEur ?? 0), 0) * 100) / 100,
     acquisitionPriceUnknown: acquisitions.length - known.length,
+    comboOpportunities: opportunities.filter((o) => !o.missing.every((m) => inUpgraded.has(m.toLowerCase()))).slice(0, 6),
     pathToTier4: pathToTier4(p.upgradedDeck.tier, isDuel),
+    reference: referenceSummary(p.upgradedDeck.reference, p.ownedDeck, p.upgradedDeck, owned),
   };
+}
+
+/** Exécute `fn` sur chaque élément avec au plus `n` appels simultanés. */
+async function mapLimit<T, R>(items: T[], n: number, fn: (x: T) => Promise<R>): Promise<R[]> {
+  const out: R[] = new Array(items.length);
+  let i = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(n, items.length) }, async () => {
+      while (i < items.length) {
+        const k = i++;
+        out[k] = await fn(items[k]);
+      }
+    })
+  );
+  return out;
 }
 
 /**
  * Cœur de la fonctionnalité : de la liste importée aux decks proposés.
- * Étapes (requêtes Scryfall entre crochets) :
- * 1. [collection] résolution des cartes importées ;
- * 2. [2 pages + ~2 lots] commandants candidats : ceux de la collection,
- *    les plus populaires du format (`is:commander legal:<format>`), une
- *    liste curatée haute puissance (multi) et les commandants réellement
- *    joués en tournoi (Duel, duel-meta.ts) ;
- * 3. [~8 lots] pool recommandé hors collection : Game Changers, staples par
- *    rôle, pièces de combo, cartes du méta Duel (Duel) ;
- * 4. calcul pur : index des cartes, classement des commandants
- *    (rankProposals, tier d'abord) ;
- * 5. [≤ 3×3 requêtes] pour les 3 meilleures propositions, recherche de
- *    cartes en synergie avec le commandant, et reconstruction du deck
- *    optimisé avec ce pool élargi.
+ * Étapes (requêtes réseau entre crochets) :
+ * 1. [lots + ≤60 requêtes] résolution tolérante des noms importés ;
+ * 2. [2 pages + ~3 lots] candidats : commandants de la liste, populaires du
+ *    format (`is:commander`), liste curatée haute puissance (multi) ou
+ *    commandants joués en tournoi (Duel), Backgrounds (pour les duos) ;
+ * 3. [~8 lots] pool recommandé hors liste : Game Changers, staples par
+ *    rôle, pièces de combo curatées, cartes du méta Duel (Duel) ;
+ * 4. calcul pur : index, classement des commandants seuls ET des duos ;
+ * 5. [≤ 3×3] recherches de synergie Scryfall pour les 3 meilleurs ;
+ * 6. [≤ 6×3 Commander Spellbook] pour les 6 meilleurs : combos disponibles
+ *    et à une carte près (find-my-combos) → nouvelle construction qui les
+ *    vise, puis estimation de bracket et combos confirmées sur les deux
+ *    decks (estimate-bracket) → tier recalculé ; repli sur la base curatée
+ *    si Commander Spellbook ne répond pas.
  */
 export async function runCompetitiveBuild(input: {
   formatKey: string;
@@ -211,42 +324,39 @@ export async function runCompetitiveBuild(input: {
   // point d'entrée public, quel que soit le formulaire qui l'appelle).
   const allowed: AcquisitionOption[] = [0, 5, 10, 15, 25];
   const maxAcquisitions: AcquisitionOption = allowed.includes(input.maxAcquisitions) ? input.maxAcquisitions : 15;
-  input = {
-    ...input,
-    maxAcquisitions,
-    collectionCards: input.collectionCards
-      .filter((c) => typeof c?.name === "string" && c.name.trim() && Number.isFinite(c.count) && c.count > 0)
-      .slice(0, 5000),
-  };
+  const collectionCards = input.collectionCards
+    .filter((c) => typeof c?.name === "string" && c.name.trim() && Number.isFinite(c.count) && c.count > 0)
+    .slice(0, 5000);
   const format = getFormat(input.formatKey === "duelcommander" ? "duelcommander" : "commander");
   const formatKey = format.key === "duelcommander" ? "duelcommander" : "commander";
   const isDuel = formatKey === "duelcommander";
   const mode = modeForFormat(format);
-  const base = { formatKey, maxAcquisitions: input.maxAcquisitions, collectionCards: input.collectionCards } as const;
+  const base = { formatKey, maxAcquisitions, collectionCards } as const;
 
-  if (input.collectionCards.length === 0) return fail("Aucune carte reconnue dans ta liste.", base);
+  if (collectionCards.length === 0) return fail("Aucune carte reconnue dans ta liste.", base);
 
   try {
-    // 1. Collection
-    const resolved = await getCardsByNames(input.collectionCards.map((c) => c.name));
-    if (resolved.size === 0) {
+    // 1. Collection (résolution tolérante)
+    const resolution = await resolveCardNames(collectionCards.map((c) => c.name));
+    if (resolution.byInput.size === 0) {
       return fail("Aucune carte de ta liste n'a pu être résolue auprès de Scryfall (service indisponible ?). Réessaie dans quelques instants.", base);
     }
-    const unresolvedNames = input.collectionCards.filter((c) => !resolved.has(c.name.toLowerCase())).map((c) => c.name);
     const owned = new Map<string, number>();
-    for (const c of input.collectionCards) {
-      const card = resolved.get(c.name.toLowerCase());
+    const ownedByName = new Map<string, ScryfallCard>();
+    for (const c of collectionCards) {
+      const card = resolution.byInput.get(c.name.trim().toLowerCase());
       if (!card) continue;
-      // Clé = nom Scryfall canonique (une saisie approchée a pu être corrigée par la recherche fuzzy).
       const key = card.name.toLowerCase();
       owned.set(key, (owned.get(key) ?? 0) + c.count);
+      ownedByName.set(key, card);
     }
-    const ownedCards = Array.from(new Map(Array.from(resolved.values()).map((c) => [c.name.toLowerCase(), c])).values());
+    const ownedCards = Array.from(ownedByName.values());
 
-    // 2. Commandants candidats
-    const [popular, curatedCommanders] = await Promise.all([
+    // 2. Candidats
+    const [popular, curatedCommanders, backgrounds] = await Promise.all([
       searchCards(`is:commander legal:${format.scryfallLegality}`, POPULAR_COMMANDER_PAGES, "edhrec", "cards"),
       getCardsByNames(isDuel ? duelMetaCommanderNames() : [...HIGH_POWER_COMMANDERS], { fuzzyFallback: false }),
+      searchCards(`t:background legal:${format.scryfallLegality}`, 1, "edhrec", "cards"),
     ]);
 
     // 3. Pool recommandé
@@ -255,6 +365,8 @@ export async function runCompetitiveBuild(input: {
       ...Object.values(STAPLES_BY_ROLE).flat(),
       ...allComboPieceNames(),
       ...(isDuel ? duelMetaCardNames(0.05) : []),
+      // Cœur des decks de tournoi de chaque commandant (≥ 50% de ses decks).
+      ...(isDuel ? referenceCardNames(0.5) : []),
     ]);
     const [poolCards, basics] = await Promise.all([
       getCardsByNames(Array.from(poolNames), { fuzzyFallback: false }),
@@ -262,100 +374,190 @@ export async function runCompetitiveBuild(input: {
     ]);
 
     const candidatesByName = new Map<string, CommanderCandidate>();
-    const addCandidate = (card: ScryfallCard, source: CommanderCandidate["source"]) => {
+    const mates: CommanderCandidate[] = [];
+    const isOwned = (card: ScryfallCard) => (owned.get(card.name.toLowerCase()) ?? 0) > 0;
+    const addCandidate = (card: ScryfallCard, source: CandidateSource) => {
       const key = card.name.toLowerCase();
-      if (candidatesByName.has(key)) return;
-      if (!isCommanderEligible(card) || !isLegalInFormat(card, format)) return;
-      candidatesByName.set(key, { card, owned: (owned.get(key) ?? 0) > 0, source: (owned.get(key) ?? 0) > 0 ? "collection" : source });
+      if (candidatesByName.has(key) || !isLegalInFormat(card, format)) return;
+      if (card.type_line?.includes("Background")) {
+        if (!mates.some((m) => m.cards[0].name === card.name)) {
+          mates.push({ cards: [card], owned: [isOwned(card)], source: isOwned(card) ? "collection" : source });
+        }
+        return;
+      }
+      if (!isCommanderEligible(card)) return;
+      candidatesByName.set(key, { cards: [card], owned: [isOwned(card)], source: isOwned(card) ? "collection" : source });
     };
     for (const card of ownedCards) addCandidate(card, "collection");
     for (const card of curatedCommanders.values()) addCandidate(card, isDuel ? "duel-meta" : "high-power");
     for (const card of popular) addCandidate(card, "popular");
+    for (const card of backgrounds) addCandidate(card, "popular");
+    // Backgrounds possédés d'abord.
+    mates.sort((a, b) => Number(b.owned[0]) - Number(a.owned[0]));
     const candidates = Array.from(candidatesByName.values());
     if (candidates.length === 0) {
-      return fail("Impossible de trouver un commandant légal pour ce format (service Scryfall indisponible ?).", { ...base, unresolvedNames });
+      return fail("Impossible de trouver un commandant légal pour ce format (service Scryfall indisponible ?).", {
+        ...base,
+        unresolvedNames: resolution.unresolved,
+        corrections: resolution.corrections,
+      });
     }
 
-    // 4. Index + classement
-    const allCards = [...ownedCards, ...poolCards.values(), ...candidates.map((c) => c.card)];
+    // 4. Index + classement (seuls et duos)
+    const allCards = [
+      ...ownedCards,
+      ...poolCards.values(),
+      ...candidates.flatMap((c) => c.cards),
+      ...mates.flatMap((c) => c.cards),
+    ];
     const features = buildFeatureIndex(allCards, format);
     const acquirable = new Set<string>();
-    for (const card of poolCards.values()) {
+    const addAcquirable = (card: ScryfallCard) => {
       const key = card.name.toLowerCase();
       if ((owned.get(key) ?? 0) <= 0 && features.has(key)) acquirable.add(key);
-    }
+    };
+    for (const card of poolCards.values()) addAcquirable(card);
 
     const ranked = rankProposals({
       candidates,
+      mates,
       features,
       owned,
       acquirable,
-      maxAcquisitions: input.maxAcquisitions,
+      maxAcquisitions,
       format,
       basics,
       maxTrials: 30,
       minOwnedTrials: 8,
+      maxPairTrials: 10,
     });
     const top = ranked.slice(0, PROPOSALS_LIMIT);
 
+    const rebuild = (p: DeckProposal, combos: readonly ComboDef[], acq: Set<string>) => {
+      const profile = mergeProfiles(p.candidate.cards.map(commanderProfile));
+      const ctx = { commanders: p.candidate.cards, format, mode, features, owned, basics, profile, combos };
+      const ownedDeck = buildDeckForCommander({ ...ctx, acquirable: new Set(), maxAcquisitions: 0 });
+      const upgradedDeck =
+        acq.size > 0 && maxAcquisitions > 0 ? buildDeckForCommander({ ...ctx, acquirable: acq, maxAcquisitions }) : ownedDeck;
+      return { ownedDeck, upgradedDeck };
+    };
+    const better = (a: BuiltDeck, b: BuiltDeck) =>
+      a.tier.powerIndex > b.tier.powerIndex || (a.tier.powerIndex === b.tier.powerIndex && a.stats.score >= b.stats.score);
+
     // 5. Élargissement du pool par la synergie pour les meilleures propositions
-    if (input.maxAcquisitions > 0) {
+    const acquirableByProposal = new Map<string, Set<string>>();
+    if (maxAcquisitions > 0) {
       for (const p of top.slice(0, SYNERGY_SEARCH_TOP)) {
         const queries = synergySearchQueries(p.ownedDeck.profile);
         if (queries.length === 0) continue;
-        const id = p.candidate.card.color_identity.join("").toLowerCase() || "c";
+        const id = unionIdentity(p.candidate.cards).join("").toLowerCase() || "c";
         const results = await Promise.all(
           queries.map((q) => searchCards(`${q} id<=${id} legal:${format.scryfallLegality}`, 1, "edhrec", "cards"))
         );
         const extra = results.flat().filter((card) => !features.has(card.name.toLowerCase()));
-        if (extra.length === 0) continue;
         for (const [k, f] of buildFeatureIndex(extra, format)) features.set(k, f);
         const extended = new Set(acquirable);
         for (const card of results.flat()) {
           const key = card.name.toLowerCase();
           if ((owned.get(key) ?? 0) <= 0 && features.has(key)) extended.add(key);
         }
-        const upgraded = buildDeckForCommander({
-          commander: p.candidate.card,
-          format,
-          mode,
-          features,
-          owned,
-          acquirable: extended,
-          maxAcquisitions: input.maxAcquisitions,
-          basics,
-          profile: p.ownedDeck.profile,
-        });
-        // On ne garde la version élargie que si elle est au moins aussi forte (tier d'abord, score ensuite).
-        if (
-          upgraded.tier.powerIndex > p.upgradedDeck.tier.powerIndex ||
-          (upgraded.tier.powerIndex === p.upgradedDeck.tier.powerIndex && upgraded.stats.score >= p.upgradedDeck.stats.score)
-        ) {
-          p.upgradedDeck = upgraded;
-        }
+        acquirableByProposal.set(candidateKey(p.candidate), extended);
+        const { upgradedDeck } = rebuild(p, CURATED_COMBOS, extended);
+        if (better(upgradedDeck, p.upgradedDeck)) p.upgradedDeck = upgradedDeck;
       }
     }
 
+    // 6. Commander Spellbook
+    let spellbookUsed = false;
+    const opportunitiesByKey = new Map<string, ComboOpportunity[]>();
+    await mapLimit(top.slice(0, SPELLBOOK_TOP), 3, async (p) => {
+      const key = candidateKey(p.candidate);
+      const identity = unionIdentity(p.candidate.cards);
+      const commanderNames = p.candidate.cards.map((c) => c.name);
+      const acq = acquirableByProposal.get(key) ?? acquirable;
+      // Liste envoyée : cartes possédées jouables d'abord, puis le pool recommandé (600 lignes max côté CSB).
+      const inId = (f: CardFeatures) => f.card.color_identity.every((c) => identity.includes(c)) && !f.isBasic;
+      const ownedList: string[] = [];
+      const acqList: string[] = [];
+      for (const f of features.values()) {
+        if (!inId(f) || commanderNames.includes(f.card.name)) continue;
+        if ((owned.get(f.key) ?? 0) > 0) ownedList.push(f.card.name);
+        else if (acq.has(f.key)) acqList.push(f.card.name);
+      }
+      const found = await findMyCombos([...ownedList, ...acqList].slice(0, 600), commanderNames);
+      if (!found) return;
+      spellbookUsed = true;
+
+      // Pièces manquantes des combos « à une carte près » : résolues pour pouvoir les proposer.
+      const almost = distinctCombos(found.almostIncluded).filter((c) => !c.templates?.length && c.pieces.length <= 3);
+      const missingNames = new Set<string>();
+      const opportunities: ComboOpportunity[] = [];
+      const known = new Set([...ownedList, ...acqList, ...commanderNames].map((n) => n.toLowerCase()));
+      for (const c of almost.slice(0, 40)) {
+        const missing = c.pieces.filter((x) => !known.has(x.toLowerCase()));
+        if (missing.length === 0) continue;
+        missing.forEach((m) => missingNames.add(m));
+        opportunities.push({ missing, pieces: [...c.pieces], result: c.result, bracketTag: c.bracketTag });
+      }
+      opportunitiesByKey.set(key, opportunities);
+      const extendedAcq = new Set(acq);
+      if (missingNames.size && maxAcquisitions > 0) {
+        const resolved = await getCardsByNames(Array.from(missingNames), { fuzzyFallback: false });
+        const fresh = Array.from(resolved.values()).filter((c) => !features.has(c.name.toLowerCase()));
+        for (const [k, f] of buildFeatureIndex(fresh, format)) features.set(k, f);
+        for (const card of resolved.values()) {
+          const k = card.name.toLowerCase();
+          if ((owned.get(k) ?? 0) <= 0 && features.has(k)) extendedAcq.add(k);
+        }
+      }
+
+      const combos = mergeCombos(CURATED_COMBOS, distinctCombos(found.included), almost);
+      const rebuilt = rebuild(p, combos, extendedAcq);
+      if (better(rebuilt.ownedDeck, p.ownedDeck)) p.ownedDeck = rebuilt.ownedDeck;
+      if (better(rebuilt.upgradedDeck, p.upgradedDeck)) p.upgradedDeck = rebuilt.upgradedDeck;
+
+      // Estimation de bracket + combos confirmées sur les deux decks finaux.
+      const [eo, eu] = await Promise.all([
+        estimateBracket(p.ownedDeck.cards.map((c) => c.name), commanderNames),
+        p.upgradedDeck === p.ownedDeck
+          ? Promise.resolve(null)
+          : estimateBracket(p.upgradedDeck.cards.map((c) => c.name), commanderNames),
+      ]);
+      const sameDeck = p.upgradedDeck === p.ownedDeck;
+      if (eo) p.ownedDeck = rescoreWithSpellbook(p.ownedDeck, features, basics, format, eo);
+      if (sameDeck) p.upgradedDeck = p.ownedDeck;
+      else if (eu) p.upgradedDeck = rescoreWithSpellbook(p.upgradedDeck, features, basics, format, eu);
+    });
+    sortProposals(top);
+
     const notes: string[] = [];
+    notes.push(
+      spellbookUsed
+        ? "Combos : Commander Spellbook consulté en direct (combos présentes, à une carte près, et estimation de bracket)."
+        : "Commander Spellbook n'a pas répondu : combos détectées avec la base curatée hors ligne (~35 combos seulement)."
+    );
     if (isDuel) {
       notes.push(
-        `Duel : le tier intègre la présence des cartes dans ${DUEL_META_INFO.deckCount} decks de tournoi mtgtop8 (${DUEL_META_INFO.period ?? "septembre 2026"}) — un échantillon court, à prendre comme un repère.`
+        `Duel : le tier intègre la présence des cartes dans ${DUEL_META_INFO.deckCount} decks de tournoi mtgtop8 (${DUEL_META_INFO.period ?? "septembre 2026"}) — pour l'élargir : node scripts/fetch-duel-meta.mjs sur ton Mac (ou la mise à jour hebdomadaire automatique).`
       );
     }
-    notes.push(
-      "Commandant unique seulement : les duos de partenaires / Background ne sont pas encore construits automatiquement."
-    );
+    const pairs = top.filter((p) => p.candidate.cards.length === 2).length;
+    if (!top.some((p) => p.candidate.cards.some(canHavePartner)) && pairs === 0) {
+      notes.push("Aucun duo de partenaires / Background n'est ressorti parmi les meilleurs decks pour cette liste.");
+    }
 
     return {
       ok: true,
       error: null,
       formatKey,
-      maxAcquisitions: input.maxAcquisitions,
-      collectionCards: input.collectionCards,
-      unresolvedNames,
-      proposals: top.map((p) => summarize(p, owned, isDuel)),
+      maxAcquisitions,
+      collectionCards,
+      unresolvedNames: resolution.unresolved,
+      corrections: resolution.corrections,
+      proposals: top.map((p) => summarize(p, owned, isDuel, opportunitiesByKey.get(candidateKey(p.candidate)) ?? [])),
       candidateCount: candidates.length,
       evaluatedCount: ranked.length,
+      spellbookUsed,
       notes,
     };
   } catch (err) {
@@ -373,7 +575,7 @@ export async function runCompetitiveBuild(input: {
  */
 export async function openProposedDeck(input: {
   formatKey: string;
-  commander: string;
+  commanders: string[];
   cards: { name: string; count: number }[];
   acquisitionNames: string[];
   label: string;
@@ -381,7 +583,7 @@ export async function openProposedDeck(input: {
   const result = await analyzeDeck({
     formatKey: input.formatKey,
     deckName: input.label,
-    commanders: [input.commander],
+    commanders: input.commanders.slice(0, 2),
     cards: input.cards,
   });
   return { ...result, addedNames: input.acquisitionNames.map((n) => n.toLowerCase()) };

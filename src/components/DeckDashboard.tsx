@@ -179,7 +179,7 @@ export function DeckDashboard({
             ? `, combo${tier.signals.combos.length > 1 ? "s" : ""} : ${tier.signals.combos.map((c) => c.pieces.join(" + ")).join(" ; ")}`
             : ""}
           {tier.signals.duelMetaSum > 0 ? `, présence en tournoi Duel cumulée ${tier.signals.duelMetaSum}` : ""}
-          ) — indication heuristique inspirée des
+          ){tier.spellbook ? ` · 2e avis Commander Spellbook : ${tier.spellbook.label}` : ""} — indication heuristique inspirée des
           Brackets Commander officiels de Wizards of the Coast (système encore en beta). Survole le
           badge pour le détail complet et ses limites.
         </p>

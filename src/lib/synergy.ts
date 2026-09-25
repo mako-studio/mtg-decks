@@ -304,3 +304,17 @@ export function synergySearchQueries(profile: CommanderProfile): string[] {
   }
   return out.slice(0, 3);
 }
+
+/** Profil combiné d'un duo de commandants (25/09/2026) : union des thèmes et des tribus. */
+export function mergeProfiles(profiles: CommanderProfile[]): CommanderProfile {
+  if (profiles.length === 1) return profiles[0];
+  const themes = new Map<string, { id: string; label: string }>();
+  let themeMask = 0;
+  const tribes = new Set<string>();
+  for (const p of profiles) {
+    themeMask |= p.themeMask;
+    for (const t of p.themes) themes.set(t.id, t);
+    for (const t of p.tribes) tribes.add(t);
+  }
+  return { themeMask, themes: Array.from(themes.values()), tribes: Array.from(tribes) };
+}

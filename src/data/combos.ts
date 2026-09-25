@@ -31,6 +31,16 @@ export interface ComboDef {
   result: string;
   /** Prérequis non vérifiés automatiquement, affichés à Ben. */
   note?: string;
+  /** Origine : base curatée (ce fichier) ou Commander Spellbook en direct (spellbook.ts). */
+  source?: "curated" | "spellbook";
+  /** Étiquette de puissance Commander Spellbook (R, S, P, O, C, E, B) si connue. */
+  bracketTag?: string;
+  /** Nombre de decks EDHREC qui jouent la combo, selon Commander Spellbook. */
+  popularity?: number;
+  /** Rôles génériques requis en plus des cartes nommées (« un outil de sacrifice »…), selon Commander Spellbook. */
+  templates?: string[];
+  /** La combo n'est pas relevée comme « pertinente » par Commander Spellbook (estimate-bracket). */
+  minor?: boolean;
 }
 
 export const COMBOS: readonly ComboDef[] = [
@@ -221,4 +231,37 @@ export const COMBOS: readonly ComboDef[] = [
     result: "Meule de toute sa bibliothèque, puis boucle de pioche",
     note: "Nécessite un moyen de se défausser (outil de défausse) pour lancer la boucle.",
   },
+  // --- Ajouts du 25/09/2026 (2e passage, demande de Ben : « augmente ta liste de combos ») ---
+  // Même provenance (connaissance générale des combos établies) ; cette base
+  // n'est plus que le REPLI hors ligne : en production, Commander Spellbook
+  // est interrogé en direct (spellbook.ts) et couvre des dizaines de milliers
+  // de combos.
+  { id: "hullbreaker-solring", pieces: ["Hullbreaker Horror", "Sol Ring"], result: "Mana incolore infini, tempête infinie" },
+  { id: "kiki-resto", pieces: ["Kiki-Jiki, Mirror Breaker", "Restoration Angel"], result: "Créatures infinies avec célérité" },
+  { id: "kiki-bellringer", pieces: ["Kiki-Jiki, Mirror Breaker", "Village Bell-Ringer"], result: "Créatures infinies avec célérité" },
+  { id: "kiki-felidar", pieces: ["Kiki-Jiki, Mirror Breaker", "Felidar Guardian"], result: "Créatures infinies avec célérité" },
+  { id: "kiki-corridor", pieces: ["Kiki-Jiki, Mirror Breaker", "Corridor Monitor"], result: "Créatures infinies avec célérité" },
+  { id: "twin-conscripts", pieces: ["Splinter Twin", "Zealous Conscripts"], result: "Créatures infinies avec célérité" },
+  { id: "vito-exquisite", pieces: ["Vito, Thorn of the Dusk Rose", "Exquisite Blood"], result: "Drain de vie infini" },
+  { id: "blightpriest-exquisite", pieces: ["Marauding Blight-Priest", "Exquisite Blood"], result: "Drain de vie infini" },
+  { id: "bloodlord-exquisite", pieces: ["Defiant Bloodlord", "Exquisite Blood"], result: "Drain de vie infini" },
+  { id: "tenacity-exquisite", pieces: ["Enduring Tenacity", "Exquisite Blood"], result: "Drain de vie infini" },
+  { id: "basalt-monument", pieces: ["Basalt Monolith", "Forsaken Monument"], result: "Mana incolore infini" },
+  { id: "druid-quillspike", pieces: ["Devoted Druid", "Quillspike"], result: "Mana vert infini, force infinie" },
+  { id: "druid-swiftreconfig", pieces: ["Devoted Druid", "Swift Reconfiguration"], result: "Mana vert infini" },
+  { id: "niv-ophidian", pieces: ["Niv-Mizzet, Parun", "Ophidian Eye"], result: "Dégâts et pioche infinis" },
+  { id: "niv-tandem", pieces: ["Niv-Mizzet, Parun", "Tandem Lookout"], result: "Dégâts et pioche infinis" },
+  { id: "worldgorger-necromancy", pieces: ["Worldgorger Dragon", "Necromancy"], result: "Mana et déclenchements d'arrivée infinis", note: "Il faut une utilisation du mana pour conclure." },
+  { id: "worldgorger-dance", pieces: ["Worldgorger Dragon", "Dance of the Dead"], result: "Mana et déclenchements d'arrivée infinis", note: "Il faut une utilisation du mana pour conclure." },
+  { id: "whale-deadeye", pieces: ["Great Whale", "Deadeye Navigator"], result: "Mana infini" },
+  { id: "chatterfang-plunderer", pieces: ["Chatterfang, Squirrel General", "Pitiless Plunderer"], result: "Jetons, morts et Trésors infinis" },
+  { id: "scurry-ivy", pieces: ["Scurry Oak", "Ivy Lane Denizen"], result: "Jetons Écureuil infinis" },
+  { id: "illusionist-shuko", pieces: ["Cephalid Illusionist", "Shuko"], result: "Meule de toute sa bibliothèque", note: "Sert à alimenter une stratégie de cimetière (ex. Thassa's Oracle / Laboratory Maniac)." },
+  { id: "led-salvagers", pieces: ["Lion's Eye Diamond", "Auriok Salvagers"], result: "Mana infini de n'importe quelle couleur" },
+  { id: "heliod-spikefeeder", pieces: ["Heliod, Sun-Crowned", "Spike Feeder"], result: "Vie infinie" },
+  { id: "dualcaster-molten", pieces: ["Dualcaster Mage", "Molten Duplication"], result: "Créatures infinies avec célérité" },
+  { id: "godo-helm", pieces: ["Godo, Bandit Warlord", "Helm of the Host"], result: "Combats supplémentaires infinis" },
+  { id: "assault-sword-ff", pieces: ["Aggravated Assault", "Sword of Feast and Famine"], result: "Combats supplémentaires infinis", note: "Il faut infliger des blessures de combat à un joueur avec la créature équipée." },
+  { id: "assault-bear-umbra", pieces: ["Aggravated Assault", "Bear Umbra"], result: "Combats supplémentaires infinis", note: "La créature enchantée doit attaquer." },
+  { id: "mindcrank-bloodchief", pieces: ["Mindcrank", "Bloodchief Ascension"], result: "Meule et drain infinis", note: "Bloodchief Ascension doit avoir au moins 3 marqueurs de quête." },
 ];

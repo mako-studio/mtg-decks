@@ -1,7 +1,7 @@
 import type { CategoryConfig, DeckCategory, DeckStats, EnrichedCard, FormatKey, ScryfallCard } from "./types";
 import { getDisplayOracleText } from "./scryfall";
 import { classifyCard } from "./deck-score";
-import { findCompleteCombos, type ComboDef } from "./combos";
+import { CURATED_COMBOS, findCompleteCombos, type ComboDef } from "./combos";
 import { duelMetaPresence } from "./duel-meta";
 
 /**
@@ -66,11 +66,19 @@ export interface DeckTierResult {
     massLandDenialCount: number;
     avgCmc: number;
     interactionRatio: number;
-    /** Combos connues complètes dans le deck (commandant inclus) — voir src/data/combos.ts (25/09/2026). */
-    combos: { id: string; pieces: string[]; result: string; note?: string }[];
+    /** Combos connues complètes dans le deck (commandant inclus) — base curatée src/data/combos.ts ou Commander Spellbook (25/09/2026). */
+    combos: { id: string; pieces: string[]; result: string; note?: string; source?: string; minor?: boolean }[];
+    /** D'où viennent les combos comptées : base curatée (hors ligne) ou Commander Spellbook (en direct). */
+    comboSource: "curated" | "spellbook";
     /** Somme des parts de présence en tournoi Duel des cartes du deck (Duel Commander uniquement, 0 sinon) — voir duel-meta.ts (25/09/2026). */
     duelMetaSum: number;
   };
+  /**
+   * Estimation de bracket de Commander Spellbook (estimate-bracket), quand
+   * l'API a répondu — un 2e avis indépendant, affiché à côté de notre tier
+   * (25/09/2026). `null` si non disponible.
+   */
+  spellbook: { bracketTag: string; label: string } | null;
   /** Points obtenus par composante (même somme que powerIndex avant arrondi/plafond) — sert au « chemin vers Tier 4 » de l'UI (25/09/2026). */
   components: TierComponents;
   caveat: string;
@@ -324,7 +332,13 @@ export function computeDeckTier(
   commanders: ScryfallCard[],
   stats: DeckStats,
   config: CategoryConfig,
-  formatKey?: FormatKey
+  formatKey?: FormatKey,
+  /**
+   * Combos à rechercher (25/09/2026). Par défaut : base curatée. Quand
+   * Commander Spellbook a répondu pour CE deck, l'appelant passe ses combos
+   * (déjà confirmées présentes) — voir applySpellbookEstimate.
+   */
+  comboDefs: readonly ComboDef[] = CURATED_COMBOS
 ): DeckTierResult {
   const counts: TierCounts = { ...EMPTY_TIER_COUNTS };
   counts.gameChangers = commanders.filter((c) => c.game_changer === true).length;
@@ -351,8 +365,10 @@ export function computeDeckTier(
     ...commanders.map((c) => c.name),
     ...cards.filter((e) => e.card).map((e) => e.card!.name),
   ];
-  const combos = findCompleteCombos(names);
-  counts.combos = combos.length;
+  const combos = findCompleteCombos(names, comboDefs);
+  // Seules les combos « pertinentes » comptent pour le tier (Commander
+  // Spellbook marque `minor` celles qu'il juge anecdotiques).
+  counts.combos = combos.filter((c) => !c.minor).length;
 
   const components = tierComponentsFromCounts(counts, config, formatKey);
   const powerIndex = powerIndexFromComponents(components);
@@ -378,10 +394,12 @@ export function computeDeckTier(
       massLandDenialCount,
       avgCmc: stats.avgCmc,
       interactionRatio: Math.round(interactionRatio * 100) / 100,
-      combos: combos.map((c) => ({ id: c.id, pieces: [...c.pieces], result: c.result, note: c.note })),
+      combos: combos.map((c) => ({ id: c.id, pieces: [...c.pieces], result: c.result, note: c.note, source: c.source, minor: c.minor })),
+      comboSource: comboDefs === CURATED_COMBOS ? "curated" : "spellbook",
       duelMetaSum: Math.round(counts.duelMetaSum * 10) / 10,
     },
     components,
+    spellbook: null,
     caveat:
       "Indication inspirée du système officiel de Brackets Commander de Wizards of the Coast (5 paliers, encore en beta), " +
       "pas une application exacte de leurs règles : calculée uniquement à partir de motifs de texte et de champs Scryfall " +
@@ -391,4 +409,33 @@ export function computeDeckTier(
       "système : le tableau de cartes est un plancher, pas toute la réponse — l'intention du deck compte le plus. À prendre " +
       "comme un repère, pas un verdict.",
   };
+}
+
+/**
+ * Remplace la détection de combos du tier par celle de Commander Spellbook
+ * (estimate-bracket) et attache son estimation de bracket (25/09/2026).
+ * Recalcule le tier avec EXACTEMENT la même formule (computeDeckTier), en lui
+ * passant les combos confirmées par Commander Spellbook — dédoublonnées par
+ * ensemble de cartes, les combos non « pertinentes » marquées `minor` (non
+ * comptées dans l'indice, mais affichées).
+ */
+export function tierWithSpellbook(
+  cards: EnrichedCard[],
+  commanders: ScryfallCard[],
+  stats: DeckStats,
+  config: CategoryConfig,
+  formatKey: FormatKey | undefined,
+  estimate: { bracketTag: string; label: string; combos: ComboDef[] }
+): DeckTierResult {
+  const seen = new Set<string>();
+  const defs: ComboDef[] = [];
+  // Les combos pertinentes d'abord, pour qu'un doublon « minor » ne masque pas une version pertinente.
+  for (const c of [...estimate.combos].sort((a, b) => Number(Boolean(a.minor)) - Number(Boolean(b.minor)))) {
+    const key = c.pieces.map((p) => p.toLowerCase()).sort().join("|");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    defs.push(c);
+  }
+  const base = computeDeckTier(cards, commanders, stats, config, formatKey, defs);
+  return { ...base, spellbook: { bracketTag: estimate.bracketTag, label: estimate.label } };
 }
