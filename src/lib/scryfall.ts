@@ -42,13 +42,23 @@ const REQUIRED_HEADERS = {
 let lastRequestAt = 0;
 const MIN_INTERVAL_MS = 110; // ~9 req/s, sous la limite de 10 req/s
 
-async function throttle() {
-  const now = Date.now();
-  const wait = lastRequestAt + MIN_INTERVAL_MS - now;
-  if (wait > 0) {
-    await new Promise((resolve) => setTimeout(resolve, wait));
-  }
-  lastRequestAt = Date.now();
+// File d'attente (25/09/2026) : le constructeur compétitif lance plusieurs
+// requêtes en parallèle (Promise.all). L'ancienne version lisait/écrivait
+// `lastRequestAt` sans ordonnancement : deux appels simultanés calculaient
+// la même attente et partaient ensemble. Chaîner les attentes garantit
+// l'espacement MIN_INTERVAL_MS entre DEUX requêtes quelconques.
+let throttleChain: Promise<void> = Promise.resolve();
+
+function throttle(): Promise<void> {
+  const next = throttleChain.then(async () => {
+    const wait = lastRequestAt + MIN_INTERVAL_MS - Date.now();
+    if (wait > 0) {
+      await new Promise((resolve) => setTimeout(resolve, wait));
+    }
+    lastRequestAt = Date.now();
+  });
+  throttleChain = next.catch(() => undefined);
+  return next;
 }
 
 /**
@@ -112,7 +122,16 @@ export async function getCardByName(
  * Seuls les noms non résolus sont retentés — le cas normal (l'immense
  * majorité des cartes) ne fait qu'un seul appel groupé, comme avant.
  */
-export async function getCardsByNames(names: string[]): Promise<Map<string, ScryfallCard>> {
+export async function getCardsByNames(
+  names: string[],
+  options: { fuzzyFallback?: boolean } = {}
+): Promise<Map<string, ScryfallCard>> {
+  // `fuzzyFallback: false` (25/09/2026, constructeur compétitif) : pour les
+  // listes de noms CURATÉES par le projet (Game Changers, staples, pièces de
+  // combo — voir src/data/), un nom non résolu est une carte inexistante ou
+  // retirée, pas une faute de frappe de Ben : le retenter un par un via
+  // /cards/named coûterait une requête (≥110 ms) par nom pour rien.
+  const fuzzyFallback = options.fuzzyFallback ?? true;
   const uniqueNames = Array.from(new Set(names));
   const result = new Map<string, ScryfallCard>();
   const CHUNK = 75;
@@ -142,7 +161,7 @@ export async function getCardsByNames(names: string[]): Promise<Map<string, Scry
     }
   }
 
-  const unresolvedNames = uniqueNames.filter((name) => !result.has(name.toLowerCase()));
+  const unresolvedNames = fuzzyFallback ? uniqueNames.filter((name) => !result.has(name.toLowerCase())) : [];
   for (const name of unresolvedNames) {
     const card = await getCardByName(name, "fuzzy");
     if (card) result.set(name.toLowerCase(), card);

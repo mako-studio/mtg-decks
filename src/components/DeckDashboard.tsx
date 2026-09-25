@@ -145,7 +145,7 @@ export function DeckDashboard({
                 Puissance (tier)
               </span>
               <span
-                title={`Indice de puissance ${tier.powerIndex}/100 — Game Changers : ${tier.signals.gameChangerCount}, mana rapide (rampe coût ≤2) : ${tier.signals.fastManaCount}, tutors : ${tier.signals.tutorCount}, tours supplémentaires : ${tier.signals.extraTurnCount}, destruction de terrains de masse : ${tier.signals.massLandDenialCount}. ${tier.caveat}`}
+                title={`Indice de puissance ${tier.powerIndex}/100 — Game Changers : ${tier.signals.gameChangerCount}, mana rapide (rampe coût ≤2) : ${tier.signals.fastManaCount}, tutors : ${tier.signals.tutorCount}, tours supplémentaires : ${tier.signals.extraTurnCount}, destruction de terrains de masse : ${tier.signals.massLandDenialCount}, combos connues : ${tier.signals.combos.length}${tier.signals.duelMetaSum > 0 ? `, présence en tournoi Duel : ${tier.signals.duelMetaSum}` : ""}. ${tier.caveat}`}
                 className={`w-fit rounded-full px-2 py-0.5 text-xs font-semibold ${TIER_BADGE_CLASS[tier.tier]}`}
               >
                 {tier.label}
@@ -174,7 +174,12 @@ export function DeckDashboard({
           {tier.signals.fastManaCount} mana rapide, {tier.signals.tutorCount} tutor
           {tier.signals.tutorCount === 1 ? "" : "s"}, {tier.signals.extraTurnCount} tour
           {tier.signals.extraTurnCount === 1 ? "" : "s"} supplémentaire
-          {tier.signals.extraTurnCount === 1 ? "" : "s"}) — indication heuristique inspirée des
+          {tier.signals.extraTurnCount === 1 ? "" : "s"}
+          {tier.signals.combos.length > 0
+            ? `, combo${tier.signals.combos.length > 1 ? "s" : ""} : ${tier.signals.combos.map((c) => c.pieces.join(" + ")).join(" ; ")}`
+            : ""}
+          {tier.signals.duelMetaSum > 0 ? `, présence en tournoi Duel cumulée ${tier.signals.duelMetaSum}` : ""}
+          ) — indication heuristique inspirée des
           Brackets Commander officiels de Wizards of the Coast (système encore en beta). Survole le
           badge pour le détail complet et ses limites.
         </p>

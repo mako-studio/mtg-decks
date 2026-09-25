@@ -1442,6 +1442,166 @@ exemple : nombre de candidats commandant bien au-delà de ce qui a été
 testé, ou un tout autre goulot d'étranglement) — à réinvestiguer plutôt
 qu'à supposer résolu sans confirmation de Ben.
 
+### Constructeur de decks compétitif (25/09/2026)
+
+**Demande de Ben** : « j'importe une liste de cartes ; je sélectionne
+commander multi ou commander duel (les decks duel doivent être plus
+explosifs/court terme, les parties sont plus courtes) ; le système suggère
+des decks avec les cartes de la liste et un commander — dans la liste ou en
+dehors, il évalue le meilleur commander possible ; l'objectif est de créer
+des decks les plus compétitifs possible (tier 4 est l'objectif, s'en
+rapprocher est la priorité absolue) ; il évalue les synergies entre les
+cartes et peut être le plus créatif possible ; un pool de cartes
+recommandées en dehors de la liste rend le deck encore plus performant ;
+ergonomique, intuitive, la plus performante possible. »
+
+La page `/collection` (menu « Construire un deck ») est entièrement
+refaite. L'ancien moteur (`selectDeckFromPool`/`rankCommanderCandidates`
+dans `collection-builder.ts`) et l'ancien formulaire
+(`CollectionImportForm.tsx`) ainsi que ses 6 Server Actions
+(`buildDeckFromCollection`, `analyzeCollectionText/Csv`,
+`switchCollectionCommander`, `suggestUnownedCommanders`,
+`buildDeckWithUnownedCommander`) sont **retirés** : ils n'avaient plus
+d'appelant, et garder deux moteurs concurrents aurait brouillé toute
+évolution future. `collection-builder.ts` ne garde que ses utilitaires
+(`isCommanderEligible`, `isLegalInFormat`, `BASIC_LAND_BY_COLOR`).
+
+**Parcours** (`CompetitiveBuilder.tsx`) : (1) liste collée ou CSV, avec
+« Reprendre ma dernière liste » (localStorage, simple confort) ; (2) format
+Multi ou Duel, présentés avec ce qui change ; (3) nombre max de cartes hors
+liste (0/5/10/15/25). Résultat : jusqu'à 8 decks classés par tier, chacun
+avec son tier « avec mes cartes » et son tier « optimisé », une barre qui
+matérialise le seuil du Tier 4 (indice 60), le coût estimé des
+acquisitions ; le 1er deck s'ouvre automatiquement dans le simulateur
+habituel (DeckBuilder : score, suggestions, swaps, Super Opti, export), les
+cartes à acquérir marquées « Ajoutée ». Boutons « Relancer en Duel/Multi »
+et sélecteur du nombre d'acquisitions directement sur la page de résultats.
+
+**Moteur** (`competitive-builder.ts`, fonctions pures) :
+
+- **Gain marginal EXACT de tier** : à chaque créneau, chaque carte est
+  évaluée par la variation de l'indice de puissance qu'elle provoque,
+  calculée avec la même formule que le badge (`tierComponentsFromCounts`,
+  deck-tier.ts, factorisée pour ça). Plus d'approximation par carte
+  (`cardPowerScore` reste utilisé par `recommend.ts`). Le 1er Game Changer
+  vaut +10, les suivants +6 jusqu'au plafond, un tutor vaut plus tant que la
+  cible n'est pas atteinte, etc. Un a priori de 10 cartes au coût idéal
+  stabilise la composante « courbe » pendant la sélection (sans lui, la
+  toute première carte à 1 mana valait +5) — le tier affiché, lui, est
+  calculé sans a priori.
+- **Synergie avec le commandant** (`synergy.ts`) : 16 thèmes (jetons,
+  compteurs, sacrifice, sorts, artefacts, enchantements, cimetière,
+  terrains, gain de vie, clignotement, combat, équipements/auras, pioche,
+  défausse, trésors, poison) détectés dans le texte du commandant (ce qu'il
+  récompense) et des cartes (ce qu'elles alimentent), plus la tribu
+  (« other Goblins you control »). Précalculés une fois par carte en masque
+  de bits : la synergie carte↔commandant est un ET binaire (indispensable
+  pour évaluer des dizaines de commandants).
+- **Combos** (`combos.ts` + `src/data/combos.ts`, ~35 combos connues à 2-3
+  cartes) : bonus de sélection aux pièces d'une combo réalisable, et gain
+  exact de la nouvelle composante « combo » du tier quand elle se complète.
+- **Profils Multi / Duel** (`MODE_PROFILES`) : en Duel, pénalité plus forte
+  au-dessus de 4 manas, bonus à l'interaction à ≤2 manas, bonus à la
+  présence en tournoi. Dans les deux modes, jusqu'à 3 terrains cèdent leur
+  place quand le deck contient beaucoup de mana rapide (1 pour 2 sources).
+- **Terrains de base répartis selon les symboles de mana** des sorts
+  choisis (plus un simple cycle de couleurs).
+- **Pool d'acquisition** : des cartes non possédées peuvent entrer avec une
+  pénalité de 1.5 (à valeur égale, une carte possédée passe devant),
+  plafonnées au nombre choisi par Ben.
+
+**Classement des commandants** (`rankProposals`) : candidats = commandants
+de la liste + 2 pages de commandants populaires Scryfall
+(`is:commander legal:<format>`) + une liste curatée haute puissance (Multi,
+`src/data/competitive-staples.ts`) ou les commandants réellement joués en
+tournoi (Duel, `duel-meta.json`). Présélection par affinité (somme des
+meilleurs scores statiques des cartes possédées jouables avec lui), puis
+30 commandants (dont au moins 8 possédés) construits en entier, deux fois
+(avec mes cartes / optimisé). Tri : tier « avec mes cartes », puis tier
+optimisé, puis score — convention tier d'abord du projet. Pour les 3
+meilleurs, jusqu'à 3 recherches Scryfall de cartes en synergie avec le
+commandant élargissent le pool optimisé (gardé seulement s'il fait au moins
+aussi bien).
+
+**Pool recommandé** : Game Changers (liste officielle au 09/02/2026,
+`src/data/game-changers.ts`), staples par rôle (mana rapide, tutors,
+interaction, pioche, conditions de victoire), pièces de combo, et en Duel
+les cartes jouées dans ≥5% des decks de tournoi. Chaque carte est résolue
+via Scryfall et filtrée par légalité réelle (une carte bannie n'est jamais
+proposée) et identité couleur. Affiché avec la raison (« Game Changer »,
+« Mana rapide », « Complète une combo », « Synergie : Jetons », « Jouée
+dans 45% des decks de tournoi Duel »...), le gain d'indice au moment du
+choix et le prix Scryfall en euros.
+
+**Tier (deck-tier.ts), deux composantes nouvelles** — s'appliquent partout
+sur le site : **combo** (+8 pour une combo connue complète, +12 pour deux ;
+les combos infinies sont le marqueur des brackets hauts du système WotC) et,
+**en Duel Commander uniquement**, **présence en tournoi** (1.5 point par
+unité de présence cumulée, plafond 25 — calibré sur les données du repo :
+les 11 decks de tournoi de `duelcommander-decks.json` cumulent 14 à 22.5,
+deux exceptions à 4.2 et 8.1 ; les 190 précons 0.1 à 2.6, médiane 1.3).
+Conséquence voulue : les decks de tournoi de `/duelcommander` montent en
+tier, les précons ne bougent presque pas. Le tableau de bord mentionne les
+combos détectées et la présence en tournoi.
+
+**Données ajoutées** : `src/data/duel-meta.json` (généré par
+`scripts/build-duel-meta.py` depuis
+`analysis/duelcommander/duelcommander_cartes_incontournables.xlsx` — seules
+les colonnes fiables sont reprises : nom de carte et fréquence ; les
+couleurs/raretés estimées du classeur sont ignorées, Scryfall fait foi à
+l'exécution), `game-changers.ts`, `competitive-staples.ts`, `combos.ts`.
+
+**Autres changements** : `getCardsByNames(names, { fuzzyFallback: false })`
+pour les listes curatées (un nom inconnu n'y est pas une faute de frappe,
+inutile de le retenter en requête individuelle) ; `throttle()` de
+scryfall.ts devient une vraie file d'attente (les requêtes parallèles du
+constructeur partaient sinon par paires) ; `maxDuration = 60` sur la page
+`/collection` (limite réelle dépendante du plan Vercel, non vérifiée) ; le
+header du site passe à la ligne sur mobile (il débordait horizontalement à
+390 px, sur toutes les pages).
+
+**Vérification** (même méthodologie que HANDOFF §7, Scryfall inaccessible
+depuis les environnements de dev) :
+
+- Niveau 1 (`tsx`, cartes construites à la main avec des textes oracle
+  écrits de mémoire — approximations) : 28 assertions OK — exclusion des
+  cartes bannies (Mana Crypt, Sol Ring en Duel), identité couleur,
+  singleton, 99 cartes exactes, Game Changers retenus, combo Oracle +
+  Consultation assemblée et comptée (+8), pièce de combo manquante proposée
+  en acquisition, plafond d'acquisitions, synergies détectées (tribu
+  Gobelin de Krenko, sorts de Talrand, sacrifice de Korvold), combo Heliod +
+  Walking Ballista, classement trié par tier, cohérence tier constructeur =
+  tier recalculé.
+- Comparaison avec l'ancien moteur (récupéré depuis git, mêmes cartes,
+  même formule de tier pour les deux) : le nouveau fait au moins aussi bien
+  sur les 12 couples commandant × format testés (ex. Heliod 42.4 → 50.9
+  grâce à la combo, Meren 66.4 → 69.2), score de complétude égal ou
+  supérieur partout. Échantillon synthétique : un indice encourageant, pas
+  une preuve sur une vraie collection.
+- Performance : 30 commandants × 2 decks sur 1 100 cartes ≈ 0,7 s de calcul
+  pur (hors latence Scryfall : ~20 requêtes, compter 5-20 s en production).
+- Niveau 2 (build de prod + Scryfall simulé + Playwright) : parcours
+  complet OK (progression affichée, 7 decks proposés, carte mal
+  orthographiée signalée, chemin vers le Tier 4, pool recommandé, ouverture
+  automatique dans le simulateur, bascule « mes cartes / optimisé »,
+  changement de deck, relance en Duel, aucun débordement à 390 px, aucune
+  erreur console) ; pages existantes (précon, deck Duel, Arena, glossaire)
+  toujours en 200.
+
+**Non vérifié en conditions réelles** : les requêtes Scryfall
+(`is:commander`, recherches de synergie, `/cards/collection` sur ~600 noms
+curatés), le temps total en production et la limite `maxDuration` du plan
+Vercel ; l'orthographe exacte de chaque nom des listes curatées (un nom
+faux est simplement ignoré) ; la base de combos n'a pas pu être recoupée
+avec Commander Spellbook (API inaccessible).
+
+**Limites assumées** : un seul commandant (pas de partenaires/Background) ;
+tier = heuristique (voir deck-tier.ts), la synergie est de surface (thèmes
+partagés), une combo absente de la base est invisible ; en Duel,
+l'échantillon de tournoi est court (4 jours, 82 decks) et favorise les
+couleurs dominantes du moment ; les terrains de base sont supposés
+disponibles en quantité illimitée.
+
 ## Stack
 
 Next.js 16 (App Router, TypeScript, Turbopack) + Tailwind CSS v4. Pas de
@@ -1728,6 +1888,7 @@ src/
     decks/[id]/page.tsx         # Détail deck Commander papier
     duelcommander/page.tsx      # Accueil Duel Commander : liste des 11 decks de tournoi
     duelcommander/decks/[id]/page.tsx  # Détail deck Duel Commander
+    collection/page.tsx         # Constructeur de decks compétitif (25/09/2026)
     arena/page.tsx              # Accueil Arena : import + galeries Brawl/Starter
     arena/decks/[id]/page.tsx   # Détail deck Arena (galerie), sélecteur de format
     glossaire/page.tsx          # Glossaire MTG (FR/EN), recherchable
@@ -1745,6 +1906,7 @@ src/
     ArenaImportForm.tsx          # Formulaire d'import (client + Server Action)
     ArenaExportButton.tsx        # Export texte Arena (copier/coller)
     CsvImportForm.tsx            # Reprend un deck Commander exporté en CSV (client + Server Action)
+    CompetitiveBuilder.tsx       # Constructeur compétitif : import, format, decks proposés, pool recommandé
     LanguageProvider.tsx         # Contexte + toggle FR/EN pour le texte des cartes
     GlossaryBrowser.tsx          # Glossaire : recherche + filtre par catégorie
     ExtensionsBrowser.tsx        # Liste des extensions : recherche + tri
@@ -1768,6 +1930,14 @@ src/
     deck-loader.ts                # Résolution deck -> cartes Scryfall (par format)
     deck-score.ts                 # Heuristique de score (catégories, paramétrable)
     recommend.ts                   # Recherche + classement des suggestions (par format)
+    deck-tier.ts                   # Tier de puissance 1-5 (composantes exposées, combos, méta Duel)
+    competitive-builder.ts         # Moteur du constructeur compétitif (gain marginal de tier, synergie, combos)
+    competitive-actions.ts         # Server Actions du constructeur (runCompetitiveBuild, openProposedDeck)
+    collection-builder.ts          # Utilitaires : éligibilité commandant, légalité, terrains de base
+    collection-import.ts           # Parse une liste de cartes (texte ou CSV)
+    synergy.ts                     # Thèmes/tribus d'un commandant, synergie carte↔commandant
+    combos.ts                      # Détection de combos connues (par noms)
+    duel-meta.ts                   # Présence des cartes en tournoi Duel (duel-meta.json)
   data/
     commander-decks.json          # Snapshot Commander papier
     duelcommander-decks.json      # Snapshot Duel Commander (11 decks, collecte manuelle mtgtop8)
@@ -1776,8 +1946,13 @@ src/
     glossary.ts                   # Contenu du glossaire (~55 termes, sourcés)
     tracked-sets.ts               # Codes des ~58 sets couverts par la section Extensions
     set-notes.json                 # Mécaniques introduites + contexte par set (58 entrées, sourcées)
+    duel-meta.json                 # Présence des cartes dans 82 decks de tournoi Duel (mtgtop8, 09/2026)
+    game-changers.ts               # Liste des Game Changers (09/02/2026) — noms à proposer
+    competitive-staples.ts         # Staples par rôle + commandants haute puissance (curatés)
+    combos.ts                      # Base curatée de combos connues
 scripts/
   fetch-precon-decks.mjs          # Génère les 3 fichiers src/data/*.json
+  build-duel-meta.py              # Génère src/data/duel-meta.json depuis l'analyse mtgtop8 (openpyxl)
 ```
 
 ## Prochaines étapes suggérées
@@ -1797,6 +1972,9 @@ scripts/
   navigateur d'origine via localStorage).
 - Gérer le sideboard et le companion dans l'analyse Arena (actuellement
   seul le deck principal est analysé).
+- Constructeur compétitif : partenaires/Background ; recouper la base de
+  combos avec Commander Spellbook si son API devient accessible ;
+  rafraîchir `duel-meta.json` avec un échantillon de tournois plus long.
 
 ## Attribution
 

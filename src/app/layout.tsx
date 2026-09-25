@@ -15,7 +15,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <LanguageProvider>
           <header className="border-b border-border">
-            <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+            <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-4 sm:px-6">
               <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight">
                 <span className="flex h-7 w-7 items-center justify-center rounded-md bg-accent text-accent-foreground">
                   <svg
@@ -33,7 +33,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                 </span>
                 <span>MTG Opti</span>
               </Link>
-              <nav className="flex items-center gap-5 text-sm text-muted">
+              <nav className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-sm text-muted">
                 <Link href="/" className="hover:text-foreground transition-colors">
                   Commander (papier)
                 </Link>
@@ -44,7 +44,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                   MTG Arena
                 </Link>
                 <Link href="/collection" className="hover:text-foreground transition-colors">
-                  Ma collection
+                  Construire un deck
                 </Link>
                 <Link href="/extensions" className="hover:text-foreground transition-colors">
                   Extensions

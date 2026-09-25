@@ -1,26 +1,35 @@
 import type { Metadata } from "next";
-import { CollectionImportForm } from "@/components/CollectionImportForm";
+import { CompetitiveBuilder } from "@/components/CompetitiveBuilder";
 
 export const metadata: Metadata = {
-  title: "Deck depuis ma collection — MTG Opti",
+  title: "Construire un deck compétitif — MTG Opti",
   description:
-    "Importe les cartes que tu possèdes et laisse MTG Opti te suggérer le meilleur deck Commander ou Duel Commander constructible avec, avec son score de puissance.",
+    "Importe une liste de cartes, choisis Commander multi ou Duel Commander : MTG Opti trouve le meilleur commandant (dans ta liste ou non), construit les decks les plus puissants possibles et te propose les cartes à acquérir pour viser le Tier 4.",
 };
+
+/**
+ * 25/09/2026 : la construction évalue plusieurs dizaines de commandants et
+ * fait une vingtaine de requêtes Scryfall (voir runCompetitiveBuild) — on
+ * relève la durée max des Server Actions de cette page (route segment
+ * config `maxDuration`, qui s'applique aux Server Actions de la page selon
+ * la doc Next.js). La valeur réellement autorisée dépend du plan
+ * d'hébergement (Vercel) : non vérifié depuis l'environnement de dev.
+ */
+export const maxDuration = 60;
 
 export default function CollectionPage() {
   return (
-    <div className="mx-auto max-w-6xl px-6 py-10">
+    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
       <div className="mb-8">
-        <h1 className="text-2xl font-semibold tracking-tight">Construire un deck avec ma collection</h1>
-        <p className="mt-2 max-w-2xl text-sm text-muted">
-          Importe la liste des cartes que tu possèdes (collée ou en CSV), choisis Commander ou
-          Duel Commander : on détecte le meilleur commandant disponible dans ta collection,
-          complète avec des terrains de base pour un deck immédiatement jouable, calcule le score
-          de puissance, et te propose les cartes à acquérir pour l&apos;améliorer encore.
+        <h1 className="text-2xl font-semibold tracking-tight">Construire un deck compétitif</h1>
+        <p className="mt-2 max-w-3xl text-sm text-muted">
+          Importe tes cartes, choisis Commander multi ou Duel : on cherche le meilleur commandant — dans ta liste ou
+          en dehors —, on construit pour chacun le deck le plus puissant possible (objectif : Tier 4), et on te
+          propose les cartes à acquérir pour s&apos;en rapprocher encore.
         </p>
       </div>
 
-      <CollectionImportForm />
+      <CompetitiveBuilder />
     </div>
   );
 }

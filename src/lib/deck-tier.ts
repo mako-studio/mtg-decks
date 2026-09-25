@@ -1,6 +1,8 @@
-import type { CategoryConfig, DeckStats, EnrichedCard, ScryfallCard } from "./types";
+import type { CategoryConfig, DeckCategory, DeckStats, EnrichedCard, FormatKey, ScryfallCard } from "./types";
 import { getDisplayOracleText } from "./scryfall";
 import { classifyCard } from "./deck-score";
+import { findCompleteCombos, type ComboDef } from "./combos";
+import { duelMetaPresence } from "./duel-meta";
 
 /**
  * "Tier de puissance" d'un deck Commander/Duel Commander (24/09/2026,
@@ -64,9 +66,165 @@ export interface DeckTierResult {
     massLandDenialCount: number;
     avgCmc: number;
     interactionRatio: number;
+    /** Combos connues complètes dans le deck (commandant inclus) — voir src/data/combos.ts (25/09/2026). */
+    combos: { id: string; pieces: string[]; result: string; note?: string }[];
+    /** Somme des parts de présence en tournoi Duel des cartes du deck (Duel Commander uniquement, 0 sinon) — voir duel-meta.ts (25/09/2026). */
+    duelMetaSum: number;
   };
+  /** Points obtenus par composante (même somme que powerIndex avant arrondi/plafond) — sert au « chemin vers Tier 4 » de l'UI (25/09/2026). */
+  components: TierComponents;
   caveat: string;
 }
+
+/**
+ * Décomposition de l'indice de puissance par composante (25/09/2026,
+ * constructeur compétitif). Exposée pour deux usages :
+ * - l'UI « chemin vers Tier 4 » (quelles composantes sont loin de leur
+ *   maximum et combien de points on gagnerait) ;
+ * - le constructeur (competitive-builder.ts), qui calcule le GAIN
+ *   MARGINAL EXACT d'une carte sur l'indice en recalculant ces
+ *   composantes à partir de compteurs incrémentaux (`TierCounts`), plutôt
+ *   qu'une approximation par carte comme `cardPowerScore`. Une seule
+ *   formule (`tierComponentsFromCounts`) partagée par le badge affiché et
+ *   par la sélection : impossible qu'ils divergent.
+ */
+export interface TierComponents {
+  gameChanger: number;
+  fastMana: number;
+  tutor: number;
+  interaction: number;
+  extraTurn: number;
+  massLandDenial: number;
+  curve: number;
+  combo: number;
+  duelMeta: number;
+}
+
+/** Maximum atteignable par composante — pour l'UI (barres de progression, écart au max). */
+export const TIER_COMPONENT_MAX: TierComponents = {
+  gameChanger: 40,
+  fastMana: 15,
+  tutor: 10,
+  interaction: 10,
+  extraTurn: 10,
+  massLandDenial: 10,
+  curve: 5,
+  combo: 12,
+  duelMeta: 25,
+};
+
+/** Compteurs agrégés d'un deck, à partir desquels l'indice est calculé (voir TierComponents). */
+export interface TierCounts {
+  gameChangers: number;
+  fastMana: number;
+  tutor: number;
+  /** removal + disruption (mêmes compteurs que DeckStats.categoryCounts). */
+  interaction: number;
+  extraTurns: number;
+  massLandDenial: number;
+  combos: number;
+  duelMetaSum: number;
+  nonLandCount: number;
+  nonLandCmcSum: number;
+}
+
+export const EMPTY_TIER_COUNTS: TierCounts = {
+  gameChangers: 0,
+  fastMana: 0,
+  tutor: 0,
+  interaction: 0,
+  extraTurns: 0,
+  massLandDenial: 0,
+  combos: 0,
+  duelMetaSum: 0,
+  nonLandCount: 0,
+  nonLandCmcSum: 0,
+};
+
+/** Signaux de tier d'UNE carte (précalculables une fois par carte). */
+export interface CardTierSignals {
+  gameChanger: boolean;
+  fastMana: boolean;
+  extraTurn: boolean;
+  massLandDenial: boolean;
+  tutor: boolean;
+  interaction: boolean;
+  isLand: boolean;
+  duelMeta: number;
+}
+
+export function cardTierSignals(card: ScryfallCard, categories: DeckCategory[] = classifyCard(card)): CardTierSignals {
+  const text = getDisplayOracleText(card);
+  return {
+    gameChanger: card.game_changer === true,
+    fastMana: categories.includes("ramp") && card.cmc <= 2,
+    extraTurn: EXTRA_TURN_PATTERN.test(text),
+    massLandDenial: MASS_LAND_DENIAL_PATTERNS.some((p) => p.test(text)),
+    tutor: categories.includes("tutor"),
+    interaction: categories.includes("removal") || categories.includes("disruption"),
+    isLand: Boolean(card.type_line?.includes("Land")),
+    duelMeta: duelMetaPresence(card.name),
+  };
+}
+
+/**
+ * La formule de l'indice, factorisée (25/09/2026) — mêmes poids que la
+ * version du 24/09/2026 pour les 7 composantes historiques, plus deux
+ * composantes nouvelles :
+ * - `combo` : 8 points pour une combo connue complète, 12 pour deux ou
+ *   plus. Les combos infinies à deux cartes sont LE marqueur des brackets
+ *   hauts du système WotC (interdites en brackets 1-2, tolérées tard en 3,
+ *   libres en 4-5) — un signal que la formule ignorait totalement.
+ * - `duelMeta` (Duel Commander uniquement) : 1.5 point par unité de
+ *   « présence en tournoi » cumulée, plafonné à 25. Calibré sur les
+ *   données du repo : les 11 decks de tournoi Duel de
+ *   src/data/duelcommander-decks.json cumulent 14 à 22.5 (2 exceptions à
+ *   4.2 et 8.1), les 190 précons Commander papier 0.1 à 2.6 (médiane 1.3)
+ *   — un deck de tournoi typique obtient donc le maximum, un précon ~2
+ *   points. ⚠️ Ces 11 decks font probablement partie des 82 decks de
+ *   l'échantillon (mêmes dates) : calibrage « dans l'échantillon », qui
+ *   confirme l'échelle mais ne prouve pas la valeur prédictive.
+ * Somme des maxima > 100 : l'indice final reste plafonné à 100.
+ */
+export function tierComponentsFromCounts(
+  counts: TierCounts,
+  config: CategoryConfig,
+  formatKey?: FormatKey
+): TierComponents {
+  const avgCmc = counts.nonLandCount > 0 ? counts.nonLandCmcSum / counts.nonLandCount : 0;
+  const interactionRatio = counts.interaction / Math.max(1, config.targets.removal + config.targets.disruption);
+  return {
+    gameChanger: counts.gameChangers === 0 ? 0 : Math.min(40, 10 + (counts.gameChangers - 1) * 6),
+    fastMana: Math.min(15, counts.fastMana * 3),
+    tutor: Math.min(10, (counts.tutor / Math.max(1, config.targets.tutor)) * 10),
+    interaction: Math.min(10, interactionRatio * 10),
+    // "A Time Warp or two is fine" (bracket 2 officiel) : faible pour 1-2
+    // occurrences, saut au maximum à partir de 3.
+    extraTurn: counts.extraTurns <= 2 ? counts.extraTurns * 1.5 : 10,
+    // Binaire : WotC présente le mass land denial comme quasi absent sous
+    // le bracket 4 et sans restriction au-delà — pas un signal graduel.
+    massLandDenial: counts.massLandDenial > 0 ? 10 : 0,
+    curve: counts.nonLandCount > 0 ? clamp(2.5 + (config.idealAvgCmc - avgCmc) * 2.5, 0, 5) : 0,
+    combo: counts.combos === 0 ? 0 : counts.combos === 1 ? 8 : 12,
+    duelMeta: formatKey === "duelcommander" ? Math.min(25, counts.duelMetaSum * 1.5) : 0,
+  };
+}
+
+export function powerIndexFromComponents(c: TierComponents): number {
+  const sum =
+    c.gameChanger +
+    c.fastMana +
+    c.tutor +
+    c.interaction +
+    c.extraTurn +
+    c.massLandDenial +
+    c.curve +
+    c.combo +
+    c.duelMeta;
+  return clamp(Math.round(sum * 10) / 10, 0, 100);
+}
+
+export type { ComboDef };
 
 /** Cartes qui accordent un tour supplémentaire — signal dédié à ce module, volontairement PAS ajouté aux 9 piliers stables de deck-score.ts (ce n'est pas un rôle de deckbuilding au même sens que ramp/removal/etc., seulement un signal de puissance/vitesse). Formulation standard du templating Magic ("takes an extra turn"). */
 const EXTRA_TURN_PATTERN = /takes? an extra turn/i;
@@ -165,51 +323,45 @@ export function computeDeckTier(
   cards: EnrichedCard[],
   commanders: ScryfallCard[],
   stats: DeckStats,
-  config: CategoryConfig
+  config: CategoryConfig,
+  formatKey?: FormatKey
 ): DeckTierResult {
-  let gameChangerCount = commanders.filter((c) => c.game_changer === true).length;
-  let fastManaCount = 0;
-  let extraTurnCount = 0;
-  let massLandDenialCount = 0;
+  const counts: TierCounts = { ...EMPTY_TIER_COUNTS };
+  counts.gameChangers = commanders.filter((c) => c.game_changer === true).length;
 
   for (const entry of cards) {
     if (!entry.card) continue;
-    const { card } = entry;
-
-    if (card.game_changer === true) gameChangerCount += entry.count;
-
-    const categories = classifyCard(card);
-    if (categories.includes("ramp") && card.cmc <= 2) fastManaCount += entry.count;
-
-    const text = getDisplayOracleText(card);
-    if (EXTRA_TURN_PATTERN.test(text)) extraTurnCount += entry.count;
-    if (MASS_LAND_DENIAL_PATTERNS.some((p) => p.test(text))) massLandDenialCount += entry.count;
+    const sig = cardTierSignals(entry.card);
+    if (sig.gameChanger) counts.gameChangers += entry.count;
+    if (sig.fastMana) counts.fastMana += entry.count;
+    if (sig.extraTurn) counts.extraTurns += entry.count;
+    if (sig.massLandDenial) counts.massLandDenial += entry.count;
+    // Une présence en tournoi compte une fois par NOM (pas par exemplaire).
+    counts.duelMetaSum += sig.duelMeta;
   }
 
-  const tutorCount = stats.categoryCounts.tutor;
-  const interactionRatio =
-    (stats.categoryCounts.removal + stats.categoryCounts.disruption) /
-    Math.max(1, config.targets.removal + config.targets.disruption);
+  // Tutors/interaction/courbe : repris de `stats` (computeDeckStats),
+  // comme avant le 25/09/2026 — mêmes comptes que le tableau de bord.
+  counts.tutor = stats.categoryCounts.tutor;
+  counts.interaction = stats.categoryCounts.removal + stats.categoryCounts.disruption;
+  counts.nonLandCount = stats.totalNonLandCards;
+  counts.nonLandCmcSum = stats.avgCmc * stats.totalNonLandCards;
 
-  // Poids (somme = 100), voir la doc en tête de fichier pour la
-  // justification de chacun par rapport aux critères officiels WotC
-  // recherchés le 24/09/2026.
-  const gameChangerScore = gameChangerCount === 0 ? 0 : Math.min(40, 10 + (gameChangerCount - 1) * 6);
-  const fastManaScore = Math.min(15, fastManaCount * 3);
-  const tutorScore = Math.min(10, (tutorCount / Math.max(1, config.targets.tutor)) * 10);
-  const interactionScore = Math.min(10, interactionRatio * 10);
-  // "A Time Warp or two is fine" (bracket 2 officiel) : faible pour 1-2
-  // occurrences, saut au maximum à partir de 3 (l'enchaînement répété est
-  // le vrai discriminant des brackets hauts, pas la simple présence).
-  const extraTurnScore = extraTurnCount <= 2 ? extraTurnCount * 1.5 : 10;
-  // Binaire : WotC présente le mass land denial comme quasi absent sous le
-  // bracket 4 et sans restriction au-delà — pas un signal graduel.
-  const mldScore = massLandDenialCount > 0 ? 10 : 0;
-  const curveScore = clamp(2.5 + (config.idealAvgCmc - stats.avgCmc) * 2.5, 0, 5);
+  const names = [
+    ...commanders.map((c) => c.name),
+    ...cards.filter((e) => e.card).map((e) => e.card!.name),
+  ];
+  const combos = findCompleteCombos(names);
+  counts.combos = combos.length;
 
-  const powerIndex =
-    Math.round((gameChangerScore + fastManaScore + tutorScore + interactionScore + extraTurnScore + mldScore + curveScore) * 10) /
-    10;
+  const components = tierComponentsFromCounts(counts, config, formatKey);
+  const powerIndex = powerIndexFromComponents(components);
+  const interactionRatio = counts.interaction / Math.max(1, config.targets.removal + config.targets.disruption);
+  const gameChangerCount = counts.gameChangers;
+  const fastManaCount = counts.fastMana;
+  const tutorCount = counts.tutor;
+  const extraTurnCount = counts.extraTurns;
+  const massLandDenialCount = counts.massLandDenial;
 
   const { tier, subTier } = tierFromPowerIndex(powerIndex);
 
@@ -217,7 +369,7 @@ export function computeDeckTier(
     tier,
     subTier,
     label: `Tier ${tier} — ${SUB_TIER_LABEL[subTier]}`,
-    powerIndex: clamp(powerIndex, 0, 100),
+    powerIndex,
     signals: {
       gameChangerCount,
       fastManaCount,
@@ -226,12 +378,16 @@ export function computeDeckTier(
       massLandDenialCount,
       avgCmc: stats.avgCmc,
       interactionRatio: Math.round(interactionRatio * 100) / 100,
+      combos: combos.map((c) => ({ id: c.id, pieces: [...c.pieces], result: c.result, note: c.note })),
+      duelMetaSum: Math.round(counts.duelMetaSum * 10) / 10,
     },
+    components,
     caveat:
       "Indication inspirée du système officiel de Brackets Commander de Wizards of the Coast (5 paliers, encore en beta), " +
       "pas une application exacte de leurs règles : calculée uniquement à partir de motifs de texte et de champs Scryfall " +
-      "(dont \"Game Changer\", le signal officiel dominant ici), sans capacité fiable de détecter une vraie ligne de combo, " +
-      "une pièce de stax/verrou ou un enchaînement de destruction de terrains. WotC le dit elle-même à propos de son propre " +
+      "(dont \"Game Changer\", le signal officiel dominant ici), d'une liste curatée de combos connues et, en Duel Commander, " +
+      "de la présence des cartes dans un échantillon de decks de tournoi mtgtop8 (82 decks, septembre 2026). Une combo absente " +
+      "de la liste, une pièce de stax/verrou ou un enchaînement de destruction de terrains restent invisibles. WotC le dit elle-même à propos de son propre " +
       "système : le tableau de cartes est un plancher, pas toute la réponse — l'intention du deck compte le plus. À prendre " +
       "comme un repère, pas un verdict.",
   };
