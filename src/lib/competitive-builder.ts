@@ -26,6 +26,7 @@ import { cooccurrenceKey, learnedPartners, referenceFor, referenceShare, type Co
 import { BASIC_LAND_BY_COLOR, isLegalInFormat } from "./collection-builder";
 import { getDisplayOracleText } from "./scryfall";
 import { duelMetaPresence, duelMetaPresenceInColors } from "./duel-meta";
+import { DUEL_PROFILES_AVAILABLE, duelPresenceForIdentity, duelStatsForIdentity } from "./duel-profiles";
 
 /**
  * Constructeur de decks COMPÉTITIF (25/09/2026, demande de Ben) :
@@ -100,6 +101,17 @@ export interface ModeProfile {
   metaWeight: number;
   maxLandCut: number;
   tappedLandPenalty: number;
+  /**
+   * Poids du statut « Game Changer » dans le choix (26/09/2026). Les Game
+   * Changers sont une notion des brackets du Commander MULTIJOUEUR : en Duel,
+   * l'analyse de 1500 decks de tournoi montre qu'ils n'y sont pas un bon
+   * guide (ex. Glacial Chasm, Game Changer, jamais jouée en Duel, alors que
+   * le constructeur la mettait partout). 0 = ignoré dans le choix des cartes
+   * (le tier affiché, lui, ne change pas).
+   */
+  gameChangerWeight: number;
+  /** Suivre les profils par identité couleur des decks de tournoi (terrains, cartes). */
+  useColorProfiles: boolean;
 }
 
 export const MODE_PROFILES: Record<BuildMode, ModeProfile> = {
@@ -109,8 +121,15 @@ export const MODE_PROFILES: Record<BuildMode, ModeProfile> = {
   // learnedSynergyWeight : appliqué à chaque partenaire déjà choisi (lift
   // plafonné à 6, voir greedyPick) ; moitié moins en multi, les données
   // venant du Duel.
-  multi: { referenceWeight: 0, learnedSynergyWeight: 0.5, curveSoftCap: 5, curvePenalty: 0.4, cheapInteractionBonus: 0.5, metaWeight: 0, maxLandCut: 3, tappedLandPenalty: 0.75 },
-  duel: { referenceWeight: 6, learnedSynergyWeight: 1, curveSoftCap: 4, curvePenalty: 0.9, cheapInteractionBonus: 1.3, metaWeight: 5, maxLandCut: 3, tappedLandPenalty: 1.5 },
+  multi: { referenceWeight: 0, learnedSynergyWeight: 0.5, curveSoftCap: 5, curvePenalty: 0.4, cheapInteractionBonus: 0.5, metaWeight: 0, maxLandCut: 3, tappedLandPenalty: 0.75, gameChangerWeight: 1, useColorProfiles: false },
+  // 26/09/2026 — poids recalés sur 1500 decks de tournoi (juillet-septembre
+  // 2026), en mesurant la part du « cœur » réel (cartes jouées par ≥ 50% des
+  // decks d'un commandant) que retrouve le constructeur quand toutes les
+  // cartes du méta sont disponibles (script d'évaluation décrit dans le
+  // README) : metaWeight 5 → 16 et referenceWeight 6 → 12 font passer ce
+  // recouvrement de 43% à 74% sans données propres au commandant, et à 91%
+  // avec (test sur des decks postérieurs à ceux qui servent de référence).
+  duel: { referenceWeight: 12, learnedSynergyWeight: 1, curveSoftCap: 4, curvePenalty: 0.9, cheapInteractionBonus: 1.3, metaWeight: 16, maxLandCut: 0, tappedLandPenalty: 1.5, gameChangerWeight: 0, useColorProfiles: true },
 };
 
 export function modeForFormat(format: FormatConfig): BuildMode {
@@ -165,6 +184,18 @@ export function minBasicsFor(colorCount: number): number {
  */
 const ENTERS_TAPPED = /enters (the battlefield )?tapped/i;
 const CONDITIONAL_TAPPED = /unless|you may pay|if you control|if it's not your turn|as .* enters, you may/i;
+const BASIC_TYPE_BY_COLOR: Record<string, string> = { W: "plains", U: "island", B: "swamp", R: "mountain", G: "forest" };
+/**
+ * Un fetchland ne sert que s'il trouve un terrain de base / un type de base
+ * des couleurs du deck (26/09/2026 : Scalding Tarn — île ou montagne — était
+ * choisie pour des decks mono-blancs).
+ */
+export function fetchFindsIdentity(card: ScryfallCard, identity: string[]): boolean {
+  const text = getDisplayOracleText(card).toLowerCase();
+  if (/basic land card/.test(text)) return true;
+  return identity.some((c) => text.includes(BASIC_TYPE_BY_COLOR[c]));
+}
+
 export function entersTappedAlways(card: ScryfallCard): boolean {
   const text = getDisplayOracleText(card).split("\n//\n")[0];
   return ENTERS_TAPPED.test(text) && !CONDITIONAL_TAPPED.test(text);
@@ -217,7 +248,10 @@ export function buildFeatureIndex(cards: Iterable<ScryfallCard>, format: FormatC
     if (!isLegalInFormat(card, format)) continue;
     if (format.maxCopies <= 1 && hasDeadSingletonSynergy(card)) continue;
     const categories = classifyCard(card);
-    const isLand = Boolean(card.type_line?.includes("Land"));
+    // Face AVANT uniquement (26/09/2026) : une carte modale « sort // terrain »
+    // (Sink into Stupor // Soporific Springs…) prenait une place de terrain ;
+    // les decks de tournoi la comptent comme un sort (qui peut dépanner en terrain).
+    const isLand = Boolean(card.type_line?.split(" // ")[0].includes("Land"));
     index.set(key, {
       card,
       key,
@@ -336,7 +370,7 @@ function staticScore(
   const p = MODE_PROFILES[mode];
   let s = 0;
   for (const cat of f.categories) s += weights[cat] / targets[cat];
-  if (f.tier.gameChanger) s += 8;
+  if (f.tier.gameChanger) s += 8 * p.gameChangerWeight;
   if (f.tier.fastMana) s += 3;
   if (f.tier.tutor) s += 10 / Math.max(1, targets.tutor);
   if (f.tier.extraTurn) s += 1.5;
@@ -437,12 +471,14 @@ function greedyPick(
         });
       }
       nextCounts.combos = state.tierCounts.combos + completes;
+      // Duel : le statut Game Changer ne guide pas le choix (voir gameChangerWeight).
+      if (p.gameChangerWeight === 0) nextCounts.gameChangers = state.tierCounts.gameChangers;
 
       const tierGain =
         powerIndexFromComponents(tierComponentsFromCounts(withPrior(nextCounts), format.categories, format.key)) -
         baseIndex;
       let score = tierGain * TIER_WEIGHT;
-      if (f.tier.gameChanger) reasons.push("Game Changer");
+      if (f.tier.gameChanger && p.gameChangerWeight > 0) reasons.push("Game Changer");
       if (f.tier.fastMana) reasons.push("Mana rapide");
       if (f.tier.tutor) reasons.push("Tutor");
       if (f.tier.extraTurn) reasons.push("Tour supplémentaire");
@@ -473,7 +509,9 @@ function greedyPick(
         if (f.duelMetaChoice >= 0.1) {
           reasons.push(
             f.duelMetaChoice !== f.duelMetaGlobal
-              ? `Jouée dans ${Math.round(f.duelMetaChoice * 100)}% des decks de tournoi Duel de ses couleurs`
+              ? p.useColorProfiles && DUEL_PROFILES_AVAILABLE
+                ? `Jouée dans ${Math.round(f.duelMetaChoice * 100)}% des decks de tournoi Duel de ces couleurs`
+                : `Jouée dans ${Math.round(f.duelMetaChoice * 100)}% des decks de tournoi Duel de ses couleurs`
               : `Jouée dans ${Math.round(f.duelMetaChoice * 100)}% des decks de tournoi Duel`
           );
         }
@@ -507,7 +545,7 @@ function greedyPick(
 
       if (f.isLand) {
         const produced = (f.card.produced_mana ?? []).filter((m) => identity.includes(m));
-        if (f.fetchesBasicType) score += 1;
+        if (f.fetchesBasicType) score += fetchFindsIdentity(f.card, identity) ? 1 : -1;
         if (identity.length >= 2 && produced.length === 0 && !f.fetchesBasicType) score -= 1;
         // Deck monocolore : un terrain « bicolore » ne corrige rien, son
         // crédit « fixing » est annulé (un terrain de base fait aussi bien).
@@ -674,6 +712,16 @@ function buildOnce(ctx: BuildContext): BuiltDeck {
     if (!isOwned && !acquirable.has(f.key)) continue;
     available.push(f);
   }
+  // Duel (26/09/2026) : présence mesurée dans les decks de tournoi de CETTE
+  // identité couleur (duel-profiles.ts) plutôt que dans tous les decks qui
+  // peuvent jouer la carte.
+  const duelStats = p.useColorProfiles ? duelStatsForIdentity(identity) : null;
+  if (p.useColorProfiles && DUEL_PROFILES_AVAILABLE) {
+    for (let i = 0; i < available.length; i++) {
+      const f = available[i];
+      available[i] = { ...f, duelMetaChoice: duelPresenceForIdentity(f.card.name, f.card.color_identity, identity) };
+    }
+  }
 
   // Combos réalisables avec ce qui est disponible (commandants compris). Les
   // combos à « modèle » générique (Commander Spellbook : « un outil de
@@ -707,7 +755,13 @@ function buildOnce(ctx: BuildContext): BuiltDeck {
   const lands = withCombos(byStatic(landsAll, LAND_SHORTLIST), landsAll);
   const nonLands = withCombos(byStatic(nonLandsAll, NONLAND_SHORTLIST), nonLandsAll);
 
-  const landTarget = Math.round(format.categories.idealLandRatio * deckSize);
+  // Duel : nombre de terrains et de terrains de base = médianes des decks de
+  // tournoi de cette identité (duel-profiles.ts) ; multi : ratio du format
+  // et plancher MIN_BASICS_BY_COLORS.
+  const landTarget = duelStats
+    ? Math.max(34, Math.min(40, Math.round(duelStats.lands)))
+    : Math.round(format.categories.idealLandRatio * deckSize);
+  const basicsTarget = duelStats ? Math.round(duelStats.basics) : minBasicsFor(identity.length);
   const nonLandTarget = deckSize - landTarget;
 
   const state: PickState = {
@@ -734,7 +788,7 @@ function buildOnce(ctx: BuildContext): BuiltDeck {
   // Terrains non-base : seulement ceux qui valent mieux qu'un terrain de base
   // (minScore 0), et jamais au-delà de ce que laisse le plancher de terrains
   // de base (minBasicsFor).
-  const poolLandSlots = Math.max(0, landTarget - minBasicsFor(identity.length));
+  const poolLandSlots = Math.max(0, landTarget - basicsTarget);
   const landPicks = greedyPick(lands, poolLandSlots, ctx, profile, state, combosAvailable, identity, 0);
   const landAcq = landPicks.filter((x) => x.acquired).length;
   const nonLandPicks = greedyPick(

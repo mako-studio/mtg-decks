@@ -61,6 +61,8 @@ const ARCHIVE = path.join(ROOT, "analysis/duelcommander/decks-mtgtop8.json");
 const OUT = path.join(ROOT, "src/data/duel-meta.json");
 const OUT_REFERENCE = path.join(ROOT, "src/data/duel-commander-reference.json");
 const OUT_COOC = path.join(ROOT, "src/data/duel-cooccurrence.json");
+const OUT_CARDS = path.join(ROOT, "analysis/duelcommander/cards-scryfall.json");
+const OUT_PROFILES = path.join(ROOT, "src/data/duel-color-profiles.json");
 
 const args = process.argv.slice(2);
 const argVal = (name, def) => {
@@ -73,6 +75,9 @@ const MAX_PAGES = argVal("--max-pages", 40);
 const DRY = args.includes("--dry-run");
 const DEBUG = args.includes("--debug");
 const REBUILD_ONLY = args.includes("--rebuild-only");
+// --offline (26/09/2026) : réutilise analysis/duelcommander/cards-scryfall.json
+// au lieu d'interroger Scryfall (recalcul sans aucun accès réseau).
+const OFFLINE = args.includes("--offline");
 /**
  * Période de la liste d'événements mtgtop8 (paramètre `meta=`). Vérifié le
  * 25/09/2026 sur le sélecteur de la page : 115 = 2 dernières semaines,
@@ -141,6 +146,40 @@ async function loadArchive() {
  * face avant sur mtgtop8 : on cherche par face avant et on garde le nom
  * complet Scryfall, qui est celui qu'utilise le site.
  */
+/**
+ * Données de carte conservées pour l'analyse des patterns de deckbuilding
+ * (26/09/2026, demande de Ben : « inspire-toi des decks mtgtop8 pour les
+ * terrains de base/spéciaux et les patterns de construction »). Il faut le
+ * type, le coût, le texte et le mana produit de chaque carte pour compter
+ * terrains, courbe et rôles — l'archive mtgtop8 ne contient que des noms.
+ * Champs réduits à ce qu'utilise le classificateur du site (deck-score.ts).
+ */
+export const scryfallCards = new Map();
+function trimCard(card) {
+  const faces = card.card_faces?.map((f) => ({
+    name: f.name,
+    mana_cost: f.mana_cost ?? "",
+    type_line: f.type_line ?? "",
+    oracle_text: f.oracle_text ?? "",
+  }));
+  return {
+    name: card.name,
+    mana_cost: card.mana_cost ?? "",
+    cmc: card.cmc ?? 0,
+    type_line: card.type_line ?? "",
+    oracle_text: card.oracle_text ?? "",
+    colors: card.colors ?? [],
+    color_identity: card.color_identity ?? [],
+    keywords: card.keywords ?? [],
+    produced_mana: card.produced_mana ?? null,
+    game_changer: card.game_changer ?? false,
+    edhrec_rank: card.edhrec_rank ?? null,
+    layout: card.layout,
+    legalities: { commander: card.legalities?.commander, duel: card.legalities?.duel },
+    ...(faces ? { card_faces: faces } : {}),
+  };
+}
+
 async function scryfallLookup(names) {
   const out = new Map();
   const unique = Array.from(new Set(names));
@@ -160,6 +199,7 @@ async function scryfallLookup(names) {
       const data = await res.json();
       for (const card of data.data) {
         const info = { name: card.name, identity: card.color_identity, typeLine: card.type_line };
+        scryfallCards.set(card.name, trimCard(card));
         out.set(card.name.toLowerCase(), info);
         for (const face of card.name.split(" // ")) out.set(face.toLowerCase(), info);
       }
@@ -284,12 +324,26 @@ async function writeOutputs(archive) {
   const keepSince = new Date(Date.now() - KEEP_DAYS * 86400000).toISOString().slice(0, 10);
   const decks = archive.decks.filter((d) => !d.date || d.date >= keepSince);
   const allNames = decks.flatMap((d) => [...d.commanders, ...d.cards.map((c) => c.name)]);
-  console.log(`Noms canoniques et identités couleur via Scryfall pour ${new Set(allNames).size} cartes…`);
-  const lookup = await scryfallLookup(allNames);
+  let lookup;
+  if (OFFLINE) {
+    lookup = await lookupFromCardsFile();
+    console.log(`--offline : ${scryfallCards.size} cartes lues depuis ${path.relative(ROOT, OUT_CARDS)}.`);
+  } else {
+    console.log(`Noms canoniques et identités couleur via Scryfall pour ${new Set(allNames).size} cartes…`);
+    lookup = await scryfallLookup(allNames);
+  }
   const { meta, reference, cooccurrence } = computeOutputs(decks, lookup);
+  const profiles = computeColorProfiles(decks, lookup, scryfallCards);
+  await writeFile(OUT_PROFILES, JSON.stringify(profiles) + "\n", "utf8");
+  console.log(`duel-color-profiles.json : ${Object.keys(profiles.identities).length} identités couleur (terrains, courbe, cartes jouées).`);
   await writeFile(OUT, JSON.stringify(meta, null, 0) + "\n", "utf8");
   await writeFile(OUT_REFERENCE, JSON.stringify(reference) + "\n", "utf8");
   await writeFile(OUT_COOC, JSON.stringify(cooccurrence) + "\n", "utf8");
+  if (scryfallCards.size > 0 && !OFFLINE) {
+    const sorted = Object.fromEntries([...scryfallCards.entries()].sort((a, b) => a[0].localeCompare(b[0])));
+    await writeFile(OUT_CARDS, JSON.stringify({ generatedAt: new Date().toISOString().slice(0, 10), cards: sorted }) + "\n", "utf8");
+    console.log(`cards-scryfall.json : ${scryfallCards.size} cartes (types, coûts, textes) pour l'analyse des patterns.`);
+  }
   console.log(
     `duel-meta.json : ${meta.deckCount} decks, ${Object.keys(meta.cards).length} cartes, ${Object.keys(meta.commanders).length} commandants.`
   );
@@ -298,7 +352,122 @@ async function writeOutputs(archive) {
   console.log("Pense à vérifier le site puis à commiter ces fichiers (GitHub Desktop).");
 }
 
+/** Recharge les cartes sauvegardées (mode --offline) et reconstruit le même `lookup` que scryfallLookup. */
+async function lookupFromCardsFile() {
+  const data = JSON.parse(await readFile(OUT_CARDS, "utf8"));
+  const out = new Map();
+  for (const card of Object.values(data.cards)) {
+    scryfallCards.set(card.name, card);
+    const info = { name: card.name, identity: card.color_identity, typeLine: card.type_line };
+    out.set(card.name.toLowerCase(), info);
+    for (const face of card.name.split(" // ")) out.set(face.toLowerCase(), info);
+  }
+  return out;
+}
+
 const round3 = (x) => Math.round(x * 1000) / 1000;
+
+/**
+ * Profils par identité couleur (26/09/2026, demande de Ben : construire les
+ * decks Duel à partir des patterns réels des decks de tournoi, pas de
+ * règles inventées). Pour chaque identité (« W », « UR », « BRG »…) :
+ * - `decks` : nombre de decks de l'échantillon ;
+ * - `stats` : médianes par deck — terrains, terrains de base, fetchlands,
+ *   terrains toujours engagés, coût moyen des non-terrains, courbe
+ *   (0-1, 2, 3, 4, 5+), créatures ;
+ * - `cards` : part des decks de CETTE identité qui jouent chaque carte
+ *   (≥ 8%, terrains de base exclus).
+ * Le site mélange les identités voisines quand une identité a peu de decks
+ * (voir src/lib/duel-profiles.ts).
+ */
+const WUBRG = ["W", "U", "B", "R", "G"];
+const BASIC_TYPE_RE = /search your library for an? [^.]*(plains|island|swamp|mountain|forest|basic land)/i;
+const ETB_TAPPED_RE = /enters (the battlefield )?tapped/i;
+const ETB_COND_RE = /unless|you may pay|if you control|if it's not your turn|as .* enters, you may/i;
+export function computeColorProfiles(decks, lookup, cardData) {
+  const canon = (n) => lookup.get(n.toLowerCase())?.name ?? n;
+  const cardOf = (n) => cardData.get(canon(n)) ?? null;
+  const median = (a) => {
+    if (!a.length) return 0;
+    const s = [...a].sort((x, y) => x - y);
+    const m = Math.floor(s.length / 2);
+    return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+  };
+  const groups = new Map();
+  for (const d of decks) {
+    const commanders = Array.from(new Set(d.commanders.map(canon)));
+    const ids = commanders.map((c) => lookup.get(c.toLowerCase())?.identity);
+    if (ids.some((x) => !x)) continue;
+    const identity = WUBRG.filter((c) => ids.some((id) => id.includes(c))).join("") || "C";
+    const row = { lands: 0, basics: 0, fetches: 0, tapped: 0, nonland: 0, cmcSum: 0, c01: 0, c2: 0, c3: 0, c4: 0, c5p: 0, creatures: 0, unknown: 0 };
+    const names = new Set();
+    for (const e of d.cards) {
+      const isBasic = BASICS.has(e.name.toLowerCase());
+      const card = cardOf(e.name);
+      if (isBasic) {
+        row.lands += e.count;
+        row.basics += e.count;
+        continue;
+      }
+      names.add(canon(e.name));
+      if (!card) {
+        row.unknown += e.count;
+        continue;
+      }
+      const front = card.type_line.split(" // ")[0];
+      if (/\bLand\b/.test(front)) {
+        row.lands += e.count;
+        const text = card.oracle_text || card.card_faces?.[0]?.oracle_text || "";
+        if (BASIC_TYPE_RE.test(text)) row.fetches++;
+        if (ETB_TAPPED_RE.test(text) && !ETB_COND_RE.test(text)) row.tapped++;
+        continue;
+      }
+      row.nonland += e.count;
+      row.cmcSum += card.cmc * e.count;
+      const b = card.cmc <= 1 ? "c01" : card.cmc === 2 ? "c2" : card.cmc === 3 ? "c3" : card.cmc === 4 ? "c4" : "c5p";
+      row[b] += e.count;
+      if (/Creature/.test(front)) row.creatures += e.count;
+    }
+    if (row.unknown > 3) continue;
+    if (!groups.has(identity)) groups.set(identity, { rows: [], counts: new Map() });
+    const g = groups.get(identity);
+    g.rows.push(row);
+    for (const n of names) g.counts.set(n, (g.counts.get(n) ?? 0) + 1);
+  }
+  const identities = {};
+  for (const [identity, g] of [...groups.entries()].sort((a, b) => b[1].rows.length - a[1].rows.length)) {
+    const n = g.rows.length;
+    const stat = (k) => median(g.rows.map((r) => r[k]));
+    const cards = {};
+    for (const [name, c] of [...g.counts.entries()].sort((a, b) => b[1] - a[1])) {
+      const share = c / n;
+      if (share >= 0.08 && c >= 2) cards[name] = Math.round(share * 100) / 100;
+    }
+    identities[identity] = {
+      decks: n,
+      stats: {
+        lands: stat("lands"),
+        basics: stat("basics"),
+        fetches: stat("fetches"),
+        tapped: stat("tapped"),
+        avgCmc: Math.round(median(g.rows.map((r) => (r.nonland ? r.cmcSum / r.nonland : 0))) * 100) / 100,
+        c01: stat("c01"),
+        c2: stat("c2"),
+        c3: stat("c3"),
+        c4: stat("c4"),
+        c5p: stat("c5p"),
+        creatures: stat("creatures"),
+      },
+      cards,
+    };
+  }
+  const dates = decks.map((d) => d.date).filter(Boolean).sort();
+  return {
+    source: "mtgtop8.com — decks Duel Commander de tournoi (scripts/fetch-duel-meta.mjs)",
+    period: dates.length ? `${dates[0]} → ${dates[dates.length - 1]}` : null,
+    identities,
+  };
+}
 const sortObj = (o) => Object.fromEntries(Object.entries(o).sort((a, b) => b[1] - a[1]));
 
 /**

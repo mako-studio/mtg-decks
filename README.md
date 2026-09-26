@@ -2225,3 +2225,68 @@ rang EDHREC) et prenait toutes les places. Correctifs (competitive-builder.ts) :
 
 Test : avec 40 bicolores non engagés possédés, le deck obtient 9 terrains
 de base (3 couleurs) ou 14 (2 couleurs), toujours à 99 cartes.
+
+## 26/09/2026 (4) — Constructeur Duel calé sur les decks de tournoi
+
+Demande de Ben : s'inspirer des decks mtgtop8 (terrains de base / spéciaux,
+patterns de construction). Le constructeur ne le convainquait pas en Duel.
+
+**Données.** `node scripts/fetch-duel-meta.mjs --weeks 12` :
+- archive de 2 056 decks, dont 1 500 de juillet à septembre 2026 ;
+- `analysis/duelcommander/cards-scryfall.json` : type, coût et texte de
+  4 025 cartes, pour analyser sans accès réseau (`--offline`) ;
+- `src/data/duel-color-profiles.json` : pour chaque identité couleur, les
+  médianes (terrains, terrains de base, fetchlands, courbe, créatures) et la
+  part des decks qui jouent chaque carte.
+
+**Ce que disent les decks réels** (1 500 decks ; médianes, avec l'écart
+p25-p75 entre crochets) :
+
+| Couleurs | Terrains | Terrains de base | Fetchlands | Coût moyen |
+|---|---|---|---|---|
+| 1 | 38 | 23 [18-26] | 1 | 1,98 |
+| 2 | 38 | 9 [6-12] | 8 | 2,24 |
+| 3 | 37 | 4 [3-5] | 10 | 2,33 |
+
+- Terrains engagés : 0 à 3 par deck.
+- Courbe (tous decks) : ~20 cartes à 0-1, ~18 à 2, ~11 à 3, ~6 à 4, ~4 à 5 et plus.
+- Mana rapide : médiane 1-2 cartes ; les decks gardent 37-38 terrains même
+  avec du mana rapide.
+
+**Écarts du constructeur corrigés** (competitive-builder.ts,
+duel-profiles.ts) :
+- Terrains : la cible est la médiane de l'identité couleur (au lieu de
+  37 − coupe liée au mana rapide) ; en Duel, plus aucun terrain n'est coupé.
+- Terrains de base : médiane de l'identité (le plancher 24/14/9 reste pour
+  le multi).
+- Choix des cartes : part des decks de tournoi de la MÊME identité
+  (identités voisines mélangées quand il y a peu de decks), au lieu de la
+  part des decks qui peuvent jouer la carte. Exemple : Scalding Tarn est à
+  ~60 % sur l'ensemble du méta mais presque absente des decks mono-blancs.
+- Poids du méta et de la référence du commandant relevés
+  (metaWeight 5 → 16, referenceWeight 6 → 12).
+- Game Changers ignorés dans le choix en Duel (notion du multi ; Glacial
+  Chasm était mise partout). Le tier affiché ne change pas.
+- Fetchland inutile si elle ne trouve aucun type de base des couleurs du deck.
+- Cartes modales « sort // terrain » comptées comme des sorts.
+
+**Mesure.** On construit un deck pour chaque commandant joué ≥ 8 fois (45
+commandants), en supposant toutes les cartes du méta disponibles. On
+regarde quelle part du « cœur » réel (cartes jouées par ≥ 50 % des decks de
+ce commandant) le deck retrouve :
+
+| Version | Cœur retrouvé | Terrains (réel) | Terrains de base (réel) |
+|---|---|---|---|
+| Avant | 43 % | 33,5 (38,2) | 14,8 (9,9) |
+| Après, sans données propres au commandant | 69 % | 37,4 | 9,8 |
+| Après, avec la référence du commandant (test sur des decks postérieurs au 10/09, référence calculée avant) | 91 % | 37,4 (37,5) | 9,4 (9,4) |
+
+Scripts d'évaluation : `analyze-patterns.mts` et `evaluate-builder.mts`,
+gardés hors du dépôt (scratchpad de la session). À recréer si besoin à
+partir de cette description.
+
+**Limites.**
+- Le cœur d'un archétype dépend souvent de cartes de synergie précises
+  (ex. Sigarda's Aid pour Cloud) : sans decks de tournoi du commandant,
+  elles restent difficiles à deviner.
+- Le « tier » affiché reste la formule inspirée des brackets du multi.

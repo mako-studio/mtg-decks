@@ -21,6 +21,7 @@ import {
   type DeckProposal,
 } from "./competitive-builder";
 import type { DeckTierResult } from "./deck-tier";
+import { DUEL_PROFILES_AVAILABLE, DUEL_PROFILES_INFO } from "./duel-profiles";
 import {
   getCardsByNames,
   getDisplayImageUrl,
@@ -591,6 +592,11 @@ export async function runCompetitiveBuild(input: {
     if (ownedTop.length === 0) {
       notes.push(
         "Aucun commandant jouable n'a été trouvé dans ta liste (créature légendaire ou carte « peut être votre commandant », 3 couleurs max) : seuls des commandants à acquérir sont proposés."
+      );
+    }
+    if (isDuel && DUEL_PROFILES_AVAILABLE) {
+      notes.push(
+        `Duel : nombre de terrains, de terrains de base et choix des cartes calés sur les decks de tournoi de mêmes couleurs (${DUEL_PROFILES_INFO.decks} decks mtgtop8, ${DUEL_PROFILES_INFO.period ?? "période inconnue"}). Les Game Changers ne guident pas le choix en Duel (notion du Commander multijoueur).`
       );
     }
     const tooManyColors = candidates.filter((c) => unionIdentity(c.cards).length > MAX_DECK_COLORS).length;
