@@ -2391,6 +2391,15 @@ reçu). Non vérifié : l'import complet jusqu'à l'analyse (dépend de
 Scryfall, inaccessible en dev). Si un parseur change, mettre à jour le
 fichier exemple correspondant.
 
-Limite connue, non traitée : un CSV réenregistré par Excel en français
-utilise en général le point-virgule comme séparateur, que les parseurs ne
-reconnaissent pas (message « Colonnes introuvables »).
+**Séparateur détecté automatiquement (même jour).** Bug signalé par Ben :
+le CSV exemple de collection, réenregistré par un tableur en français,
+ressortait avec des points-virgules (« Nombre;Nom ») → « Colonne "Nom"
+introuvable ». `parseCsvRows` (csv-import.ts, partagé par les deux imports)
+détecte désormais le séparateur sur la ligne d'en-tête
+(`detectCsvDelimiter` : virgule, point-virgule ou tabulation, le plus
+fréquent hors guillemets, virgule par défaut). Vérifié sur le fichier réel
+de Ben (1 001 lignes, 916 cartes distinctes, 1 194 exemplaires, total
+identique au fichier), sur les deux exemples en virgule et en
+point-virgule, en tabulation, et avec un nom entre guillemets contenant le
+séparateur ; Playwright : l'erreur ne s'affiche plus et la construction
+démarre. Textes d'aide de l'UI mis à jour.

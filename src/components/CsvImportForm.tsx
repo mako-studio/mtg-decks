@@ -99,11 +99,12 @@ export function CsvImportForm() {
         (public/exemples/), vérifié contre parseDeckCsv (csv-import.ts) :
         colonnes obligatoires "Nombre" et "Nom", optionnelles "Commandant",
         "Ajoutée via suggestion", "Marquée à retirer" (valeurs oui/non),
-        séparateur virgule, noms contenant une virgule entre guillemets.
+        séparateur virgule, point-virgule ou tabulation (détecté automatiquement),
+        noms contenant le séparateur entre guillemets.
         À garder synchronisé si le parseur change.
       */}
       <p className="mt-2 text-xs text-muted">
-        Colonnes obligatoires : « Nombre » et « Nom » (séparateur virgule).{" "}
+        Colonnes obligatoires : « Nombre » et « Nom » (séparateur virgule ou point-virgule).{" "}
         <a
           href="/exemples/exemple-deck.csv"
           download="exemple-deck.csv"

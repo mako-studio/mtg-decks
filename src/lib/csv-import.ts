@@ -36,6 +36,33 @@ function isYes(value: string | undefined): boolean {
 }
 
 /**
+ * Détecte le séparateur d'un CSV à partir de sa première ligne (l'en-tête),
+ * en ignorant ce qui est entre guillemets : virgule, point-virgule ou
+ * tabulation, le plus fréquent l'emporte ; virgule par défaut.
+ *
+ * 26/09/2026, bug signalé par Ben : le CSV exemple, ouvert puis réenregistré
+ * par un tableur en français (Excel/Numbers), ressort avec des
+ * points-virgules (« Nombre;Nom ») — la virgule y est le séparateur
+ * décimal. Avec une virgule codée en dur, tout l'en-tête devenait une seule
+ * colonne « Nombre;Nom » et l'import échouait sur « Colonne "Nom"
+ * introuvable ». L'en-tête suffit pour décider : il ne contient que des
+ * intitulés de colonnes, jamais de nom de carte.
+ */
+export function detectCsvDelimiter(text: string): string {
+  const counts: Record<string, number> = { ",": 0, ";": 0, "\t": 0 };
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '"') inQuotes = !inQuotes;
+    else if (!inQuotes && (ch === "\n" || ch === "\r")) break;
+    else if (!inQuotes && ch in counts) counts[ch]++;
+  }
+  let best = ",";
+  for (const d of [";", "\t"]) if (counts[d] > counts[best]) best = d;
+  return best;
+}
+
+/**
  * Parseur CSV minimal mais correct (RFC 4180) : gère les champs entre
  * guillemets, avec virgules, guillemets doublés (`""` -> `"`) et retours
  * à la ligne à l'intérieur — indispensable ici, beaucoup de noms de
@@ -47,7 +74,7 @@ function isYes(value: string | undefined): boolean {
  * format de fichier de base, colonnes reconnues différentes — voir ce
  * fichier plutôt que dupliquer ce parseur.
  */
-export function parseCsvRows(text: string): string[][] {
+export function parseCsvRows(text: string, delimiter: string = detectCsvDelimiter(text)): string[][] {
   const rows: string[][] = [];
   let row: string[] = [];
   let field = "";
@@ -76,7 +103,7 @@ export function parseCsvRows(text: string): string[][] {
       i++;
       continue;
     }
-    if (ch === ",") {
+    if (ch === delimiter) {
       row.push(field);
       field = "";
       i++;

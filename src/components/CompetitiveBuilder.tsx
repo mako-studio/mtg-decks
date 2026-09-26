@@ -347,11 +347,11 @@ export function CompetitiveBuilder({ fromSimulator = false }: { fromSimulator?: 
             vérifier le format. Statique (public/exemples/), vérifié contre
             parseCollectionCsv (collection-import.ts) : colonne "Nom"
             obligatoire, "Nombre" optionnelle (1 par défaut), autres colonnes
-            ignorées, séparateur virgule. À garder synchronisé avec le parseur.
+            ignorées, séparateur virgule/point-virgule/tabulation. À garder synchronisé avec le parseur.
           */}
           {inputMode === "csv" && (
             <p className="mt-1 text-xs text-muted">
-              Colonne « Nom » obligatoire, « Nombre » facultative (1 par défaut), séparateur virgule ; les autres colonnes sont ignorées.{" "}
+              Colonne « Nom » obligatoire, « Nombre » facultative (1 par défaut), séparateur virgule ou point-virgule ; les autres colonnes sont ignorées.{" "}
               <a
                 href="/exemples/exemple-collection.csv"
                 download="exemple-collection.csv"
