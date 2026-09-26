@@ -2208,3 +2208,20 @@ monocolore, UR, règle des couleurs), et de bout en bout avec un faux
 Scryfall (groupes, compte des terrains, mobile sans débordement). Pas
 vérifié sur tes vraies cartes : les poids (malus d'un terrain engagé) sont
 des choix de conception à ajuster à l'usage.
+
+## 26/09/2026 (3) — Plancher de terrains de base
+
+Retour de Ben : les decks construits ne contenaient que des terrains
+non-base. Avec une grande collection, presque chaque terrain non-base
+valait un peu plus qu'un terrain de base (fixing, présence en tournoi,
+rang EDHREC) et prenait toutes les places. Correctifs (competitive-builder.ts) :
+
+- **Plancher de terrains de base** (`MIN_BASICS_BY_COLORS`) : 24 en
+  monocolore, 14 en bicolore, 9 en tricolore. Ce sont des choix de
+  conception (ordre de grandeur de listes courantes), pas des statistiques
+  mesurées ; à ajuster à l'usage.
+- **Coupe liée au mana rapide** : elle retire d'abord les derniers terrains
+  non-base choisis, puis seulement des terrains de base.
+
+Test : avec 40 bicolores non engagés possédés, le deck obtient 9 terrains
+de base (3 couleurs) ou 14 (2 couleurs), toujours à 99 cartes.

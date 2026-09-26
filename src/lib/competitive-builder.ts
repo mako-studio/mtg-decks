@@ -141,6 +141,24 @@ const WEAKEST_CATEGORY_BONUS = 2.5;
 export const MAX_DECK_COLORS = 3;
 
 /**
+ * Terrains de base minimum selon le nombre de couleurs (26/09/2026, retour
+ * de Ben : « tu ne suggères que des terrains spéciaux et pas de base »).
+ * Avec une grande collection, presque chaque terrain non-base de la liste
+ * valait « un peu plus » qu'un terrain de base (fixing, présence en
+ * tournoi…) et prenait les ~35 places. Des terrains de base restent
+ * indispensables : cibles des fetchlands, résistance à Blood Moon / Back to
+ * Basics (joués en Duel), et une base de mana qui arrive dégagée.
+ * Valeurs = choix de conception (ordre de grandeur des listes que je
+ * connais, pas une statistique mesurée) : ~2/3 des terrains en monocolore,
+ * ~40% en bicolore, ~25% en tricolore. Index = nombre de couleurs.
+ */
+export const MIN_BASICS_BY_COLORS = [0, 24, 14, 9] as const;
+
+export function minBasicsFor(colorCount: number): number {
+  return MIN_BASICS_BY_COLORS[Math.min(colorCount, MIN_BASICS_BY_COLORS.length - 1)] ?? 0;
+}
+
+/**
  * Terrain qui arrive toujours engagé. Les formulations conditionnelles
  * (« unless you control… », terrains de choc « you may pay 2 life… ») ne
  * comptent pas. Heuristique sur le texte oracle, pas une donnée Scryfall.
@@ -713,8 +731,11 @@ function buildOnce(ctx: BuildContext): BuiltDeck {
 
   const commandersOwned = commanders.map((c) => (owned.get(c.name.toLowerCase()) ?? 0) > 0);
 
-  // Terrains : seulement ceux qui valent mieux qu'un terrain de base (voir minScore).
-  const landPicks = greedyPick(lands, landTarget, ctx, profile, state, combosAvailable, identity, 0);
+  // Terrains non-base : seulement ceux qui valent mieux qu'un terrain de base
+  // (minScore 0), et jamais au-delà de ce que laisse le plancher de terrains
+  // de base (minBasicsFor).
+  const poolLandSlots = Math.max(0, landTarget - minBasicsFor(identity.length));
+  const landPicks = greedyPick(lands, poolLandSlots, ctx, profile, state, combosAvailable, identity, 0);
   const landAcq = landPicks.filter((x) => x.acquired).length;
   const nonLandPicks = greedyPick(
     nonLands,
@@ -736,12 +757,15 @@ function buildOnce(ctx: BuildContext): BuiltDeck {
 
   let finalLandPicks = landPicks;
   let basicsCount = basicsNeeded;
-  // On coupe d'abord des terrains de base (complément), puis les derniers terrains choisis.
+  // 26/09/2026 : on coupe d'abord les derniers terrains non-base choisis
+  // (les moins utiles), puis des terrains de base — pour garder le plancher
+  // de terrains de base autant que possible.
   let toCut = cut;
+  const fromPool = Math.min(toCut, landPicks.length);
+  if (fromPool > 0) finalLandPicks = landPicks.slice(0, landPicks.length - fromPool);
+  toCut -= fromPool;
   const fromBasics = Math.min(toCut, basicsCount);
   basicsCount -= fromBasics;
-  toCut -= fromBasics;
-  if (toCut > 0) finalLandPicks = landPicks.slice(0, Math.max(0, landPicks.length - toCut));
 
   const finalNonLands = nonLandPicks.slice(0, nonLandTarget + cut);
   // Si le pool est trop petit, les créneaux non-terrain manquants deviennent
