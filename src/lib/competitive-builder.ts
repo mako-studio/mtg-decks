@@ -1054,7 +1054,11 @@ export function rankProposals(params: RankParams): DeckProposal[] {
   const maxPairs = params.maxPairTrials ?? 10;
 
   const maxColors = params.maxColors ?? MAX_DECK_COLORS;
-  const withAffinity = candidates.filter((c) => unionIdentity(c.cards).length <= maxColors).map((c) => ({
+  const withAffinity = candidates
+    .filter((c) => unionIdentity(c.cards).length <= maxColors)
+    // Commandant inutile en singleton (voir hasDeadSingletonSynergy).
+    .filter((c) => format.maxCopies > 1 || !c.cards.some(hasDeadSingletonSynergy))
+    .map((c) => ({
     c,
     affinity: commanderAffinity(c.cards, features, owned, format, mode),
   }));

@@ -3,6 +3,7 @@
 import type { ScryfallCard } from "./types";
 import { getFormat } from "./formats";
 import { BASIC_LAND_BY_COLOR, isCommanderEligible, isLegalInFormat } from "./collection-builder";
+import { hasDeadSingletonSynergy } from "./deck-score";
 import {
   buildDeckForCommander,
   buildFeatureIndex,
@@ -420,6 +421,10 @@ export async function runCompetitiveBuild(input: {
         return;
       }
       if (!isCommanderEligible(card)) return;
+      // 26/09/2026 (retour de Ben : Mishra, Artificer Prodigy proposé) : un
+      // commandant dont la capacité repose sur plusieurs exemplaires d'une
+      // même carte ne fait rien en singleton (Commander et Duel).
+      if (format.maxCopies <= 1 && hasDeadSingletonSynergy(card)) return;
       candidatesByName.set(key, { cards: [card], owned: [isOwned(card)], source: isOwned(card) ? "collection" : source });
     };
     for (const card of ownedCards) addCandidate(card, "collection");

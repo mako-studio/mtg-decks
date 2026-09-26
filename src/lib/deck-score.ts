@@ -273,8 +273,13 @@ const SINGLETON_EXEMPTION_PATTERN =
 export function hasDeadSingletonSynergy(card: ScryfallCard): boolean {
   const text = getDisplayOracleText(card);
   if (!text) return false;
-  if (SINGLETON_EXEMPTION_PATTERN.test(text)) return false;
-  return SAME_NAME_DEPENDENCY_PATTERN.test(text);
+  if (SINGLETON_EXEMPTION_PATTERN.test(text) || /a deck can have up to/i.test(text)) return false;
+  if (SAME_NAME_DEPENDENCY_PATTERN.test(text)) return true;
+  // 26/09/2026 : cartes qui vont chercher leurs propres exemplaires
+  // (« search your library for up to three cards named Squadron Hawk ») —
+  // un seul exemplaire en singleton, la capacité ne trouve rien.
+  const front = card.name.split(" // ")[0].replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`search your library for [^.]*cards? named ${front}\\b`, "i").test(text);
 }
 
 /**

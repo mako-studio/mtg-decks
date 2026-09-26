@@ -2290,3 +2290,24 @@ partir de cette description.
   (ex. Sigarda's Aid pour Cloud) : sans decks de tournoi du commandant,
   elles restent difficiles à deviner.
 - Le « tier » affiché reste la formule inspirée des brackets du multi.
+
+## 26/09/2026 (5) — Commandants incohérents avec le singleton
+
+Retour de Ben : le constructeur proposait Mishra, Artificer Prodigy comme
+commandant. Sa capacité (« chercher une carte ayant le même nom que ce
+sort ») ne fait rien quand chaque carte n'existe qu'en un exemplaire.
+
+- Le filtre `hasDeadSingletonSynergy` (deck-score.ts) s'appliquait déjà aux
+  99 cartes, mais pas aux commandants. Il s'applique désormais aussi aux
+  candidats commandants et aux duos (competitive-actions.ts et
+  `rankProposals`).
+- Nouveau motif : les cartes qui cherchent leurs propres exemplaires
+  (« search your library for up to three cards named Squadron Hawk »).
+- Exemptions conservées : Relentless Rats, Seven Dwarves (« a deck can
+  have… »). Maelstrom Pulse et Retraced Image ne sont pas visés : ils
+  fonctionnent en singleton.
+- Non appliqué : la liste « bannie comme commandant » du Duel. Les sources
+  consultées le 26/09/2026 se contredisent : mtgdc.info présente une liste
+  archivée incluant Tasigur, Emry et Winota, alors que ces commandants sont
+  joués dans les tournois mtgtop8 de juillet à septembre 2026. À trancher
+  avec la liste officielle en vigueur.
