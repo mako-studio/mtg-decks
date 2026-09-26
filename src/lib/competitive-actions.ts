@@ -2,7 +2,7 @@
 
 import type { ScryfallCard } from "./types";
 import { getFormat } from "./formats";
-import { BASIC_LAND_BY_COLOR, isCommanderEligible, isLegalInFormat } from "./collection-builder";
+import { BASIC_LAND_BY_COLOR, canBeCommanderInFormat, isCommanderEligible } from "./collection-builder";
 import { hasDeadSingletonSynergy } from "./deck-score";
 import {
   buildDeckForCommander,
@@ -413,7 +413,7 @@ export async function runCompetitiveBuild(input: {
     const isOwned = (card: ScryfallCard) => (owned.get(card.name.toLowerCase()) ?? 0) > 0;
     const addCandidate = (card: ScryfallCard, source: CandidateSource) => {
       const key = card.name.toLowerCase();
-      if (candidatesByName.has(key) || !isLegalInFormat(card, format)) return;
+      if (candidatesByName.has(key) || !canBeCommanderInFormat(card, format)) return;
       if (card.type_line?.includes("Background")) {
         if (!mates.some((m) => m.cards[0].name === card.name)) {
           mates.push({ cards: [card], owned: [isOwned(card)], source: isOwned(card) ? "collection" : source });

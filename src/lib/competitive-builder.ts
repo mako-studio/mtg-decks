@@ -23,7 +23,7 @@ import {
 import { comboPieceSet, CURATED_COMBOS, findCompleteCombos, type ComboDef } from "./combos";
 import { canHavePartner, canPair } from "./partners";
 import { cooccurrenceKey, learnedPartners, referenceFor, referenceShare, type CommanderReference } from "./duel-reference";
-import { BASIC_LAND_BY_COLOR, isLegalInFormat } from "./collection-builder";
+import { BASIC_LAND_BY_COLOR, canBeCommanderInFormat, isLegalInFormat } from "./collection-builder";
 import { getDisplayOracleText } from "./scryfall";
 import { duelMetaPresence, duelMetaPresenceInColors } from "./duel-meta";
 import { DUEL_PROFILES_AVAILABLE, duelPresenceForIdentity, duelStatsForIdentity } from "./duel-profiles";
@@ -1058,6 +1058,8 @@ export function rankProposals(params: RankParams): DeckProposal[] {
     .filter((c) => unionIdentity(c.cards).length <= maxColors)
     // Commandant inutile en singleton (voir hasDeadSingletonSynergy).
     .filter((c) => format.maxCopies > 1 || !c.cards.some(hasDeadSingletonSynergy))
+    // Banni comme commandant dans ce format (Duel : voir canBeCommanderInFormat).
+    .filter((c) => c.cards.every((card) => canBeCommanderInFormat(card, format)))
     .map((c) => ({
     c,
     affinity: commanderAffinity(c.cards, features, owned, format, mode),

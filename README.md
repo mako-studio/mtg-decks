@@ -2311,3 +2311,30 @@ sort ») ne fait rien quand chaque carte n'existe qu'en un exemplaire.
   archivée incluant Tasigur, Emry et Winota, alors que ces commandants sont
   joués dans les tournois mtgtop8 de juillet à septembre 2026. À trancher
   avec la liste officielle en vigueur.
+
+## 26/09/2026 (6) — Banlist officielle Duel Commander
+
+Ben a fourni une capture de https://www.duelcommander.org/banlist/ (mise à
+jour du 27/07/2026). Elle tranche la question laissée ouverte en (5) : la
+liste de mtgdc.info était obsolète. Tasigur n'est plus banni ; Emry, Winota
+et Najeela sont « récemment débannis ».
+
+- `src/data/duel-banlist.ts` : 27 cartes bannies comme commandant, 80 cartes
+  bannies du deck, Lutri banni comme compagnon. Noms recopiés à la main
+  depuis la capture : une coquille reste possible.
+- Scryfall marque `restricted` en duel les cartes bannies comme commandant
+  (vérifié sur les 19 présentes dans nos données). Nouvelle fonction
+  `canBeCommanderInFormat` (collection-builder.ts) : en Duel, refuse un
+  commandant `restricted` OU présent dans la liste officielle. Elle
+  s'applique aux candidats et aux duos.
+- `isLegalInFormat` refuse aussi en Duel les cartes de la liste officielle
+  bannies du deck, au cas où Scryfall serait en retard. Aucun écart constaté
+  sur les 4 présentes dans nos données.
+- L'échantillon de tournois (depuis juillet) contient encore des decks
+  d'avant le 27/07 avec des commandants désormais bannis (Spider-Man 2099 :
+  61 decks, The Fantasticar : 21, Lumra : 12). Ils ne sont plus proposés.
+- À faire à chaque annonce du format (révision environ tous les 2 mois) :
+  mettre à jour `duel-banlist.ts`.
+- Correction du README (3) : Blood Moon et Back to Basics sont bannis en
+  Duel. L'argument « résister à Blood Moon » pour garder des terrains de
+  base ne vaut donc que pour le multi.

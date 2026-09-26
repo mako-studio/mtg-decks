@@ -1,5 +1,6 @@
 import type { FormatConfig, ScryfallCard } from "./types";
 import { getDisplayOracleText } from "./scryfall";
+import { DUEL_BANNED, DUEL_BANNED_AS_COMMANDER } from "@/data/duel-banlist";
 
 /**
  * Utilitaires partagés de construction de deck Commander/Duel Commander.
@@ -42,7 +43,31 @@ export function isCommanderEligible(card: ScryfallCard): boolean {
 /** Légalité d'une carte pour le format donné (legal ou restricted comptent comme jouable — même convention que evaluateCardForDeck dans actions.ts). */
 export function isLegalInFormat(card: ScryfallCard, format: FormatConfig): boolean {
   const status = card.legalities?.[format.scryfallLegality];
-  return status === "legal" || status === "restricted";
+  if (status !== "legal" && status !== "restricted") return false;
+  // 26/09/2026 : banlist officielle Duel en plus de Scryfall (au cas où
+  // Scryfall serait en retard sur une annonce — voir data/duel-banlist.ts).
+  if (format.key === "duelcommander" && DUEL_BANNED_SET.has(frontName(card))) return false;
+  return true;
+}
+
+const frontName = (card: ScryfallCard) => card.name.toLowerCase().split(" // ")[0];
+const DUEL_BANNED_SET = new Set(DUEL_BANNED.map((n) => n.toLowerCase()));
+const DUEL_BANNED_AS_COMMANDER_SET = new Set(DUEL_BANNED_AS_COMMANDER.map((n) => n.toLowerCase()));
+
+/**
+ * Peut-elle être le commandant d'un deck de CE format ? (26/09/2026)
+ * En Duel Commander, certaines cartes sont « bannies comme commandant » :
+ * jouables dans les 99, pas en zone de commandement. Scryfall les marque
+ * `restricted` pour le format duel (vérifié sur 19 d'entre elles dans nos
+ * données), et la liste officielle (data/duel-banlist.ts) sert de filet.
+ */
+export function canBeCommanderInFormat(card: ScryfallCard, format: FormatConfig): boolean {
+  if (!isLegalInFormat(card, format)) return false;
+  if (format.key === "duelcommander") {
+    if (card.legalities?.[format.scryfallLegality] === "restricted") return false;
+    if (DUEL_BANNED_AS_COMMANDER_SET.has(frontName(card))) return false;
+  }
+  return true;
 }
 
 /**
