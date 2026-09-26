@@ -209,12 +209,22 @@ export function DeckBuilder({
     setOptimizationNote(null);
     startTransition(async () => {
       const commanders = result.commanderEntries.map((c) => c.name);
-      const res = await analyzeDeck({
-        formatKey: result.formatKey,
-        deckName: result.deckName,
-        commanders,
-        cards: cardList,
-      });
+      // 26/09/2026 : sans ce try/catch, un échec réseau/serveur du recalcul
+      // remplaçait toute la page par l'écran d'erreur Next.js (même cause que
+      // dans CompetitiveBuilder.launch) ; le deck affiché reste inchangé.
+      let res: Awaited<ReturnType<typeof analyzeDeck>>;
+      try {
+        res = await analyzeDeck({
+          formatKey: result.formatKey,
+          deckName: result.deckName,
+          commanders,
+          cards: cardList,
+        });
+      } catch (err) {
+        console.error("[simulateur] échec du recalcul", err);
+        setTransientError("Le recalcul n'a pas abouti (serveur trop lent ou connexion coupée) : le deck n'a pas changé. Réessaie.");
+        return;
+      }
       if (res.ok) {
         setResult(res);
         setAddedNames(newAdded);

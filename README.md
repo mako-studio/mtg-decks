@@ -2403,3 +2403,43 @@ identique au fichier), sur les deux exemples en virgule et en
 point-virgule, en tabulation, et avec un nom entre guillemets contenant le
 séparateur ; Playwright : l'erreur ne s'affiche plus et la construction
 démarre. Textes d'aide de l'UI mis à jour.
+
+## 26/09/2026 (9) — Écran « This page couldn't load » dans le constructeur
+
+Signalement de Ben : cet écran apparaît souvent en lançant une liste ou un
+CSV dans le constructeur (`/collection`).
+
+**Mécanisme (reproduit).** C'est l'écran d'erreur par défaut de Next.js.
+Variante sans identifiant serveur (bouton « Back » affiché) : erreur côté
+navigateur. `runCompetitiveBuild` / `openProposedDeck` étaient appelés dans
+un `startTransition` sans try/catch : si l'appel serveur échoue (fonction
+coupée, connexion interrompue), l'erreur remonte et remplace toute la page.
+Reproduit sous Playwright en interrompant la requête de Server Action :
+page entière remplacée avant correctif, message dans la page après.
+
+**Cause probable de l'échec, non confirmée faute d'accès aux logs Vercel :**
+`maxDuration = 60` sur `/collection`. D'après la doc Vercel (« Configuring
+Maximum Duration », mise à jour du 24/08/2026), avec Fluid compute (activé
+par défaut), la durée par défaut est 300 s sur tous les plans (maximum Hobby
+300 s, Pro 800 s) : ce réglage abaissait donc la limite. Or une grosse liste
+peut être longue : file Scryfall « stricte » à 550 ms par requête, pause de
+35 s après un 429, Commander Spellbook, puis l'ouverture du deck.
+À confirmer dans Vercel → projet → Logs (chercher « Task timed out » ou un
+504 sur `/collection`).
+
+**Correctifs.**
+- `maxDuration = 300` (maximum Hobby). Si Fluid compute est désactivé sur le
+  projet, la limite Hobby est plus basse et le déploiement pourrait refuser
+  cette valeur (non vérifié).
+- `CompetitiveBuilder.tsx` : try/catch autour de la construction et de
+  l'ouverture d'un deck → message en français dans la page, liste
+  conservée, relance possible.
+- `DeckBuilder.tsx` : try/catch autour du recalcul (ajout/retrait/swap) →
+  message temporaire, deck inchangé.
+- `src/app/error.tsx` (nouveau) : page d'erreur en français avec le message
+  technique, « Réessayer » (prop `retry` en Next 16, pas `reset`) et
+  « Recharger la page », pour toute autre erreur non rattrapée.
+
+Vérifié : eslint, `tsc`, build de prod, Playwright (coupure simulée).
+Non vérifié : le temps réel d'une construction en production, et que 300 s
+suffisent pour une liste de ~900 cartes.

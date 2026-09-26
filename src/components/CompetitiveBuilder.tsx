@@ -136,6 +136,23 @@ function sourceLabel(p: ProposalSummary): string {
 }
 
 
+/**
+ * Message affiché quand une Server Action du constructeur échoue sans
+ * réponse exploitable (26/09/2026, signalement de Ben : écran Next.js
+ * « This page couldn't load » en lançant une liste ou un CSV). Une action
+ * qui rejette dans un startTransition remonte jusqu'à la frontière d'erreur
+ * et remplace TOUTE la page ; on la rattrape pour garder la liste saisie et
+ * afficher un message dans la page. Cause la plus probable : durée max de
+ * la fonction dépassée côté Vercel (voir maxDuration dans
+ * app/collection/page.tsx), ou coupure réseau.
+ */
+function serverActionErrorMessage(step: "build" | "open", err: unknown): string {
+  console.error(`[constructeur] échec de l'action (${step})`, err);
+  return step === "build"
+    ? "La construction n'a pas abouti : le serveur n'a pas répondu à temps ou la connexion a été coupée. Ta liste est conservée — relance dans une minute (si Scryfall limite le site, attendre un peu aide). Si ça se répète avec la même liste, dis-le moi avec l'heure de l'essai."
+    : "L'ouverture de ce deck a échoué (serveur trop lent ou connexion coupée). Les propositions restent affichées : clique à nouveau sur le deck pour réessayer.";
+}
+
 export function CompetitiveBuilder({ fromSimulator = false }: { fromSimulator?: boolean } = {}) {
   const [inputMode, setInputMode] = useState<"text" | "csv">("text");
   const [text, setText] = useState("");
@@ -187,7 +204,14 @@ export function CompetitiveBuilder({ fromSimulator = false }: { fromSimulator?: 
     setFormError(null);
     startSteps();
     startBuilding(async () => {
-      const res = await runCompetitiveBuild({ formatKey: fmt, collectionCards: cards, maxAcquisitions: acq });
+      let res: CompetitiveBuildResult;
+      try {
+        res = await runCompetitiveBuild({ formatKey: fmt, collectionCards: cards, maxAcquisitions: acq });
+      } catch (err) {
+        stopSteps();
+        setFormError(serverActionErrorMessage("build", err));
+        return;
+      }
       stopSteps();
       if (!res.ok) {
         setFormError(res.error);
@@ -204,7 +228,13 @@ export function CompetitiveBuilder({ fromSimulator = false }: { fromSimulator?: 
       setVariant(v);
       setOpened(null);
       setOpenedKey(null);
-      if (res.proposals.length > 0) await openDeck(res, 0, v);
+      if (res.proposals.length > 0) {
+        try {
+          await openDeck(res, 0, v);
+        } catch (err) {
+          setFormError(serverActionErrorMessage("open", err));
+        }
+      }
     });
   }
 
@@ -265,8 +295,13 @@ export function CompetitiveBuilder({ fromSimulator = false }: { fromSimulator?: 
     if (!result) return;
     setSelected(index);
     setVariant(v);
+    setFormError(null);
     startOpening(async () => {
-      await openDeck(result, index, v);
+      try {
+        await openDeck(result, index, v);
+      } catch (err) {
+        setFormError(serverActionErrorMessage("open", err));
+      }
     });
   }
 
