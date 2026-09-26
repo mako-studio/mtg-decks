@@ -2338,3 +2338,59 @@ et Najeela sont « récemment débannis ».
 - Correction du README (3) : Blood Moon et Back to Basics sont bannis en
   Duel. L'argument « résister à Blood Moon » pour garder des terrains de
   base ne vaut donc que pour le multi.
+
+## 26/09/2026 (7) — Import manuel de decks (magic-ville et autres)
+
+magic-ville.com est protégé par un défi Cloudflare. Un script lancé sur le
+Mac de Ben n'a reçu que la page « Just a moment… », y compris pour
+robots.txt. On ne contourne pas cette protection : Ben enregistre lui-même
+les decks qui l'intéressent.
+
+- Un fichier `.txt` par deck dans `analysis/decks-manuels/`, puis
+  `node scripts/fetch-duel-meta.mjs --rebuild-only`. Les decks sont ajoutés
+  à l'archive et alimentent le méta, les références par commandant et les
+  profils par couleurs.
+- Format tolérant (voir `parseManualDeck`) :
+  - en-têtes « Commandant » / « Deck » ou format MTGO (commandant en
+    Sideboard) ;
+  - en-têtes de type « Créatures (20) », quantités « 1x », codes
+    d'extension ignorés ;
+  - lignes `# date: JJ/MM/AAAA` et `# source: …` optionnelles.
+- Noms français traduits via Scryfall (2 requêtes/s). Le fichier est
+  identifié par son nom : le modifier puis relancer met le deck à jour. Un
+  deck identique à ≥ 90 % à un deck déjà archivé, avec le même commandant,
+  est ignoré comme doublon.
+- Les decks manuels n'apparaissent pas dans les liens « exemples » (pas
+  d'URL mtgtop8).
+- Testé hors ligne avec des decks de l'archive : doublon détecté, format
+  MTGO lu, deck sans commandant refusé avec un message, relance
+  idempotente. La traduction des noms français n'a pas pu être testée
+  (Scryfall injoignable depuis l'environnement de Claude).
+
+## 26/09/2026 (8) — CSV exemples téléchargeables
+
+Demande de Ben : pouvoir télécharger un CSV exemple pour être sûr du format
+reconnu avant d'importer. Deux imports CSV existent, avec des colonnes
+différentes, donc deux fichiers statiques dans `public/exemples/` :
+
+- `exemple-deck.csv` — lien sous « Reprendre un deck exporté (CSV) »
+  (accueil, `CsvImportForm.tsx`). Colonnes : `Commandant`, `Nombre`, `Nom`,
+  `Ajoutée via suggestion`, `Marquée à retirer` (oui/non). Seules `Nombre`
+  et `Nom` sont obligatoires (`parseDeckCsv`).
+- `exemple-collection.csv` — lien sous le sélecteur de fichier du
+  constructeur (`/collection`, mode « Fichier CSV », `CompetitiveBuilder.tsx`).
+  Colonnes : `Nombre`, `Nom` ; seule `Nom` est obligatoire
+  (`parseCollectionCsv`), les autres colonnes sont ignorées.
+
+Même encodage que l'export du site : UTF-8 avec BOM, fins de ligne CRLF,
+séparateur virgule, noms contenant une virgule entre guillemets
+(« Krenko, Mob Boss »). Vérifié : les deux fichiers passent par les vrais
+parseurs (commandant, cartes « ajoutées » et « à retirer » reconnus) ;
+build de prod + Playwright (liens présents, téléchargement effectif, contenu
+reçu). Non vérifié : l'import complet jusqu'à l'analyse (dépend de
+Scryfall, inaccessible en dev). Si un parseur change, mettre à jour le
+fichier exemple correspondant.
+
+Limite connue, non traitée : un CSV réenregistré par Excel en français
+utilise en général le point-virgule comme séparateur, que les parseurs ne
+reconnaissent pas (message « Colonnes introuvables »).

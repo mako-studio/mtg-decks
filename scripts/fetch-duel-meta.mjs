@@ -52,7 +52,7 @@
  *
  *   node scripts/fetch-duel-meta.mjs --rebuild-only   # recalcule sans rien télécharger sur mtgtop8
  */
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { readFile, writeFile, mkdir, readdir, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -63,6 +63,7 @@ const OUT_REFERENCE = path.join(ROOT, "src/data/duel-commander-reference.json");
 const OUT_COOC = path.join(ROOT, "src/data/duel-cooccurrence.json");
 const OUT_CARDS = path.join(ROOT, "analysis/duelcommander/cards-scryfall.json");
 const OUT_PROFILES = path.join(ROOT, "src/data/duel-color-profiles.json");
+const MANUAL_DIR = path.join(ROOT, "analysis/decks-manuels");
 
 const args = process.argv.slice(2);
 const argVal = (name, def) => {
@@ -130,6 +131,172 @@ export function parseMtgoExport(text) {
     if (m) target.push({ name: m[2].trim(), count: Number(m[1]) });
   }
   return { main, commanders: side.map((c) => c.name) };
+}
+
+/**
+ * Decks importés à la main (26/09/2026, demande de Ben : magic-ville.com est
+ * protégé contre les accès automatiques, Ben enregistre lui-même les decks
+ * qui l'intéressent). Un fichier .txt par deck dans analysis/decks-manuels/.
+ *
+ * Format tolérant (copier-coller d'une liste suffit) :
+ *   # date: 2026-09-20            (optionnel ; sinon date du fichier)
+ *   # source: magic-ville — Tournoi X   (optionnel)
+ *   Commandant                    (ou Commander / Commanders)
+ *   1 Tymna the Weaver
+ *   1 Kraum, Ludevic's Opus
+ *   Deck                          (ou Main / Bibliothèque / Créatures (20)…)
+ *   1 Swords to Plowshares
+ *   1x Sol Ring (C21) 263         (« x », codes d'extension, *F* : tolérés)
+ * Sans en-tête « Commandant » : la réserve (Sideboard) si elle a 1-2 cartes
+ * (format MTGO/mtgtop8), sinon une ligne marquée *CMDR* ou (Commandant).
+ * Noms français acceptés : traduits via Scryfall à l'import (hors --offline).
+ */
+const CMD_HEADER = /^(commandants?|commanders?)\s*:?\s*(\(\d+\))?$/i;
+const SIDE_HEADER = /^(sideboard|réserve|reserve)\s*:?\s*(\(\d+\))?$/i;
+export function parseManualDeck(text) {
+  const out = { commanders: [], cards: [], side: [], date: null, source: null };
+  let section = "main";
+  for (const raw of text.split(/\r?\n/)) {
+    let line = raw.trim();
+    if (!line) continue;
+    const meta = line.match(/^(?:#|\/\/)\s*(date|source)\s*:\s*(.+)$/i);
+    if (meta) {
+      if (meta[1].toLowerCase() === "date") {
+        const v = meta[2].trim();
+        const fr = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+        out.date = fr ? `${fr[3].length === 2 ? "20" + fr[3] : fr[3]}-${fr[2].padStart(2, "0")}-${fr[1].padStart(2, "0")}` : v.slice(0, 10);
+      } else out.source = meta[2].trim();
+      continue;
+    }
+    if (/^(#|\/\/)/.test(line)) continue;
+    if (CMD_HEADER.test(line)) { section = "cmd"; continue; }
+    if (SIDE_HEADER.test(line)) { section = "side"; continue; }
+    const m = line.match(/^(\d+)\s*x?\s+(.+)$/i);
+    if (!m) { section = section === "cmd" || section === "side" ? "main" : section; continue; } // autre en-tête (Deck, Créatures…)
+    let name = m[2];
+    const marked = /\*cmdr\*|\((commandant|commander)\)/i.test(name);
+    name = name
+      .replace(/\*[^*]*\*/g, " ")
+      .replace(/\((commandant|commander)\)/gi, " ")
+      .replace(/\[[^\]]*\]/g, " ")
+      .replace(/\(([A-Za-z0-9]{2,6})\)\s*[A-Za-z0-9★-]*\s*$/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    const entry = { name, count: Number(m[1]) };
+    if (marked || section === "cmd") out.commanders.push(name);
+    else if (section === "side") out.side.push(entry);
+    else out.cards.push(entry);
+  }
+  if (out.commanders.length === 0 && out.side.length >= 1 && out.side.length <= 2) out.commanders = out.side.map((c) => c.name);
+  return out;
+}
+
+/** Traduit les noms non reconnus (souvent français) en noms anglais Scryfall. */
+async function translateNames(names) {
+  const map = new Map();
+  const unique = Array.from(new Set(names));
+  const known = new Set();
+  for (let i = 0; i < unique.length; i += 75) {
+    const chunk = unique.slice(i, i + 75);
+    await sleep(550);
+    try {
+      const res = await fetch("https://api.scryfall.com/cards/collection", {
+        method: "POST",
+        headers: { "User-Agent": UA, Accept: "application/json", "Content-Type": "application/json" },
+        body: JSON.stringify({ identifiers: chunk.map((name) => ({ name: name.split(" // ")[0] })) }),
+      });
+      if (res.ok) for (const c of (await res.json()).data) for (const f of [c.name, ...c.name.split(" // ")]) known.add(f.toLowerCase());
+    } catch {}
+  }
+  const unknown = unique.filter((n) => !known.has(n.toLowerCase()));
+  for (const n of unknown.slice(0, 400)) {
+    // Apostrophe typographique (’) ou droite (') selon la source : on essaie
+    // les deux, faute de savoir laquelle Scryfall stocke pour chaque carte.
+    const variants = Array.from(new Set([n, n.replace(/’/g, "'"), n.replace(/'/g, "’")]));
+    for (const v of variants) {
+      await sleep(550); // /cards/search : 2 requêtes/s max (règle Scryfall)
+      try {
+        const q = encodeURIComponent(`!"${v}" lang:fr`);
+        const res = await fetch(`https://api.scryfall.com/cards/search?q=${q}&unique=prints`, { headers: { "User-Agent": UA, Accept: "application/json" } });
+        if (res.ok) {
+          const d = await res.json();
+          if (d.data?.[0]?.name) {
+            map.set(n, d.data[0].name);
+            break;
+          }
+        }
+      } catch {}
+    }
+  }
+  return { map, unknown: unknown.filter((n) => !map.has(n)) };
+}
+
+async function importManualDecks(archive) {
+  let files = [];
+  try {
+    files = (await readdir(MANUAL_DIR)).filter((f) => /\.(txt|dec|dek)$/i.test(f));
+  } catch {
+    return;
+  }
+  if (files.length === 0) return;
+  const parsed = [];
+  for (const f of files) {
+    const full = path.join(MANUAL_DIR, f);
+    const text = await readFile(full, "utf8");
+    const st = await stat(full);
+    const d = parseManualDeck(text);
+    const total = d.cards.reduce((s, c) => s + c.count, 0) + d.commanders.length;
+    if (d.commanders.length === 0 || d.commanders.length > 2) {
+      console.warn(`  [manuel] ${f} ignoré : commandant introuvable (ajoute une ligne « Commandant » avant lui).`);
+      continue;
+    }
+    if (total < 95 || total > 102) {
+      console.warn(`  [manuel] ${f} ignoré : ${total} cartes (attendu ~100).`);
+      continue;
+    }
+    parsed.push({ file: f, d, date: d.date ?? st.mtime.toISOString().slice(0, 10) });
+  }
+  if (!OFFLINE && parsed.length) {
+    const all = parsed.flatMap((p) => [...p.d.commanders, ...p.d.cards.map((c) => c.name)]);
+    const { map, unknown } = await translateNames(all);
+    if (map.size) console.log(`  [manuel] ${map.size} noms traduits (français → anglais).`);
+    if (unknown.length) console.warn(`  [manuel] noms non reconnus par Scryfall : ${unknown.slice(0, 20).join(", ")}${unknown.length > 20 ? "…" : ""}`);
+    const tr = (n) => map.get(n) ?? n;
+    for (const p of parsed) {
+      p.d.commanders = p.d.commanders.map(tr);
+      p.d.cards = p.d.cards.map((c) => ({ ...c, name: tr(c.name) }));
+    }
+  }
+  const key = (names) => new Set(names.map((n) => n.toLowerCase().split(" // ")[0]));
+  let added = 0, updated = 0, dup = 0;
+  for (const p of parsed) {
+    const id = `manuel:${p.file}`;
+    const deck = { id, event: "manuel", source: p.d.source ?? "import manuel", date: p.date, commanders: p.d.commanders, cards: p.d.cards };
+    const idx = archive.decks.findIndex((x) => x.id === id);
+    if (idx >= 0) {
+      archive.decks[idx] = deck;
+      updated++;
+      continue;
+    }
+    // Doublon d'un deck déjà archivé (ex. même deck publié sur mtgtop8) :
+    // mêmes commandants et ≥ 90% de cartes communes.
+    const cmd = [...key(deck.commanders)].sort().join("+");
+    const mine = key(deck.cards.map((c) => c.name));
+    const twin = archive.decks.find((x) => {
+      if ([...key(x.commanders)].sort().join("+") !== cmd) return false;
+      const other = key(x.cards.map((c) => c.name));
+      let inter = 0;
+      for (const n of mine) if (other.has(n)) inter++;
+      return inter / Math.max(mine.size, other.size) >= 0.9;
+    });
+    if (twin) {
+      dup++;
+      continue;
+    }
+    archive.decks.push(deck);
+    added++;
+  }
+  console.log(`Decks manuels (${path.relative(ROOT, MANUAL_DIR)}) : ${added} ajoutés, ${updated} mis à jour, ${dup} doublons ignorés.`);
 }
 
 async function loadArchive() {
@@ -222,6 +389,12 @@ async function main() {
 
   const archive = await loadArchive();
   const known = new Set(archive.decks.map((d) => d.id));
+  const before = archive.decks.length;
+  await importManualDecks(archive);
+  if (archive.decks.length !== before || archive.decks.some((d) => d.event === "manuel")) {
+    await mkdir(path.dirname(ARCHIVE), { recursive: true });
+    await writeFile(ARCHIVE, JSON.stringify(archive) + "\n", "utf8");
+  }
   if (REBUILD_ONLY) {
     console.log(`--rebuild-only : recalcul depuis l'archive (${archive.decks.length} decks), sans téléchargement mtgtop8.`);
     return writeOutputs(archive);
@@ -543,7 +716,12 @@ export function computeOutputs(decks, lookup, opts = {}) {
       const share = k / list.length;
       if (share >= 0.25) refCards[n] = round3(share);
     }
-    const recent = [...list].sort((a, b) => (b.date ?? "").localeCompare(a.date ?? "")).slice(0, 3);
+    // Exemples cliquables : decks mtgtop8 seulement (les decks importés à la
+    // main n'ont pas d'URL mtgtop8).
+    const recent = [...list]
+      .filter((d) => /^\d+$/.test(String(d.id)))
+      .sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""))
+      .slice(0, 3);
     refCommanders[key] = {
       deckCount: list.length,
       cards: sortObj(refCards),

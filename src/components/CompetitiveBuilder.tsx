@@ -342,6 +342,25 @@ export function CompetitiveBuilder({ fromSimulator = false }: { fromSimulator?: 
               />
             </div>
           )}
+          {/*
+            26/09/2026, demande de Ben : fichier exemple téléchargeable pour
+            vérifier le format. Statique (public/exemples/), vérifié contre
+            parseCollectionCsv (collection-import.ts) : colonne "Nom"
+            obligatoire, "Nombre" optionnelle (1 par défaut), autres colonnes
+            ignorées, séparateur virgule. À garder synchronisé avec le parseur.
+          */}
+          {inputMode === "csv" && (
+            <p className="mt-1 text-xs text-muted">
+              Colonne « Nom » obligatoire, « Nombre » facultative (1 par défaut), séparateur virgule ; les autres colonnes sont ignorées.{" "}
+              <a
+                href="/exemples/exemple-collection.csv"
+                download="exemple-collection.csv"
+                className="font-medium text-accent underline hover:opacity-80"
+              >
+                Télécharger un CSV exemple
+              </a>
+            </p>
+          )}
           {info && <p className="mt-2 text-xs text-accent">{info}</p>}
         </section>
 

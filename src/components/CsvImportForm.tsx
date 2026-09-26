@@ -93,6 +93,25 @@ export function CsvImportForm() {
         CSV&quot;) pour continuer là où tu t&apos;étais arrêté — les cartes ajoutées via
         suggestion et celles marquées &quot;à retirer&quot; sont reprises aussi.
       </p>
+      {/*
+        26/09/2026, demande de Ben : fichier exemple téléchargeable pour
+        vérifier le format attendu avant d'importer. Fichier statique
+        (public/exemples/), vérifié contre parseDeckCsv (csv-import.ts) :
+        colonnes obligatoires "Nombre" et "Nom", optionnelles "Commandant",
+        "Ajoutée via suggestion", "Marquée à retirer" (valeurs oui/non),
+        séparateur virgule, noms contenant une virgule entre guillemets.
+        À garder synchronisé si le parseur change.
+      */}
+      <p className="mt-2 text-xs text-muted">
+        Colonnes obligatoires : « Nombre » et « Nom » (séparateur virgule).{" "}
+        <a
+          href="/exemples/exemple-deck.csv"
+          download="exemple-deck.csv"
+          className="font-medium text-accent underline hover:opacity-80"
+        >
+          Télécharger un CSV exemple
+        </a>
+      </p>
 
       <form action={formAction} className="mt-4 space-y-3">
         {/*
