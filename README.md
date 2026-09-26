@@ -2170,3 +2170,41 @@ competitive-actions.ts) :
 **Aussi** : bouton « Trouver le meilleur commandant pour ces cartes » dans le
 simulateur de deck. Il transmet la liste au constructeur (`/collection?depuis=simulateur`,
 via le stockage du navigateur).
+
+## 26/09/2026 (2) — Couleurs, terrains, deux groupes de propositions
+
+Retours de Ben sur le constructeur : decks proposés en 4-5 couleurs, base de
+mana invisible (« ça suggère 99 cartes de sorts »), et plus aucun commandant
+de sa liste proposé.
+
+- **3 couleurs max** (`MAX_DECK_COLORS`, competitive-builder.ts) : les
+  commandants et duos à 4-5 couleurs ne sont plus évalués. Ils ressortaient
+  parce qu'ils donnent accès à toutes les cartes de la liste, sans que le
+  tier ne compte le coût d'une base de mana lente. Une note indique combien
+  ont été écartés. Paramètre `maxColors` de `rankProposals` pour changer la
+  règle plus tard.
+- **Terrains** : le deck contenait déjà ~35 terrains (cible 37/99, moins
+  jusqu'à 3 avec beaucoup de mana rapide), mais la liste les mélangeait aux
+  sorts par ordre alphabétique. Désormais :
+  - le simulateur sépare « Sorts et permanents (N) » et « Terrains (N) » ;
+  - chaque version (« Avec mes cartes », « Optimisé ») affiche
+    « X terrains (dont Y de base) · Z sorts ».
+- **Qualité des terrains** :
+  - malus pour un terrain qui arrive toujours engagé (0,75 en multi, 1,5 en
+    Duel). La détection se fait sur le texte oracle ; les terrains de choc et
+    les check-lands ne sont pas pénalisés ;
+  - en monocolore, un terrain bicolore ne gagne plus de crédit « fixing » ;
+  - un terrain de la liste qui ne vaut pas mieux qu'un terrain de base n'est
+    plus pris : un terrain de base de la bonne couleur le remplace.
+- **Deux groupes** (competitive-actions.ts, `PROPOSALS_PER_GROUP = 5`) :
+  - les 5 meilleurs decks avec un commandant de la liste (au moins 12
+    commandants de la liste sont évalués) ;
+  - les 5 meilleurs avec un commandant à acquérir ;
+  - chaque groupe est classé par tier. L'enrichissement (synergie, Commander
+    Spellbook) alterne entre les deux.
+
+Vérifié par des tests du moteur, dont 4 nouveaux cas (terrains engagés,
+monocolore, UR, règle des couleurs), et de bout en bout avec un faux
+Scryfall (groupes, compte des terrains, mobile sans débordement). Pas
+vérifié sur tes vraies cartes : les poids (malus d'un terrain engagé) sont
+des choix de conception à ajuster à l'usage.

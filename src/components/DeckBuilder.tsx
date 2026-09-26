@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { Fragment, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { CardSuggestion, DeckCategory, EnrichedCard } from "@/lib/types";
 import { analyzeDeck, resolveCardNames, superOptimizeDeck, type DeckAnalysisResult } from "@/lib/actions";
@@ -544,7 +544,16 @@ export function DeckBuilder({
     downloadCsv(`${deckSlug || "deck"}.csv`, rows);
   }
 
-  const sortedCards = [...result.cards].sort((a, b) => a.name.localeCompare(b.name, "fr"));
+  // 26/09/2026 (retour de Ben : « ça suggère 99 cartes de sorts ») : les
+  // terrains étaient mélangés aux sorts par ordre alphabétique, la base de
+  // mana était invisible. Sorts d'abord, puis terrains, chacun sous un
+  // intertitre avec son nombre.
+  const isLandEntry = (e: EnrichedCard) => Boolean(e.card?.type_line?.includes("Land"));
+  const sortedCards = [...result.cards].sort(
+    (a, b) => Number(isLandEntry(a)) - Number(isLandEntry(b)) || a.name.localeCompare(b.name, "fr")
+  );
+  const landTotal = result.cards.filter(isLandEntry).reduce((s, c) => s + c.count, 0);
+  const deckTotal = result.cards.reduce((s, c) => s + c.count, 0);
 
   // Cartes du deck qui matchent le pilier sélectionné dans le tableau de
   // bord (voir DeckDashboard) — affichées sous les piliers ET utilisées
@@ -688,7 +697,7 @@ export function DeckBuilder({
 
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-sm font-medium text-muted">
-              Deck ({result.cards.reduce((s, c) => s + c.count, 0)} cartes)
+              Deck ({deckTotal} cartes : {deckTotal - landTotal} sorts · {landTotal} terrains)
               {categoryFilter && (
                 <>
                   {" "}
@@ -726,8 +735,13 @@ export function DeckBuilder({
           )}
           <div className="space-y-2">
             {visibleCards.map((entry, i) => (
+              <Fragment key={`${entry.name}-${i}`}>
+              {!categoryFilter && (i === 0 || isLandEntry(entry) !== isLandEntry(visibleCards[i - 1])) && (
+                <h3 className={`text-xs font-semibold uppercase tracking-wide text-muted ${i === 0 ? "" : "pt-3"}`}>
+                  {isLandEntry(entry) ? `Terrains (${landTotal})` : `Sorts et permanents (${deckTotal - landTotal})`}
+                </h3>
+              )}
               <CardTile
-                key={`${entry.name}-${i}`}
                 entry={entry}
                 added={addedNames.has(entry.name.toLowerCase())}
                 markedForRemoval={markedForRemoval.has(entry.name.toLowerCase())}
@@ -736,6 +750,7 @@ export function DeckBuilder({
                 expanded={openCardKey === entry.name}
                 onToggle={() => setOpenCardKey(openCardKey === entry.name ? null : entry.name)}
               />
+              </Fragment>
             ))}
           </div>
 

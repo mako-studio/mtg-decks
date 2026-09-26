@@ -475,7 +475,7 @@ export function CompetitiveBuilder({ fromSimulator = false }: { fromSimulator?: 
 
       <div>
         <h2 className="text-lg font-semibold tracking-tight">
-          {result.proposals.length} deck{result.proposals.length > 1 ? "s" : ""} proposé{result.proposals.length > 1 ? "s" : ""}, classés par tier
+          {result.proposals.length} deck{result.proposals.length > 1 ? "s" : ""} proposé{result.proposals.length > 1 ? "s" : ""}, classés par tier dans chaque groupe
         </h2>
         <p className="mt-0.5 text-xs text-muted">
           {result.candidateCount} commandants considérés, {result.evaluatedCount} évalués avec un deck complet. Barre
@@ -503,8 +503,36 @@ export function CompetitiveBuilder({ fromSimulator = false }: { fromSimulator?: 
         )}
       </div>
 
-      <ol className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {result.proposals.map((prop, i) => (
+      {/*
+        Deux groupes (26/09/2026, demande de Ben) : commandants déjà dans sa
+        liste d'un côté, commandants à acquérir de l'autre, chacun classé
+        par tier. `i` reste l'index global dans result.proposals.
+      */}
+      {[
+        {
+          key: "owned",
+          title: "Avec un commandant de ta liste",
+          hint: "Tu as déjà le commandant : le deck « Avec mes cartes » est jouable tout de suite.",
+          items: result.proposals.map((prop, i) => ({ prop, i })).filter(({ prop }) => allOwned(prop)),
+          empty: "Aucun commandant jouable (3 couleurs max) dans ta liste.",
+        },
+        {
+          key: "other",
+          title: "Avec un commandant à acquérir",
+          hint: "Commandant hors de ta liste, choisi pour tirer le meilleur de tes cartes.",
+          items: result.proposals.map((prop, i) => ({ prop, i })).filter(({ prop }) => !allOwned(prop)),
+          empty: "Aucun commandant hors liste ne fait mieux pour l'instant.",
+        },
+      ].map((group) => (
+        <div key={group.key} className="space-y-2">
+          <div>
+            <h3 className="text-sm font-semibold">
+              {group.title} <span className="font-normal text-muted">({group.items.length})</span>
+            </h3>
+            <p className="text-xs text-muted">{group.items.length ? group.hint : group.empty}</p>
+          </div>
+          <ol className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {group.items.map(({ prop, i }, rank) => (
           <li key={prop.commander} className="min-w-0">
             <button
               type="button"
@@ -513,7 +541,7 @@ export function CompetitiveBuilder({ fromSimulator = false }: { fromSimulator?: 
               className={`flex h-full w-full flex-col gap-2 rounded-xl border p-3 text-left transition-colors ${i === selected ? "border-accent bg-accent-soft/40 ring-1 ring-accent" : "border-border bg-surface hover:border-accent/50"}`}
             >
               <div className="flex items-start gap-2">
-                <span className="mt-0.5 text-xs font-semibold text-muted">#{i + 1}</span>
+                <span className="mt-0.5 text-xs font-semibold text-muted">#{rank + 1}</span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold" title={prop.commander}>
                     {prop.commander}
@@ -543,7 +571,9 @@ export function CompetitiveBuilder({ fromSimulator = false }: { fromSimulator?: 
             </button>
           </li>
         ))}
-      </ol>
+          </ol>
+        </div>
+      ))}
 
       {p && shownDeck && (
         <section className="rounded-xl border border-border bg-surface p-5">
@@ -565,7 +595,8 @@ export function CompetitiveBuilder({ fromSimulator = false }: { fromSimulator?: 
             <div className="min-w-[260px] flex-1 space-y-3">
               <div>
                 <p className="text-xs font-medium uppercase tracking-wide text-muted">
-                  Deck #{selected + 1} · {formatLabel}
+                  {allOwned(p) ? "Commandant de ta liste" : "Commandant à acquérir"} #
+                  {result.proposals.slice(0, selected + 1).filter((x) => allOwned(x) === allOwned(p)).length} · {formatLabel}
                 </p>
                 <h2 className="text-xl font-semibold tracking-tight">{p.commander}</h2>
                 <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
@@ -599,9 +630,14 @@ export function CompetitiveBuilder({ fromSimulator = false }: { fromSimulator?: 
                         <TierBadge tier={d.tier.tier} label={d.tier.label} />
                         <span className="text-xs text-muted">indice {d.tier.powerIndex} · score {d.score}</span>
                       </div>
-                      <p className="mt-1 text-[11px] text-muted">
+                      {!(v === "upgraded" && disabled) && (
+                        <p className="mt-1 text-[11px] text-foreground/80">
+                          {d.landCount} terrains (dont {d.basicCount} de base) · {d.deckSize - d.landCount} sorts
+                        </p>
+                      )}
+                      <p className="mt-0.5 text-[11px] text-muted">
                         {v === "owned"
-                          ? `${d.ownedCount}/${d.deckSize} cartes de ta liste (le reste : terrains de base)`
+                          ? `${d.ownedCount}/${d.deckSize} cartes de ta liste (les terrains de base sont ajoutés d'office)`
                           : disabled
                             ? "Désactivé (aucune carte hors liste autorisée)"
                             : p.acquisitions.length === 0

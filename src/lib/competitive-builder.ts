@@ -85,6 +85,9 @@ export type BuildMode = "multi" | "duel";
  * - `maxLandCut` : nombre max de terrains retirés de la cible quand le deck
  *   contient beaucoup de mana rapide (1 terrain retiré par 2 sources de
  *   mana rapide). Pratique courante des decks haute puissance.
+ * - `tappedLandPenalty` (26/09/2026, retour de Ben) : malus d'un terrain qui
+ *   arrive TOUJOURS engagé (temple, « thriving », karoo, campus…). Un tour
+ *   de retard coûte bien plus en Duel (parties courtes) qu'en multi.
  */
 export interface ModeProfile {
   /** Poids de la part d'une carte dans les decks de tournoi de CE commandant (duel-reference.ts). */
@@ -96,6 +99,7 @@ export interface ModeProfile {
   cheapInteractionBonus: number;
   metaWeight: number;
   maxLandCut: number;
+  tappedLandPenalty: number;
 }
 
 export const MODE_PROFILES: Record<BuildMode, ModeProfile> = {
@@ -105,8 +109,8 @@ export const MODE_PROFILES: Record<BuildMode, ModeProfile> = {
   // learnedSynergyWeight : appliqué à chaque partenaire déjà choisi (lift
   // plafonné à 6, voir greedyPick) ; moitié moins en multi, les données
   // venant du Duel.
-  multi: { referenceWeight: 0, learnedSynergyWeight: 0.5, curveSoftCap: 5, curvePenalty: 0.4, cheapInteractionBonus: 0.5, metaWeight: 0, maxLandCut: 3 },
-  duel: { referenceWeight: 6, learnedSynergyWeight: 1, curveSoftCap: 4, curvePenalty: 0.9, cheapInteractionBonus: 1.3, metaWeight: 5, maxLandCut: 3 },
+  multi: { referenceWeight: 0, learnedSynergyWeight: 0.5, curveSoftCap: 5, curvePenalty: 0.4, cheapInteractionBonus: 0.5, metaWeight: 0, maxLandCut: 3, tappedLandPenalty: 0.75 },
+  duel: { referenceWeight: 6, learnedSynergyWeight: 1, curveSoftCap: 4, curvePenalty: 0.9, cheapInteractionBonus: 1.3, metaWeight: 5, maxLandCut: 3, tappedLandPenalty: 1.5 },
 };
 
 export function modeForFormat(format: FormatConfig): BuildMode {
@@ -125,6 +129,28 @@ export function modeForFormat(format: FormatConfig): BuildMode {
 const TIER_WEIGHT = 1;
 /** Voir WEAKEST_CATEGORY_BONUS dans collection-builder.ts — même rôle, même valeur. */
 const WEAKEST_CATEGORY_BONUS = 2.5;
+
+/**
+ * Nombre maximal de couleurs d'un deck proposé (26/09/2026, règle fixée par
+ * Ben : « 1, 2 ou 3 couleurs max »). Au-delà, la base de mana devient
+ * lente et fragile (terrains engagés, sorts bloqués faute de la bonne
+ * couleur) : les commandants 4-5 couleurs n'étaient favorisés que parce
+ * qu'ils donnent accès à TOUTES les cartes de la liste, sans que la
+ * formule de tier ne compte ce coût.
+ */
+export const MAX_DECK_COLORS = 3;
+
+/**
+ * Terrain qui arrive toujours engagé. Les formulations conditionnelles
+ * (« unless you control… », terrains de choc « you may pay 2 life… ») ne
+ * comptent pas. Heuristique sur le texte oracle, pas une donnée Scryfall.
+ */
+const ENTERS_TAPPED = /enters (the battlefield )?tapped/i;
+const CONDITIONAL_TAPPED = /unless|you may pay|if you control|if it's not your turn|as .* enters, you may/i;
+export function entersTappedAlways(card: ScryfallCard): boolean {
+  const text = getDisplayOracleText(card).split("\n//\n")[0];
+  return ENTERS_TAPPED.test(text) && !CONDITIONAL_TAPPED.test(text);
+}
 /** Bonus d'une pièce de combo réalisable avec les cartes disponibles (s'ajoute au gain de tier exact quand elle COMPLÈTE la combo). */
 const COMBO_PIECE_BONUS = 3;
 /** Pénalité d'une carte non possédée : à valeur égale, une carte possédée passe devant. Faible devant un gain de tier réel (≥3). */
@@ -330,7 +356,13 @@ function greedyPick(
   profile: CommanderProfile,
   state: PickState,
   combosAvailable: ComboDef[],
-  identity: string[]
+  identity: string[],
+  /**
+   * Score minimal pour être pris (26/09/2026, passe terrains uniquement) :
+   * un terrain qui ne vaut pas mieux qu'un terrain de base (0) n'est pas
+   * pris — la place revient à un terrain de base de la bonne couleur.
+   */
+  minScore = Number.NEGATIVE_INFINITY
 ): PickedEntry[] {
   const { format, mode } = ctx;
   const { weights, targets } = format.categories;
@@ -459,6 +491,16 @@ function greedyPick(
         const produced = (f.card.produced_mana ?? []).filter((m) => identity.includes(m));
         if (f.fetchesBasicType) score += 1;
         if (identity.length >= 2 && produced.length === 0 && !f.fetchesBasicType) score -= 1;
+        // Deck monocolore : un terrain « bicolore » ne corrige rien, son
+        // crédit « fixing » est annulé (un terrain de base fait aussi bien).
+        if (identity.length <= 1 && f.categories.includes("landfix")) {
+          const base = weights.landfix / targets.landfix;
+          score -= state.categoryCounts.landfix < targets.landfix ? base : base * 0.3;
+          if (weakest === "landfix") score -= WEAKEST_CATEGORY_BONUS;
+        }
+        if (entersTappedAlways(f.card)) {
+          score -= p.tappedLandPenalty;
+        }
       } else {
         if (f.card.cmc > p.curveSoftCap && !f.tier.fastMana) score -= (f.card.cmc - p.curveSoftCap) * p.curvePenalty;
         if (isCheapInteraction(f)) {
@@ -474,6 +516,7 @@ function greedyPick(
 
       if (acquired) score -= ACQUISITION_PENALTY;
 
+      if (score <= minScore) continue;
       const better =
         !best || score > best.score || (score === best.score && f.card.name.localeCompare(best.f.card.name) < 0);
       if (better) best = { f, score, tierGain, reasons };
@@ -670,7 +713,8 @@ function buildOnce(ctx: BuildContext): BuiltDeck {
 
   const commandersOwned = commanders.map((c) => (owned.get(c.name.toLowerCase()) ?? 0) > 0);
 
-  const landPicks = greedyPick(lands, landTarget, ctx, profile, state, combosAvailable, identity);
+  // Terrains : seulement ceux qui valent mieux qu'un terrain de base (voir minScore).
+  const landPicks = greedyPick(lands, landTarget, ctx, profile, state, combosAvailable, identity, 0);
   const landAcq = landPicks.filter((x) => x.acquired).length;
   const nonLandPicks = greedyPick(
     nonLands,
@@ -864,7 +908,8 @@ export function generatePairs(
   format: FormatConfig,
   mode: BuildMode,
   perSide = 25,
-  limit = 12
+  limit = 12,
+  maxColors = MAX_DECK_COLORS
 ): { c: CommanderCandidate; affinity: number }[] {
   const partnerCapable = singles.filter((x) => canHavePartner(x.c.cards[0])).slice(0, perSide);
   const pool = [...partnerCapable.map((x) => x.c), ...mates.slice(0, perSide)];
@@ -875,6 +920,7 @@ export function generatePairs(
       const a = pool[i].cards[0];
       const b = pool[j].cards[0];
       if (!canPair(a, b)) continue;
+      if (unionIdentity([a, b]).length > maxColors) continue;
       // Ordre d'affichage : le Background en second, sinon ordre alphabétique.
       const isBg = (x: ScryfallCard) => Boolean(x.type_line?.includes("Background"));
       const cards = [a, b].sort((x, y) => Number(isBg(x)) - Number(isBg(y)) || x.name.localeCompare(y.name));
@@ -910,6 +956,8 @@ export interface RankParams {
   minOwnedTrials?: number;
   /** Nombre de DUOS évalués en détail. */
   maxPairTrials?: number;
+  /** Couleurs max du deck (commandant·s compris) — MAX_DECK_COLORS par défaut. */
+  maxColors?: number;
   combos?: readonly ComboDef[];
 }
 
@@ -927,7 +975,8 @@ export function rankProposals(params: RankParams): DeckProposal[] {
   const minOwned = params.minOwnedTrials ?? 8;
   const maxPairs = params.maxPairTrials ?? 10;
 
-  const withAffinity = candidates.map((c) => ({
+  const maxColors = params.maxColors ?? MAX_DECK_COLORS;
+  const withAffinity = candidates.filter((c) => unionIdentity(c.cards).length <= maxColors).map((c) => ({
     c,
     affinity: commanderAffinity(c.cards, features, owned, format, mode),
   }));
@@ -940,7 +989,7 @@ export function rankProposals(params: RankParams): DeckProposal[] {
     if (!chosen.has(candidateKey(x.c))) chosen.set(candidateKey(x.c), x);
   }
   if (maxPairs > 0) {
-    for (const x of generatePairs(withAffinity, params.mates ?? [], features, owned, format, mode, 25, maxPairs)) {
+    for (const x of generatePairs(withAffinity, params.mates ?? [], features, owned, format, mode, 25, maxPairs, maxColors)) {
       chosen.set(candidateKey(x.c), x);
     }
   }

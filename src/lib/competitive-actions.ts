@@ -13,6 +13,7 @@ import {
   sortProposals,
   TIER4_THRESHOLD,
   unionIdentity,
+  MAX_DECK_COLORS,
   type BuiltDeck,
   type CandidateSource,
   type CardFeatures,
@@ -120,6 +121,10 @@ export interface DeckVariant {
   cards: { name: string; count: number }[];
   ownedCount: number;
   deckSize: number;
+  /** Terrains du deck (26/09/2026 : affichés pour montrer la base de mana). */
+  landCount: number;
+  /** Dont terrains de base ajoutés par le constructeur. */
+  basicCount: number;
 }
 
 export interface CompetitiveBuildResult {
@@ -173,10 +178,16 @@ function priceEur(card: ScryfallCard): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-/** Nombre de propositions renvoyées à l'UI. */
-const PROPOSALS_LIMIT = 8;
+/**
+ * Propositions renvoyées à l'UI, PAR GROUPE (26/09/2026, demande de Ben :
+ * « je veux le choix entre des decks avec des commanders que j'ai OU des
+ * commanders que je n'ai pas ») : les N meilleurs decks avec un commandant
+ * de la liste, et les N meilleurs avec un commandant à acquérir. Avant, un
+ * seul classement par tier laissait souvent 8 commandants à acquérir.
+ */
+const PROPOSALS_PER_GROUP = 5;
 /** Propositions dont le pool recommandé est élargi par des recherches de synergie (requêtes Scryfall supplémentaires). */
-const SYNERGY_SEARCH_TOP = 3;
+const SYNERGY_SEARCH_TOP = 4;
 /** Propositions enrichies par Commander Spellbook (1 find-my-combos + 2 estimate-bracket chacune). */
 const SPELLBOOK_TOP = 6;
 /** Pages Scryfall de commandants populaires (175 cartes/page). */
@@ -222,8 +233,14 @@ function variantOf(deck: BuiltDeck, owned: Map<string, number>): DeckVariant {
     cards: deck.cards,
     ownedCount: deck.cards.filter((c) => (owned.get(c.name.toLowerCase()) ?? 0) > 0).reduce((s, c) => s + c.count, 0),
     deckSize: deck.cards.reduce((s, c) => s + c.count, 0),
+    landCount: deck.stats.landCount,
+    basicCount: deck.cards
+      .filter((c) => BASIC_NAMES.has(c.name.toLowerCase()))
+      .reduce((s, c) => s + c.count, 0),
   };
 }
+
+const BASIC_NAMES = new Set(["plains", "island", "swamp", "mountain", "forest", "wastes"]);
 
 function referenceSummary(
   ref: CommanderReference | null,
@@ -444,10 +461,20 @@ export async function runCompetitiveBuild(input: {
       format,
       basics,
       maxTrials: 30,
-      minOwnedTrials: 8,
+      minOwnedTrials: 12,
       maxPairTrials: 10,
     });
-    const top = ranked.slice(0, PROPOSALS_LIMIT);
+    const isOwnedCandidate = (p: DeckProposal) => p.candidate.owned.every(Boolean);
+    const ownedTop = ranked.filter(isOwnedCandidate).slice(0, PROPOSALS_PER_GROUP);
+    const otherTop = ranked.filter((p) => !isOwnedCandidate(p)).slice(0, PROPOSALS_PER_GROUP);
+    const top = [...ownedTop, ...otherTop];
+    // Ordre d'enrichissement (synergie, Commander Spellbook) : alterné entre
+    // les deux groupes, pour que chacun ait ses meilleurs decks enrichis.
+    const enrichOrder: DeckProposal[] = [];
+    for (let i = 0; i < PROPOSALS_PER_GROUP; i++) {
+      if (ownedTop[i]) enrichOrder.push(ownedTop[i]);
+      if (otherTop[i]) enrichOrder.push(otherTop[i]);
+    }
 
     const rebuild = (p: DeckProposal, combos: readonly ComboDef[], acq: Set<string>) => {
       const profile = mergeProfiles(p.candidate.cards.map(commanderProfile));
@@ -463,7 +490,7 @@ export async function runCompetitiveBuild(input: {
     // 5. Élargissement du pool par la synergie pour les meilleures propositions
     const acquirableByProposal = new Map<string, Set<string>>();
     if (maxAcquisitions > 0) {
-      for (const p of top.slice(0, SYNERGY_SEARCH_TOP)) {
+      for (const p of enrichOrder.slice(0, SYNERGY_SEARCH_TOP)) {
         const queries = synergySearchQueries(p.ownedDeck.profile);
         if (queries.length === 0) continue;
         const id = unionIdentity(p.candidate.cards).join("").toLowerCase() || "c";
@@ -486,7 +513,7 @@ export async function runCompetitiveBuild(input: {
     // 6. Commander Spellbook
     let spellbookUsed = false;
     const opportunitiesByKey = new Map<string, ComboOpportunity[]>();
-    await mapLimit(top.slice(0, SPELLBOOK_TOP), 3, async (p) => {
+    await mapLimit(enrichOrder.slice(0, SPELLBOOK_TOP), 3, async (p) => {
       const key = candidateKey(p.candidate);
       const identity = unionIdentity(p.candidate.cards);
       const commanderNames = p.candidate.cards.map((c) => c.name);
@@ -544,7 +571,10 @@ export async function runCompetitiveBuild(input: {
       if (sameDeck) p.upgradedDeck = p.ownedDeck;
       else if (eu) p.upgradedDeck = rescoreWithSpellbook(p.upgradedDeck, features, basics, format, eu);
     });
-    sortProposals(top);
+    // Tri tier d'abord DANS chaque groupe ; commandants de la liste en premier.
+    sortProposals(ownedTop);
+    sortProposals(otherTop);
+    top.splice(0, top.length, ...ownedTop, ...otherTop);
 
     const notes: string[] = [];
     notes.push(
@@ -558,6 +588,17 @@ export async function runCompetitiveBuild(input: {
       );
     }
     const pairs = top.filter((p) => p.candidate.cards.length === 2).length;
+    if (ownedTop.length === 0) {
+      notes.push(
+        "Aucun commandant jouable n'a été trouvé dans ta liste (créature légendaire ou carte « peut être votre commandant », 3 couleurs max) : seuls des commandants à acquérir sont proposés."
+      );
+    }
+    const tooManyColors = candidates.filter((c) => unionIdentity(c.cards).length > MAX_DECK_COLORS).length;
+    if (tooManyColors > 0) {
+      notes.push(
+        `${tooManyColors} commandant${tooManyColors > 1 ? "s" : ""} à 4 ou 5 couleurs écarté${tooManyColors > 1 ? "s" : ""} : les decks proposés ont ${MAX_DECK_COLORS} couleurs au plus, pour une base de mana rapide et fiable.`
+      );
+    }
     if (scryfallRateLimitHits() > rateLimitHitsAtStart) {
       notes.unshift(
         "⚠️ Scryfall a limité les requêtes du site pendant cette construction : une partie du pool recommandé n'a pas pu être chargée, les decks proposés sont probablement en dessous de ce qui est possible. Relance dans une minute."
