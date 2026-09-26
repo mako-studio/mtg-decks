@@ -17,7 +17,14 @@ export const metadata: Metadata = {
  */
 export const maxDuration = 60;
 
-export default function CollectionPage() {
+export default async function CollectionPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  // « ?depuis=simulateur » : arrivée depuis le bouton « Trouver le meilleur
+  // commandant » d'un deck analysé (26/09/2026).
+  const { depuis } = await searchParams;
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
       <div className="mb-8">
@@ -29,7 +36,7 @@ export default function CollectionPage() {
         </p>
       </div>
 
-      <CompetitiveBuilder />
+      <CompetitiveBuilder fromSimulator={depuis === "simulateur"} />
     </div>
   );
 }

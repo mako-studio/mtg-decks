@@ -11,7 +11,7 @@ import {
 import type { DeckAnalysisResult } from "@/lib/actions";
 import { parseCollectionCsv, parseCollectionText } from "@/lib/collection-import";
 import type { PowerTierLevel } from "@/lib/deck-tier";
-import { DeckBuilder } from "./DeckBuilder";
+import { DeckBuilder, SIMULATOR_LIST_KEY } from "./DeckBuilder";
 import { ManaCost } from "./ManaCost";
 import { CardImageHover } from "./CardImageHover";
 
@@ -136,7 +136,7 @@ function sourceLabel(p: ProposalSummary): string {
 }
 
 
-export function CompetitiveBuilder() {
+export function CompetitiveBuilder({ fromSimulator = false }: { fromSimulator?: boolean } = {}) {
   const [inputMode, setInputMode] = useState<"text" | "csv">("text");
   const [text, setText] = useState("");
   const [fileName, setFileName] = useState<string | null>(null);
@@ -228,6 +228,23 @@ export function CompetitiveBuilder() {
     launch(parsed.cards, format, maxAcq);
   }
 
+  /** Reprend la liste envoyée depuis le simulateur d'un deck (voir DeckBuilder.sendToBuilder). */
+  function restoreSimulatorList() {
+    try {
+      const raw = localStorage.getItem(SIMULATOR_LIST_KEY);
+      const cards = raw ? (JSON.parse(raw) as { name: string; count: number }[]) : null;
+      if (!cards?.length) {
+        setInfo("La liste du simulateur n'a pas été trouvée sur ce navigateur : colle-la ci-dessous.");
+        return;
+      }
+      setInputMode("text");
+      setText(cards.map((c) => `${c.count} ${c.name}`).join("\n"));
+      setInfo(`Liste du simulateur reprise : ${cards.length} cartes. Choisis le format, puis lance la recherche.`);
+    } catch {
+      setInfo("Impossible de lire la liste du simulateur sur ce navigateur.");
+    }
+  }
+
   function restoreLastList() {
     try {
       const raw = localStorage.getItem(LAST_LIST_KEY);
@@ -257,6 +274,18 @@ export function CompetitiveBuilder() {
   if (!result) {
     return (
       <form onSubmit={handleSubmit} className="space-y-6">
+        {fromSimulator && !text && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-accent/40 bg-accent-soft px-4 py-3 text-sm">
+            <span className="min-w-0 text-accent">La liste du deck que tu analysais est prête à être utilisée.</span>
+            <button
+              type="button"
+              onClick={restoreSimulatorList}
+              className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground hover:opacity-90"
+            >
+              Utiliser cette liste
+            </button>
+          </div>
+        )}
         <section className="rounded-xl border border-border bg-surface p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-sm font-semibold">
@@ -757,6 +786,7 @@ export function CompetitiveBuilder() {
             initial={opened}
             deckSlug={`builder-${result.formatKey}-${p?.commander ?? "deck"}-${variant}`.toLowerCase().replace(/[^a-z0-9]+/g, "-")}
             initialAddedNames={opened.addedNames}
+            showBuildLink={false}
           />
         ) : (
           <p className="rounded-lg bg-warning-soft px-3 py-2 text-sm text-warning">{opened.error}</p>

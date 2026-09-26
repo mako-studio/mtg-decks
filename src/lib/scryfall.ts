@@ -39,27 +39,107 @@ const REQUIRED_HEADERS = {
   Accept: "application/json;q=0.9,*/*;q=0.8",
 };
 
-let lastRequestAt = 0;
-const MIN_INTERVAL_MS = 110; // ~9 req/s, sous la limite de 10 req/s
+/*
+ * ⚠️ Limites de débit PAR ENDPOINT (correctif du 26/09/2026, bug remonté par
+ * Ben : toutes les cartes d'un deck collé affichées « non trouvée »).
+ *
+ * La page officielle https://scryfall.com/docs/api/rate-limits (consultée
+ * le 26/09/2026) donne :
+ *   - /cards/search, /cards/named, /cards/random, /cards/collection :
+ *     2 requêtes/seconde (500 ms) ;
+ *   - toutes les autres méthodes : 10 requêtes/seconde (100 ms) ;
+ *   - un HTTP 429 limite l'accès pendant 30 secondes ; continuer à
+ *     surcharger après ça « peut entraîner un bannissement temporaire ou
+ *     permanent ».
+ * L'ancien code espaçait TOUTES les requêtes de 110 ms (~9/s), y compris
+ * celles limitées à 2/s. Le constructeur compétitif en envoie des dizaines
+ * par passage : c'est très probablement ce qui a déclenché des 429 — et,
+ * comme chaque échec relançait une recherche approchée par carte, le site
+ * continuait de marteler Scryfall pendant la pénalité. Je n'ai pas pu le
+ * confirmer dans les journaux Vercel (pas d'accès depuis mon
+ * environnement) : à vérifier en cherchant « HTTP 429 » dans les logs.
+ *
+ * Correctif : deux files d'attente (stricte 550 ms / normale 110 ms), et
+ * une pause globale de 35 s après un 429 pendant laquelle AUCUNE requête
+ * n'est envoyée (les appelants reçoivent « pas de résultat » et l'UI
+ * affiche un message clair, voir scryfallRateLimitStatus).
+ */
+const STRICT_INTERVAL_MS = 550;
+const NORMAL_INTERVAL_MS = 110;
+const RATE_LIMIT_PAUSE_MS = 35_000;
 
-// File d'attente (25/09/2026) : le constructeur compétitif lance plusieurs
-// requêtes en parallèle (Promise.all). L'ancienne version lisait/écrivait
-// `lastRequestAt` sans ordonnancement : deux appels simultanés calculaient
-// la même attente et partaient ensemble. Chaîner les attentes garantit
-// l'espacement MIN_INTERVAL_MS entre DEUX requêtes quelconques.
-let throttleChain: Promise<void> = Promise.resolve();
+function isStrictPath(path: string): boolean {
+  return /^\/cards\/(search|named|random|collection)\b/.test(path);
+}
 
-function throttle(): Promise<void> {
-  const next = throttleChain.then(async () => {
-    const wait = lastRequestAt + MIN_INTERVAL_MS - Date.now();
+// File d'attente chaînée par couloir (25/09/2026, étendu le 26/09) : deux
+// appels simultanés (Promise.all) ne peuvent pas partir ensemble.
+const lanes = {
+  strict: { chain: Promise.resolve() as Promise<void>, last: 0, interval: STRICT_INTERVAL_MS },
+  normal: { chain: Promise.resolve() as Promise<void>, last: 0, interval: NORMAL_INTERVAL_MS },
+};
+
+function throttle(path: string): Promise<void> {
+  const lane = isStrictPath(path) ? lanes.strict : lanes.normal;
+  const next = lane.chain.then(async () => {
+    const wait = lane.last + lane.interval - Date.now();
     if (wait > 0) {
       await new Promise((resolve) => setTimeout(resolve, wait));
     }
-    lastRequestAt = Date.now();
+    lane.last = Date.now();
   });
-  throttleChain = next.catch(() => undefined);
+  lane.chain = next.catch(() => undefined);
   return next;
 }
+
+let rateLimitedUntil = 0;
+let rateLimitHits = 0;
+
+/** Nombre de 429 reçus par cette instance depuis son démarrage (pour savoir si une action en a subi). */
+export function scryfallRateLimitHits(): number {
+  return rateLimitHits;
+}
+
+function noteResponse(res: Response, path: string): void {
+  if (res.status !== 429) return;
+  rateLimitHits++;
+  const retryAfter = Number(res.headers.get("retry-after"));
+  const pause = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 + 2000 : RATE_LIMIT_PAUSE_MS;
+  rateLimitedUntil = Math.max(rateLimitedUntil, Date.now() + pause);
+  console.error(`[scryfall] HTTP 429 sur ${path} : pause de ${Math.round(pause / 1000)} s sans aucune requête`);
+}
+
+/**
+ * État de la limitation Scryfall pour CETTE instance du serveur : sert aux
+ * actions à afficher « Scryfall limite temporairement le site » plutôt
+ * qu'un deck vide trompeur (tier 1, toutes les cartes « non trouvée »).
+ */
+export function scryfallRateLimitStatus(): { limited: boolean; retryInSeconds: number } {
+  const ms = rateLimitedUntil - Date.now();
+  return { limited: ms > 0, retryInSeconds: Math.max(0, Math.ceil(ms / 1000)) };
+}
+
+/**
+ * Cache mémoire nom → carte (26/09/2026). Vit tant que l'instance serveur
+ * reste chaude (durée non garantie par Vercel) : il évite de redemander les
+ * mêmes centaines de cartes (Game Changers, staples, méta Duel) à chaque
+ * construction. Je ne suis pas certain que le cache `fetch` de Next.js
+ * (`next.revalidate`) s'applique aux POST envoyés depuis une Server Action,
+ * d'où ce cache explicite. Borné pour ne pas grossir indéfiniment.
+ */
+const CARD_CACHE_MAX = 6000;
+const cardCache = new Map<string, ScryfallCard>();
+
+function cacheCard(key: string, card: ScryfallCard): void {
+  if (cardCache.size >= CARD_CACHE_MAX) {
+    const oldest = cardCache.keys().next().value;
+    if (oldest !== undefined) cardCache.delete(oldest);
+  }
+  cardCache.set(key, card);
+}
+
+/** Nombre max de recherches approchées une par une dans getCardsByNames (550 ms chacune). */
+const MAX_FUZZY_FALLBACK = 20;
 
 /**
  * Enveloppe `fetch` en avalant les erreurs réseau (timeout, DNS, hôte
@@ -69,9 +149,12 @@ function throttle(): Promise<void> {
  * "non trouvée" dans l'UI, voir CardTile.tsx).
  */
 async function scryfallFetch(path: string, init?: RequestInit): Promise<Response | null> {
-  await throttle();
+  if (scryfallRateLimitStatus().limited) return null;
+  await throttle(path);
+  // Re-vérifié après l'attente : un 429 a pu arriver pendant qu'on patientait.
+  if (scryfallRateLimitStatus().limited) return null;
   try {
-    return await fetch(`${SCRYFALL_API}${path}`, {
+    const res = await fetch(`${SCRYFALL_API}${path}`, {
       ...init,
       headers: {
         ...REQUIRED_HEADERS,
@@ -79,6 +162,8 @@ async function scryfallFetch(path: string, init?: RequestInit): Promise<Response
       },
       next: { revalidate: REVALIDATE_SECONDS },
     });
+    noteResponse(res, path.split("?")[0]);
+    return res;
   } catch (err) {
     // Erreur réseau (DNS, timeout, hôte injoignable) : on logue pour
     // pouvoir diagnostiquer depuis les logs de la plateforme d'hébergement
@@ -136,21 +221,26 @@ export async function getCardsByNames(
   const result = new Map<string, ScryfallCard>();
   const CHUNK = 75;
 
-  for (let i = 0; i < uniqueNames.length; i += CHUNK) {
-    const chunk = uniqueNames.slice(i, i + CHUNK);
-    await throttle();
-    let res: Response | null;
-    try {
-      res = await fetch(`${SCRYFALL_API}/cards/collection`, {
-        method: "POST",
-        headers: { ...REQUIRED_HEADERS, "Content-Type": "application/json" },
-        body: JSON.stringify({ identifiers: chunk.map((name) => ({ name })) }),
-        next: { revalidate: REVALIDATE_SECONDS },
-      });
-    } catch (err) {
-      console.error(`[scryfall] échec réseau sur /cards/collection:`, err);
-      continue;
-    }
+  // Cache mémoire d'abord (voir cardCache) : seuls les noms inconnus partent chez Scryfall.
+  const toFetch: string[] = [];
+  for (const name of uniqueNames) {
+    const cached = cardCache.get(name.toLowerCase());
+    if (cached) {
+      // Clé du nom Scryfall (comme une réponse /cards/collection) ET clé
+      // d'entrée (ex. face avant d'une carte double, résolue par fuzzy).
+      result.set(cached.name.toLowerCase(), cached);
+      result.set(name.toLowerCase(), cached);
+    } else toFetch.push(name);
+  }
+
+  for (let i = 0; i < toFetch.length; i += CHUNK) {
+    const chunk = toFetch.slice(i, i + CHUNK);
+    const res = await scryfallFetch(`/cards/collection`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ identifiers: chunk.map((name) => ({ name })) }),
+    });
+    if (!res) continue; // réseau KO ou pause 429 en cours (déjà journalisé)
     if (!res.ok) {
       console.error(`[scryfall] HTTP ${res.status} sur /cards/collection (${chunk.length} cartes)`);
       continue;
@@ -158,13 +248,31 @@ export async function getCardsByNames(
     const data = (await res.json()) as { data: ScryfallCard[] };
     for (const card of data.data) {
       result.set(card.name.toLowerCase(), card);
+      cacheCard(card.name.toLowerCase(), card);
+    }
+    // Clés d'entrée (ex. face avant seule d'une carte double) → même carte en cache.
+    for (const name of chunk) {
+      const k = name.toLowerCase();
+      if (result.has(k)) continue;
+      for (const card of data.data) {
+        if (card.name.split(" // ")[0].toLowerCase() === k) {
+          cacheCard(k, card);
+          break;
+        }
+      }
     }
   }
 
+  // Recherche approchée une par une : plafonnée (550 ms chacune) et jamais
+  // pendant une pause 429 (c'est ce qui prolongeait la pénalité).
   const unresolvedNames = fuzzyFallback ? uniqueNames.filter((name) => !result.has(name.toLowerCase())) : [];
-  for (const name of unresolvedNames) {
+  for (const name of unresolvedNames.slice(0, MAX_FUZZY_FALLBACK)) {
+    if (scryfallRateLimitStatus().limited) break;
     const card = await getCardByName(name, "fuzzy");
-    if (card) result.set(name.toLowerCase(), card);
+    if (card) {
+      result.set(name.toLowerCase(), card);
+      cacheCard(name.toLowerCase(), card);
+    }
   }
 
   return result;

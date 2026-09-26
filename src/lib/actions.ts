@@ -31,6 +31,7 @@ import {
   getDisplayLocalizedTypeLine,
   getDisplayOracleText,
   getLocalizedPrint,
+  scryfallRateLimitStatus,
 } from "./scryfall";
 
 export interface DeckAnalysisResult {
@@ -64,6 +65,21 @@ export interface DeckAnalysisResult {
    */
   restoredAddedNames?: string[];
   restoredMarkedForRemoval?: string[];
+}
+
+/**
+ * Message affiché quand Scryfall ne renvoie rien (26/09/2026). Distingue la
+ * limitation de débit (HTTP 429, pause connue) d'une panne générique.
+ */
+function scryfallUnavailableMessage(): string {
+  const status = scryfallRateLimitStatus();
+  if (status.limited) {
+    return `Scryfall (la base de cartes) limite temporairement les requêtes du site. Réessaie dans environ ${Math.max(
+      30,
+      status.retryInSeconds
+    )} secondes — tes cartes ne sont pas en cause.`;
+  }
+  return "Aucune carte n'a pu être récupérée auprès de Scryfall (service injoignable ou limité). Réessaie dans une minute — tes cartes ne sont pas en cause.";
 }
 
 function emptyResult(formatKey: FormatKey, deckName: string, error: string): DeckAnalysisResult {
@@ -115,6 +131,13 @@ export async function analyzeDeck(input: {
 
   try {
     const { commanderCards, cards, colorIdentity } = await loadEnrichedDeck(deck, format);
+    // 26/09/2026 (bug remonté par Ben) : si AUCUNE carte n'a été résolue,
+    // c'est Scryfall qui n'a pas répondu, pas le deck qui est vide. Afficher
+    // un deck « tier 1, 0/100, toutes les cartes non trouvées » était
+    // trompeur : on renvoie une erreur explicite à la place.
+    if (cards.length > 0 && cards.every((c) => !c.card)) {
+      return emptyResult(format.key, input.deckName, scryfallUnavailableMessage());
+    }
     const nonCommanderCards = cards.filter((c) => !c.isCommander);
     const commanderEntries = cards.filter((c) => c.isCommander);
 

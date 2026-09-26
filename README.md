@@ -2132,3 +2132,41 @@ scripts/
   [`mtg-decklist-parser`](https://github.com/im-sticky/mtg-decklist-parser) (MIT).
 - Magic: The Gathering est une marque déposée de Wizards of the Coast.
   Ce projet est un outil non officiel, non affilié à Wizards of the Coast.
+
+## 26/09/2026 — Cartes toutes « non trouvée » : limites de débit Scryfall
+
+**Symptôme (remonté par Ben)** : un deck collé s'affichait avec 100% des cartes
+« non trouvée », tier 1 et indice 0/100.
+
+**Cause la plus probable** : la page officielle
+https://scryfall.com/docs/api/rate-limits (consultée le 26/09/2026) limite
+`/cards/search`, `/cards/named`, `/cards/random` et `/cards/collection` à
+**2 requêtes/seconde**. Un HTTP 429 suspend l'accès 30 s, et insister
+« peut entraîner un bannissement temporaire ou permanent ». Le client envoyait
+tout à ~9 req/s. Le constructeur compétitif fait des dizaines d'appels par
+passage, et chaque échec relançait une recherche approchée par carte.
+Reproduit avec un faux Scryfall qui applique ces limites : sur l'ancien code,
+243 requêtes sur 245 ont reçu un 429 et l'analyse suivante affichait
+91/91 cartes « non trouvée ». **Non confirmé sur les journaux Vercel**
+(pas d'accès) : chercher « HTTP 429 » dans les logs pour le vérifier.
+
+**Correctifs** (src/lib/scryfall.ts, name-resolution.ts, actions.ts,
+competitive-actions.ts) :
+- deux files d'attente : 550 ms entre deux appels « stricts », 110 ms pour
+  les autres ;
+- après un 429, pause de 35 s (ou `Retry-After`) pendant laquelle aucune
+  requête n'est envoyée ;
+- cache mémoire nom → carte (instance chaude) ; recherche approchée plafonnée
+  à 20 noms ;
+- résolution tolérante : l'autocomplétion (couloir 10 req/s) passe avant la
+  recherche approchée (12 noms max) et le français (6 max) ;
+- message clair (« Scryfall limite temporairement… ») au lieu d'un faux
+  deck vide ; note dans le constructeur si un 429 est survenu pendant la
+  construction.
+
+**Contrepartie** : l'analyse d'un deck prend quelques secondes de plus
+(≈ 6-9 s mesurées sur le faux Scryfall ; délais réels non mesurés).
+
+**Aussi** : bouton « Trouver le meilleur commandant pour ces cartes » dans le
+simulateur de deck. Il transmet la liste au constructeur (`/collection?depuis=simulateur`,
+via le stockage du navigateur).

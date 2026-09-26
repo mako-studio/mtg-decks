@@ -20,7 +20,13 @@ import {
   type DeckProposal,
 } from "./competitive-builder";
 import type { DeckTierResult } from "./deck-tier";
-import { getCardsByNames, getDisplayImageUrl, searchCards } from "./scryfall";
+import {
+  getCardsByNames,
+  getDisplayImageUrl,
+  scryfallRateLimitHits,
+  scryfallRateLimitStatus,
+  searchCards,
+} from "./scryfall";
 import { commanderProfile, mergeProfiles, synergySearchQueries } from "./synergy";
 import { allComboPieceNames, CURATED_COMBOS, mergeCombos, type ComboDef } from "./combos";
 import { duelMetaCardNames, duelMetaCommanderNames, DUEL_META_INFO } from "./duel-meta";
@@ -148,6 +154,14 @@ const EMPTY: CompetitiveBuildResult = {
   spellbookUsed: false,
   notes: [],
 };
+
+/** Message quand Scryfall ne répond pas (26/09/2026) : limitation 429 ou panne. */
+function scryfallDownMessage(): string {
+  const status = scryfallRateLimitStatus();
+  return status.limited
+    ? `Scryfall (la base de cartes) limite temporairement les requêtes du site. Réessaie dans environ ${Math.max(30, status.retryInSeconds)} secondes — ta liste n'est pas en cause.`
+    : "Aucune carte de ta liste n'a pu être récupérée auprès de Scryfall (service injoignable ou limité). Réessaie dans une minute — ta liste n'est pas en cause.";
+}
 
 function fail(error: string, partial: Partial<CompetitiveBuildResult> = {}): CompetitiveBuildResult {
   return { ...EMPTY, ...partial, ok: false, error };
@@ -334,12 +348,14 @@ export async function runCompetitiveBuild(input: {
   const base = { formatKey, maxAcquisitions, collectionCards } as const;
 
   if (collectionCards.length === 0) return fail("Aucune carte reconnue dans ta liste.", base);
+  // 26/09/2026 : 429 subis PENDANT cette construction → pool incomplet, à signaler.
+  const rateLimitHitsAtStart = scryfallRateLimitHits();
 
   try {
     // 1. Collection (résolution tolérante)
     const resolution = await resolveCardNames(collectionCards.map((c) => c.name));
     if (resolution.byInput.size === 0) {
-      return fail("Aucune carte de ta liste n'a pu être résolue auprès de Scryfall (service indisponible ?). Réessaie dans quelques instants.", base);
+      return fail(scryfallDownMessage(), base);
     }
     const owned = new Map<string, number>();
     const ownedByName = new Map<string, ScryfallCard>();
@@ -396,7 +412,7 @@ export async function runCompetitiveBuild(input: {
     mates.sort((a, b) => Number(b.owned[0]) - Number(a.owned[0]));
     const candidates = Array.from(candidatesByName.values());
     if (candidates.length === 0) {
-      return fail("Impossible de trouver un commandant légal pour ce format (service Scryfall indisponible ?).", {
+      return fail(scryfallRateLimitStatus().limited ? scryfallDownMessage() : "Impossible de trouver un commandant légal pour ce format (service Scryfall indisponible ?).", {
         ...base,
         unresolvedNames: resolution.unresolved,
         corrections: resolution.corrections,
@@ -542,6 +558,11 @@ export async function runCompetitiveBuild(input: {
       );
     }
     const pairs = top.filter((p) => p.candidate.cards.length === 2).length;
+    if (scryfallRateLimitHits() > rateLimitHitsAtStart) {
+      notes.unshift(
+        "⚠️ Scryfall a limité les requêtes du site pendant cette construction : une partie du pool recommandé n'a pas pu être chargée, les decks proposés sont probablement en dessous de ce qui est possible. Relance dans une minute."
+      );
+    }
     if (!top.some((p) => p.candidate.cards.some(canHavePartner)) && pairs === 0) {
       notes.push("Aucun duo de partenaires / Background n'est ressorti parmi les meilleurs decks pour cette liste.");
     }

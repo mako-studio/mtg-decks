@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import type { CardSuggestion, DeckCategory, EnrichedCard } from "@/lib/types";
 import { analyzeDeck, resolveCardNames, superOptimizeDeck, type DeckAnalysisResult } from "@/lib/actions";
 import { getFormat } from "@/lib/formats";
@@ -11,6 +12,9 @@ import { ImproveDeckPanel } from "./ImproveDeckPanel";
 import { DeckDashboard } from "./DeckDashboard";
 import { ArenaExportButton } from "./ArenaExportButton";
 import { RemovedCardsList } from "./RemovedCardsList";
+
+/** Liste transmise du simulateur au constructeur (lue par CompetitiveBuilder). */
+export const SIMULATOR_LIST_KEY = "mtg-opti:liste-simulateur";
 
 interface SavedSession {
   savedAt: string;
@@ -88,6 +92,7 @@ export function DeckBuilder({
   deckSlug,
   initialAddedNames,
   initialMarkedForRemoval,
+  showBuildLink = true,
 }: {
   initial: DeckAnalysisResult;
   deckSlug: string;
@@ -99,7 +104,15 @@ export function DeckBuilder({
    */
   initialAddedNames?: string[];
   initialMarkedForRemoval?: string[];
+  /**
+   * Lien « Trouver le meilleur commandant pour ces cartes » (26/09/2026,
+   * demande de Ben : la suggestion de commandants hors liste n'était
+   * visible que sur la page « Construire un deck »). Masqué quand le
+   * simulateur est déjà affiché DANS le constructeur.
+   */
+  showBuildLink?: boolean;
 }) {
+  const router = useRouter();
   const [result, setResult] = useState(initial);
   const [addedNames, setAddedNames] = useState<Set<string>>(new Set(initialAddedNames ?? []));
   const [markedForRemoval, setMarkedForRemoval] = useState<Set<string>>(
@@ -552,8 +565,42 @@ export function DeckBuilder({
     new Set(result.commanderEntries.flatMap((c) => c.card?.color_identity ?? []))
   );
 
+  /**
+   * Envoie la liste courante (commandant·s compris : le constructeur peut
+   * les garder ou en proposer d'autres) au constructeur compétitif, via le
+   * stockage du navigateur (même mécanisme que « Reprendre ma dernière
+   * liste »). Aucune donnée ne quitte l'appareil.
+   */
+  function sendToBuilder() {
+    const list = [
+      ...result.commanderEntries.map((c) => ({ name: c.card?.name ?? c.name, count: 1 })),
+      ...result.cards.map((c) => ({ name: c.card?.name ?? c.name, count: c.count })),
+    ];
+    try {
+      localStorage.setItem(SIMULATOR_LIST_KEY, JSON.stringify(list));
+    } catch {
+      // Stockage indisponible : le constructeur affichera simplement un formulaire vide.
+    }
+    router.push("/collection?depuis=simulateur");
+  }
+
   return (
     <div>
+      {showBuildLink && format.hasCommander && result.cards.length > 0 && (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-sm">
+          <span className="min-w-0 text-muted">
+            Un autre commandant — dans ces cartes ou non — tirerait-il mieux parti de cette liste ?
+          </span>
+          <button
+            type="button"
+            onClick={sendToBuilder}
+            className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground hover:opacity-90"
+          >
+            Trouver le meilleur commandant pour ces cartes →
+          </button>
+        </div>
+      )}
+
       {savedSession && (
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-accent/40 bg-accent-soft px-4 py-3 text-sm">
           <span className="text-accent">

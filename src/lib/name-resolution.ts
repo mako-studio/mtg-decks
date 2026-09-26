@@ -1,5 +1,11 @@
 import type { ScryfallCard } from "./types";
-import { autocompleteCardNames, getCardByLocalizedName, getCardByName, getCardsByNames } from "./scryfall";
+import {
+  autocompleteCardNames,
+  getCardByLocalizedName,
+  getCardByName,
+  getCardsByNames,
+  scryfallRateLimitStatus,
+} from "./scryfall";
 
 /**
  * Résolution tolérante des noms de cartes importés (25/09/2026, demande de
@@ -12,14 +18,16 @@ import { autocompleteCardNames, getCardByLocalizedName, getCardByName, getCardsB
  *    ajoutent souvent (code d'extension « (MH2) 123 », « *F* » foil,
  *    « [Commander] », guillemets typographiques, accents, espaces multiples,
  *    une seule face « A / B » → « A // B ») ;
- * 3. recherche approchée Scryfall (`/cards/named?fuzzy=`), qui corrige les
+ * 3. autocomplétion Scryfall (nom entier, puis début du nom), choix de la
+ *    suggestion la plus proche par distance d'édition (≤ 30% de la
+ *    longueur), puis résolution groupée des suggestions retenues ;
+ * 4. recherche approchée Scryfall (`/cards/named?fuzzy=`), qui corrige les
  *    fautes de frappe courantes (« Sol Rinng », « swords to plowshare ») ;
- * 4. nom FRANÇAIS (`lang:fr`), pour une liste saisie en français ;
- * 5. autocomplétion Scryfall sur le début du nom, puis choix de la
- *    suggestion la plus proche par distance d'édition (≤ 30% de la longueur)
- *    — dernier recours pour une faute que la recherche approchée rate.
- * Les étapes 3 à 5 font une requête par nom : elles sont plafonnées
- * (`MAX_SLOW_LOOKUPS`) pour qu'une liste très sale ne bloque pas l'analyse.
+ * 5. nom FRANÇAIS (`lang:fr`), pour une liste saisie en français.
+ * Ordre revu le 26/09/2026 : l'autocomplétion est dans le couloir rapide
+ * de Scryfall (10 req/s), les étapes 4-5 dans le couloir lent (2 req/s) —
+ * voir scryfall.ts. Chaque étape est plafonnée pour qu'une liste très sale
+ * ne bloque pas l'analyse ni ne déclenche la limitation de Scryfall.
  *
  * Chaque correction est rapportée (`corrections`) et affichée à Ben : un nom
  * corrigé n'est jamais « silencieusement » remplacé par une autre carte.
@@ -38,7 +46,11 @@ export interface ResolvedCollection {
   unresolved: string[];
 }
 
-const MAX_SLOW_LOOKUPS = 60;
+// Plafonds (26/09/2026, revus avec les limites Scryfall, voir scryfall.ts) :
+// autocomplétion ≈ 110 ms/nom ; approché ≈ 550 ms ; français ≈ 1,1 s (2 recherches).
+const MAX_AUTOCOMPLETE = 60;
+const MAX_FUZZY_LOOKUPS = 12;
+const MAX_FRENCH_LOOKUPS = 6;
 
 /** Nettoyage des décorations d'export les plus courantes (pur, testable). */
 export function cleanCardName(raw: string): string {
@@ -139,35 +151,59 @@ export async function resolveCardNames(inputs: string[]): Promise<ResolvedCollec
     pending = still;
   }
 
-  // 3-5. Requêtes individuelles, plafonnées.
-  let budget = MAX_SLOW_LOOKUPS;
+  // 3. Autocomplétion (26/09/2026 : passée en premier). `/cards/autocomplete`
+  // est dans le couloir « 10 req/s » de Scryfall, alors que les recherches
+  // approchées/françaises sont limitées à 2 req/s (voir scryfall.ts) : on
+  // choisit la suggestion la plus proche pour chaque nom, puis on résout
+  // toutes les suggestions retenues en UN seul appel groupé.
+  const chosen = new Map<string, string>(); // nom saisi → nom suggéré
+  for (const name of pending.slice(0, MAX_AUTOCOMPLETE)) {
+    if (scryfallRateLimitStatus().limited) break;
+    const base = cleanCardName(name) || name;
+    let suggestions = await autocompleteCardNames(base);
+    if (suggestions.length === 0) {
+      const words = base.split(" ");
+      const prefix = words.slice(0, Math.max(1, Math.ceil(words.length / 2))).join(" ");
+      if (prefix.length >= 2 && prefix !== base) suggestions = await autocompleteCardNames(prefix);
+    }
+    const best = closestName(base, suggestions);
+    if (best) chosen.set(name, best);
+  }
+  if (chosen.size) {
+    const batch = await getCardsByNames(Array.from(new Set(chosen.values())), { fuzzyFallback: false });
+    const still: string[] = [];
+    for (const name of pending) {
+      const s = chosen.get(name);
+      const card = s ? pick(batch, s) : undefined;
+      if (card) {
+        byInput.set(name.toLowerCase(), card);
+        if (foldName(card.name) !== foldName(name)) corrections.push({ input: name, resolved: card.name, method: "autocomplétion" });
+      } else still.push(name);
+    }
+    pending = still;
+  }
+
+  // 4-5. Recherche approchée puis nom français : une requête (2 req/s max)
+  // par nom, donc plafonnées, et interrompues pendant une pause 429.
+  let fuzzyBudget = MAX_FUZZY_LOOKUPS;
+  let frenchBudget = MAX_FRENCH_LOOKUPS;
   const still: string[] = [];
   for (const name of pending) {
-    if (budget <= 0) {
+    if (scryfallRateLimitStatus().limited || (fuzzyBudget <= 0 && frenchBudget <= 0)) {
       still.push(name);
       continue;
     }
     const base = cleanCardName(name) || name;
     let card: ScryfallCard | null = null;
     let method: NameCorrection["method"] = "approché";
-
-    budget--;
-    card = await getCardByName(base, "fuzzy");
-    if (!card && budget > 0) {
-      budget--;
+    if (fuzzyBudget > 0) {
+      fuzzyBudget--;
+      card = await getCardByName(base, "fuzzy");
+    }
+    if (!card && frenchBudget > 0 && !scryfallRateLimitStatus().limited) {
+      frenchBudget--;
       card = await getCardByLocalizedName(base, "fr");
       method = "français";
-    }
-    if (!card && budget > 0) {
-      budget--;
-      const words = base.split(" ");
-      const prefix = words.slice(0, Math.max(1, Math.ceil(words.length / 2))).join(" ");
-      const suggestions = await autocompleteCardNames(prefix.length >= 2 ? prefix : base);
-      const best = closestName(base, suggestions);
-      if (best) {
-        card = await getCardByName(best, "exact");
-        method = "autocomplétion";
-      }
     }
     if (card) {
       byInput.set(name.toLowerCase(), card);

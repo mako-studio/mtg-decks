@@ -13,7 +13,7 @@
  *   node scripts/fetch-duel-meta.mjs --dry-run       # 2 événements, rien n'est écrit
  *
  * Structure mtgtop8 utilisée (vérifiée le 25/09/2026 sur de vraies pages) :
- * - liste des événements : https://mtgtop8.com/format?f=EDH&meta=115&cp=N
+ * - liste des événements : https://mtgtop8.com/format?f=EDH&meta=<période>&cp=N
  *   (liens `event?e=<id>&f=EDH`, dates au format JJ/MM/AA) ;
  * - page d'événement : liens de decks `event?e=<id>&d=<deck>&f=EDH` ;
  * - export texte d'un deck : https://mtgtop8.com/mtgo?d=<deck> — « 1 Nom »
@@ -73,6 +73,15 @@ const MAX_PAGES = argVal("--max-pages", 40);
 const DRY = args.includes("--dry-run");
 const DEBUG = args.includes("--debug");
 const REBUILD_ONLY = args.includes("--rebuild-only");
+/**
+ * Période de la liste d'événements mtgtop8 (paramètre `meta=`). Vérifié le
+ * 25/09/2026 sur le sélecteur de la page : 115 = 2 dernières semaines,
+ * 121 = 2 derniers mois, 209 = 6 derniers mois, 343 = toute l'année 2026.
+ * L'ancienne version utilisait toujours 115 : `--weeks 12` ne ramenait donc
+ * que 2 semaines. On prend la plus petite période qui couvre la fenêtre
+ * (`--meta N` pour forcer une valeur).
+ */
+const META = argVal("--meta", WEEKS <= 2 ? 115 : WEEKS <= 8 ? 121 : WEEKS <= 26 ? 209 : 343);
 const DELAY_MS = 800;
 const UA = "MTGOpti/1.0 (+https://github.com/mako-studio/mtg-decks) duel-meta script";
 
@@ -167,7 +176,9 @@ const BASICS = new Set(
 
 async function main() {
   const since = new Date(Date.now() - WEEKS * 7 * 86400000);
-  console.log(`Événements Duel Commander mtgtop8 depuis le ${since.toISOString().slice(0, 10)}${DRY ? " (dry-run)" : ""}`);
+  console.log(
+    `Événements Duel Commander mtgtop8 depuis le ${since.toISOString().slice(0, 10)} (liste meta=${META})${DRY ? " (dry-run)" : ""}`
+  );
 
   const archive = await loadArchive();
   const known = new Set(archive.decks.map((d) => d.id));
@@ -189,7 +200,7 @@ async function main() {
   let emptyEvents = 0;
   let oldEvents = 0;
   for (let cp = 1; cp <= MAX_PAGES; cp++) {
-    const listHtml = await getText(`https://mtgtop8.com/format?f=EDH&meta=115&cp=${cp}`);
+    const listHtml = await getText(`https://mtgtop8.com/format?f=EDH&meta=${META}&cp=${cp}`);
     if (!listHtml) break;
     // Chaque événement apparaît souvent plusieurs fois sur la page : dédoublonné.
     const ids = Array.from(new Set(Array.from(listHtml.matchAll(/[?&]e=(\d+)(?:&amp;|&)f=EDH/g), (m) => m[1])));
