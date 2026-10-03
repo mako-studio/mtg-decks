@@ -1011,5 +1011,55 @@
       "Note : aucune source francophone officielle n'a été localisée pour confirmer la traduction française exacte du sous-type « Plan » ; à vérifier auprès de l'impression française du set une fois disponible."
     ],
     "confidence": "high"
+  },
+  "fra": {
+    "code": "fra",
+    "mechanicsIntroduced": [
+      {
+        "termEn": "Empower Jace",
+        "termFr": "Renforcer Jace",
+        "definitionFr": "Action à mot-clé nouvelle : « Empower Jace N » met N marqueurs loyauté sur un jeton Jace que vous contrôlez ; si vous n'en contrôlez pas, vous créez d'abord un jeton planeswalker Jace bleu à 0 loyauté avec « −1 : Surveil 1 » et « −3 : Piochez une carte ». L'effet ne vise que les jetons Jace, pas une carte Jace. 35 des 286 cartes inédites de la sortie le mentionnent, dans les cinq couleurs : c'est le fil conducteur de l'extension, et un moteur de sélection/pioche qui grossit à chaque carte jouée.",
+        "sourceNote": "Wizards of the Coast — « Reality Fracture Mechanics » (Matt Tabak, 8 septembre 2026, magic.wizards.com/en/news/feature/reality-fracture-mechanics) ; texte de rappel relevé sur les cartes (ex. Protege's Awakening) ; terme français d'après « Mécaniques de l'extension Réalité fracturée » (magic.wizards.com/fr/news/feature/reality-fracture-mechanics), lu via un résumé automatique de la page — à confirmer sur une carte française imprimée."
+      },
+      {
+        "termEn": "Heartwood token",
+        "termFr": "Jeton Boiscœur",
+        "definitionFr": "Nouveau jeton prédéfini : un artefact rouge et vert avec « {T} : Ajoutez {R} ou {G} ». Contrairement à un Trésor, il ne se sacrifie pas : c'est une source de mana permanente, donc de la rampe et du fixing rouge-vert, et un artefact de plus pour les cartes qui les comptent (Aerid Konstrari, Craterclaw Colossus). 6 cartes inédites en créent.",
+        "sourceNote": "Wizards of the Coast — « Reality Fracture Mechanics » (Matt Tabak, 8 septembre 2026, magic.wizards.com/en/news/feature/reality-fracture-mechanics) ; texte de rappel relevé sur les cartes (ex. Heartwood Crafter, Aerid Konstrari) ; terme français d'après « Mécaniques de l'extension Réalité fracturée » (magic.wizards.com/fr/news/feature/reality-fracture-mechanics) (même réserve que ci-dessus)."
+      }
+    ],
+    "context": "Reality Fracture (code Scryfall « fra », sortie le 2 octobre 2026) est l'extension-événement qui conclut l'arc narratif en cours ; elle se déroule en partie dans un « Echoverse » où des personnages connus existent sous d'autres couleurs. Deux mécaniques sont nouvelles : renforcer Jace et les jetons Boiscœur. La préparation (créatures « préparées » portant un sort qu'on peut lancer en copie, 21 cartes ici) revient de Secrets of Strixhaven ; flashback, seuil (threshold), toucheterre (landfall) et le recyclage de terrain de base reviennent aussi. Autres repères utiles pour construire : environ 105 des 286 cartes inédites sont légendaires (dont 8 planeswalkers), beaucoup en double version d'un même personnage ; de nombreuses cartes récompensent le fait de contrôler un planeswalker ou d'activer une capacité de loyauté (cycle des « Way of the… », terrains « Commons » et « Annex » qui arrivent dégagés si vous contrôlez un planeswalker) ; un sous-thème « regard/surveil » (Denzilore Fatehold, Proft) et un sous-thème « blessures non-combat » (Stingerquill). Les jetons Cadet sont des 2/2 incolores Wizard Soldier, un simple nom de jeton et non une mécanique. Sur ce site, ces thèmes sont reconnus par le constructeur depuis le 03/10/2026 (thèmes Planeswalkers, Regard, Préparation, Blessures directes).",
+    "sourceNotes": [
+      "Wizards of the Coast — « Reality Fracture Mechanics » (Matt Tabak, 8 septembre 2026, magic.wizards.com/en/news/feature/reality-fracture-mechanics) : présente Empower Jace et les jetons Heartwood comme nouveaux, Prepare comme mécanique de retour.",
+      "Wizards of the Coast — « Reality Fracture Release Notes » (magic.wizards.com/en/news/feature/reality-fracture-release-notes) : codes FRA (extension principale), FRC (cartes Commander) et SPG (Special Guests), règles de Empower Jace, des cartes à préparation et du flashback.",
+      "Dépôt GitHub du projet Forge (Card-Forge/forge, commit 83d8fc7e du 03/10/2026) : liste des cartes de l'édition et texte de chaque carte, source des décomptes ci-dessus (35 cartes « empower Jace », 6 « Heartwood », 21 cartes à préparation, 105 légendaires).",
+      "mtg.wiki — « Reality Fracture » : extension-événement, conception dirigée par Mark Rosewater.",
+      "Limites : les deux articles Wizards ont été lus via un résumé automatique (pas de lecture intégrale possible depuis l'environnement de travail), et l'API Scryfall n'était pas accessible — les décomptes viennent de Forge, pas de Scryfall. Les noms français n'ont pas été vérifiés sur des cartes imprimées, d'où une confiance medium."
+    ],
+    "confidence": "medium"
+  },
+  "frc": {
+    "code": "frc",
+    "mechanicsIntroduced": [],
+    "context": "Reality Fracture Commander (code Scryfall « frc », sortie le 2 octobre 2026) ne compte qu'un deck préconstruit : Multiverse Reforged, quatre couleurs (blanc, bleu, noir, rouge), mené par le planeswalker Jace, Multiverse Architect (« can be your commander »), avec Nissa, Leyline Tamer comme seconde carte vedette. Le deck présente des versions « Echoverse » de personnages connus dans des couleurs inhabituelles (Avacyn en noir, Ob Nixilis en ange blanc, Omnath incolore). Il n'introduit aucune mécanique propre : il reprend renforcer Jace de l'extension principale et des mécaniques Commander existantes (monarque, eminence). La liste Forge compte 18 cartes inédites sous le code FRC (15 sorts et créatures, plus les trois terrains bicolores « Turbulent ») ; l'article Wizards en annonce 16 d'après le résumé obtenu — écart non élucidé, probablement une question de décompte des terrains. Pour le deckbuilding : le plan du deck est de tricher en jeu de grosses créatures légendaires via le −3 de Jace et les effets de type polymorphe (Mass Polymorph, Synthetic Destiny, Proteus Staff), d'où un nombre de créatures volontairement réduit à des cibles de fort impact.",
+    "sourceNotes": [
+      "Wizards of the Coast — « Reality Fracture Multiverse Reforged Commander Decklist » (magic.wizards.com/en/news/announcements/reality-fracture-multiverse-reforged-commander-decklist) : commandant, couleurs, date de sortie.",
+      "Jeu de données taw/magic-preconstructed-decks-data (GitHub) : decklist complète reprise dans src/data/commander-decks.json.",
+      "Dépôt GitHub du projet Forge (édition « Reality Fracture Commander », commit 83d8fc7e) : numérotation FRC et texte des 18 cartes inédites.",
+      "Limites : aucune phrase officielle « no new mechanics » trouvée pour ce produit — la conclusion vient de la lecture du texte des 18 cartes inédites. Article Wizards lu via un résumé automatique."
+    ],
+    "confidence": "medium"
+  },
+  "fdc": {
+    "code": "fdc",
+    "mechanicsIntroduced": [],
+    "context": "Foundations Commander (code Scryfall « fdc ») désigne ici les cinq decks Commander d'initiation sortis le 2 octobre 2026, en même temps que Reality Fracture : Calling All Angels (Giada, Font of Hope, blanc), Keen Engineering (Sai, Master Thopterist, bleu), Wretched Ranks (Ghoulcaller Gisa, noir), Reign of Dragons (Lathliss, Dragon Queen, rouge) et Tramplesaurus Rex (Ghalta, Primal Hunger, vert). Ce sont des decks mono-couleur pensés pour découvrir le format. Ils ne contiennent que des réimpressions d'après les données disponibles (aucun nom de carte absent des éditions antérieures dans la liste Forge) et n'introduisent donc aucune mécanique. Le code « fdc » existait déjà chez Scryfall et Forge depuis novembre 2024 pour les cartes Commander associées à Foundations ; la checklist affichée sur cette page est celle de ce code entier, pas seulement des cinq decks. Pour le deckbuilding : bases tribales simples (anges, thopters/artefacts, zombies, dragons, dinosaures), faciles à améliorer.",
+    "sourceNotes": [
+      "Wizards of the Coast — « Foundations Commander Decklists » (magic.wizards.com/en/news/announcements/foundations-commander-decklists) : cinq decks, sortie le 2 octobre 2026, produit destiné aux nouveaux joueurs.",
+      "Jeu de données taw/magic-preconstructed-decks-data (GitHub) : decklists reprises dans src/data/commander-decks.json, cartes référencées sous les codes fdc et fdn.",
+      "Dépôt GitHub du projet Forge : édition « Foundations Commander » (code FDC) datée du 15/11/2024 — base du constat « réimpressions seulement ».",
+      "Limites : l'article Wizards (lu via un résumé automatique) ne dit pas explicitement que les decks ne contiennent que des réimpressions ; non vérifié sur Scryfall."
+    ],
+    "confidence": "medium"
   }
 }

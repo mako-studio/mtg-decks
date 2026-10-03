@@ -35,16 +35,30 @@ function slugify(str) {
     .replace(/(^-|-$)/g, "");
 }
 
+/**
+ * 03/10/2026 — le dataset suffixe désormais « (Prepared) » aux cartes à
+ * préparation dont le sort porte le nom d'une carte existante (ex.
+ * « Naktamun Lorespinner // Wheel of Fortune (Prepared) »). Scryfall nomme
+ * ces cartes sans suffixe (vu dans analysis/duelcommander/cards-scryfall.json :
+ * « Emeritus of Ideation // Ancestral Recall ») : on le retire, sinon le nom
+ * ne se résout plus par recherche exacte. Non vérifié en direct sur ces
+ * cartes précises (Scryfall inaccessible depuis l'environnement de dev).
+ */
+function cleanName(name) {
+  return name.replace(/\s+\(Prepared\)$/, "");
+}
+
 function slimify(decks, { prefix }) {
   const seenSlugs = new Map();
   const slim = decks.map((deck) => {
-    const commanderNames = (deck.commander || []).map((c) => c.name);
+    const commanderNames = (deck.commander || []).map((c) => cleanName(c.name));
 
     const cardMap = new Map();
     for (const c of deck.cards || []) {
-      if (commanderNames.includes(c.name)) continue;
-      const prev = cardMap.get(c.name) || 0;
-      cardMap.set(c.name, prev + (c.count || 1));
+      const name = cleanName(c.name);
+      if (commanderNames.includes(name)) continue;
+      const prev = cardMap.get(name) || 0;
+      cardMap.set(name, prev + (c.count || 1));
     }
     const cards = Array.from(cardMap.entries()).map(([name, count]) => ({
       name,

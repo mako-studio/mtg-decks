@@ -327,6 +327,37 @@ export const GLOSSARY_TERMS: GlossaryTerm[] = [
     sourceNote: "Nom de carte officiel « Reconfiguration expéditive » (Gatherer FR).",
     confidence: "high",
   },
+  // 03/10/2026 — mécaniques de Reality Fracture (voir set-notes.json, « fra »).
+  {
+    termEn: "Empower Jace",
+    termFr: "Renforcer Jace",
+    category: "keyword-other",
+    definitionFr:
+      "« Renforcer Jace N » : mettez N marqueurs loyauté sur un jeton Jace que vous contrôlez ; si vous n'en avez pas, créez d'abord un jeton planeswalker Jace bleu avec « −1 : Surveil 1 » et « −3 : Piochez une carte ». Chaque carte qui renforce Jace alimente donc une réserve de sélection et de pioche. Compté dans le pilier Pioche par ce site.",
+    sourceNote:
+      "Wizards — « Reality Fracture Mechanics » (8 septembre 2026) et texte de rappel des cartes. Terme français d'après la version française de l'article, lue via un résumé automatique : non vérifié sur une carte imprimée.",
+    confidence: "medium",
+  },
+  {
+    termEn: "Heartwood token",
+    termFr: "Jeton Boiscœur",
+    category: "keyword-other",
+    definitionFr:
+      "Jeton d'artefact prédéfini, rouge et vert, avec « {T} : Ajoutez {R} ou {G} ». Il reste en jeu après usage (contrairement à un Trésor) : une source de mana permanente, comptée comme rampe et fixing par ce site.",
+    sourceNote:
+      "Wizards — « Reality Fracture Mechanics » (8 septembre 2026) et texte de rappel des cartes. Terme français d'après la version française de l'article, lue via un résumé automatique : non vérifié sur une carte imprimée.",
+    confidence: "medium",
+  },
+  {
+    termEn: "Prepared",
+    termFr: "Préparé (préparation)",
+    category: "keyword-other",
+    definitionFr:
+      "Certaines créatures portent un second sort imprimé sur la carte. Tant que la créature est « préparée », vous pouvez lancer une copie de ce sort ; le faire la « déprépare ». Beaucoup arrivent préparées, d'autres le redeviennent sous condition (à chaque entretien, quand trois créatures sont mortes...). Introduit par Secrets of Strixhaven, repris par Reality Fracture. Le site lit les deux textes : une créature dont le sort préparé détruit une créature compte comme Removal.",
+    sourceNote:
+      "Wizards — « Secrets of Strixhaven Mechanics » et « Reality Fracture Release Notes » ; « Prepared » est la chaîne utilisée par Scryfall dans le champ keywords (vu dans les données Scryfall du projet). Terme français d'après la version française de l'article Reality Fracture, lue via un résumé automatique.",
+    confidence: "medium",
+  },
   {
     termEn: "Bracket system",
     termFr: "Catégories",

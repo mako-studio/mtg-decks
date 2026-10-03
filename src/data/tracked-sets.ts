@@ -81,4 +81,11 @@ export const TRACKED_SETS: TrackedSetRef[] = [
   { code: "soc", name: "Secrets of Strixhaven Commander", releaseDate: "2026-04-24" },
   { code: "sld", name: "Secret Lair Drop", releaseDate: "2026-05-18" },
   { code: "msc", name: "Marvel Super Heroes Commander", releaseDate: "2026-06-26" },
+  // 03/10/2026 (demande de Ben : ajouter les cartes de Reality Fracture).
+  // « frc » et « fdc » viennent des nouveaux decks de commander-decks.json ;
+  // « fra » est l'extension principale, ajoutée à la main : aucun deck du
+  // site ne porte ce code, mais c'est elle qui contient les cartes nouvelles.
+  { code: "fdc", name: "Foundations Commander", releaseDate: "2026-10-02" },
+  { code: "fra", name: "Reality Fracture", releaseDate: "2026-10-02" },
+  { code: "frc", name: "Reality Fracture Commander", releaseDate: "2026-10-02" },
 ];

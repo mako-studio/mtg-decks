@@ -60,29 +60,81 @@ const QUAL4 = "(?:[a-z][a-z'-]*\\s+){0,4}";
 // Forest card", ex: Wood Elves) en plus de "land card" littéral, sans quoi
 // toute recherche de terrain typé plutôt que générique passait inaperçue.
 const BASIC_LAND_TYPES = "plains|island|swamp|mountain|forest|wastes";
+// 03/10/2026 (Reality Fracture) : « noncreature, nonland permanent » — la
+// virgule casse QUAL (voulu, voir plus haut), mais ce gabarit précis
+// (« non-X, non-Y ») est courant et sans ambiguïté (ex. Archive Arbiter).
+const NON_PREFIX = "(?:non[a-z]+, )?";
+// 03/10/2026 : la cible est à SOI (« exile target creature or planeswalker
+// you control ») — un clignotement/polymorphe, pas un removal (ex. Identity
+// Echo, Cloudshift). Limité au groupe nominal immédiat pour ne pas écarter
+// « exile target creature if you control... ».
+const NOT_OWN = "(?!(?: or [a-z]+)* you control)";
 
 const CATEGORY_PATTERNS: Record<DeckCategory, RegExp[]> = {
   ramp: [
-    new RegExp(`search your library for a(n)? ${QUAL}(land|${BASIC_LAND_TYPES})( card)?`, "i"),
+    // 03/10/2026 : « up to two basic land cards » (Cultivate, Kodama's
+    // Reach, Hexhaven Invigorator...) n'était pas reconnu — seul l'article
+    // « a/an » l'était.
+    new RegExp(
+      `search your library for (?:a(?:n)?|up to (?:one|two|three|four|five|x|that many)) ${QUAL}(land|${BASIC_LAND_TYPES})( cards?)?`,
+      "i"
+    ),
     /add \{[wubrgc0-9]\}/i,
     /additional land/i,
-    /lands you control/i,
+    // \b ajouté le 03/10/2026 : sans lui, « Islands you control » matchait
+    // (faux positif vu sur Jace, Reality Sculptor).
+    /\blands you control/i,
     /add one mana of any (type|color)/i,
+    // 03/10/2026 : « Add three mana of any one color » (Gilded Lotus, jetons
+    // Lotus de Kwia Vigorbloom), « Add one mana of that color » (Loot, the
+    // Nexus), « Add two mana in any combination of colors ».
+    /\badd (?:one|two|three|four|five|six|x|\d+) mana (?:of|in) (?:any|that|the chosen)/i,
+    // « Whenever you tap a Swamp for mana, add an additional {B} » (Crypt Ghast...).
+    /\badds? (?:an|one) additional (?:\{|mana)/i,
+    // Jeton prédéfini Heartwood/Boiscœur (Reality Fracture) : artefact avec
+    // « {T}: Add {R} or {G} ». Motif explicite pour ne pas dépendre de la
+    // présence du texte de rappel.
+    /create [^.]*heartwood tokens?/i,
   ],
   removal: [
-    new RegExp(`destroy target ${QUAL}(creature|permanent|artifact|enchantment|planeswalker)`, "i"),
-    new RegExp(`exile target ${QUAL}(creature|permanent|artifact|enchantment|planeswalker)`, "i"),
-    new RegExp(`exile up to (one|two|three) target ${QUAL}(creature|permanent|artifact|enchantment|planeswalker)`, "i"),
-    /target creature gets -\d+\/-\d+/i,
-    /deals? \d+ damage to target creature/i,
+    // 03/10/2026 : « destroy up to one target ... » (Lich's Relic) et
+    // « noncreature, nonland permanent » (Archive Arbiter) ajoutés.
+    new RegExp(
+      `destroy (?:up to (?:one|two|three) )?target ${NON_PREFIX}${QUAL}(creature|permanent|artifact|enchantment|planeswalker)`,
+      "i"
+    ),
+    new RegExp(`exile target ${NON_PREFIX}${QUAL}(creature|permanent|artifact|enchantment|planeswalker)${NOT_OWN}`, "i"),
+    new RegExp(
+      `exile up to (one|two|three) target ${QUAL}(creature|permanent|artifact|enchantment|planeswalker)${NOT_OWN}`,
+      "i"
+    ),
+    // 03/10/2026 : exige une baisse d'ENDURANCE (« -5/-0 » n'élimine rien :
+    // faux positif vu sur Icy Reception) et accepte « -X/-X ».
+    /target creature gets [+-](?:\d+|x)\/-(?:[1-9]\d*|x)/i,
+    // 03/10/2026 : « any target » (Lightning Bolt, No Admittance), X, et
+    // qualificatifs (« target attacking or blocking creature », « target
+    // black or green creature or planeswalker ») — avant, seul « N damage to
+    // target creature » collé était reconnu.
+    // « target player or planeswalker » (Boros Charm) est exclu : c'est de
+    // la blessure au joueur, pas une réponse à une créature.
+    new RegExp(`deals? (?:\\d+|x) damage to (?:any target|target (?!player or )${QUAL}(?:creature|planeswalker))`, "i"),
     // "Combat/bite" à sens unique sans le mot-clé "fight" (ex: Hulk Smash!
     // "Target creature you control deals damage equal to its power to
     // target creature an opponent controls.") — un removal conditionné à
     // avoir une créature suffisamment forte, comme "fights?" ci-dessous,
     // mais formulé explicitement plutôt que via le mot-clé.
-    /deals? damage equal to its power to target creature/i,
+    /deals? damage equal to its power to (?:target creature|that permanent)/i,
     /return target (creature|permanent|nonland permanent).* to (its|their) owner's hand/i,
-    /fights? target creature/i,
+    /fights? (?:up to one )?target creature/i,
+    // 03/10/2026 (Reality Fracture) — formulations rencontrées sur les
+    // nouvelles cartes, vérifiées sur leur texte :
+    // marqueurs -1/-1 ciblés (Hapatra, the Desert Fang) ;
+    /-1\/-1 counters? on (?:up to (?:one|two|three) )?target creature/i,
+    // force/endurance de base 0/0 (Multiply by Zero) ;
+    /target creature has base power and toughness 0\/0/i,
+    // renvoi en bibliothèque (Clash of Elements, Plan for All Outcomes,
+    // Living Library ; aussi Chaos Warp).
+    /\bowner (?:of [^.]*? )?(?:may )?(?:puts? it on (?:their choice of )?the (?:top|bottom)(?: or bottom)? of|shuffles it into) their library/i,
   ],
   wipe: [
     new RegExp(`destroy all ${QUAL}(creatures|permanents)`, "i"),
@@ -102,6 +154,14 @@ const CATEGORY_PATTERNS: Record<DeckCategory, RegExp[]> = {
     // cartes du même pilier ("card advantage") — voir README.
     /surveil \d+/i,
     /scry \d+/i,
+    // 03/10/2026 — « Empower Jace N » (Reality Fracture) : met N marqueurs
+    // loyauté sur un jeton Jace dont les capacités sont « −1 : Surveil 1 »
+    // et « −3 : Draw a card ». Même pilier que surveil/scry ci-dessus. Le
+    // texte de rappel le faisait déjà matcher par accident ; motif explicite
+    // parce que plusieurs cartes n'ont pas de texte de rappel (Sanctum
+    // Lurker, Jace, Reality Sculptor). Limite assumée : « Empower Jace 1 »
+    // compte autant que « Empower Jace 8 ».
+    /empower jace/i,
   ],
   tutor: [
     // Tutor "libre" (n'importe quelle carte) — Vampiric Tutor et
@@ -168,11 +228,19 @@ const CATEGORY_PATTERNS: Record<DeckCategory, RegExp[]> = {
   // their untap steps"), Diabolic Edict ("target player sacrifices a
   // creature"), Mind Rot ("target player discards two cards").
   disruption: [
-    new RegExp(`can't cast ${QUAL4}spells?\\b`, "i"),
+    // (?!this spell) ajouté le 03/10/2026 : « You can't cast this spell
+    // unless... » est une restriction sur la carte elle-même, pas un verrou
+    // (faux positif vu sur Proft, Sinister Mastermind).
+    new RegExp(`can't cast (?!this spell)${QUAL4}spells?\\b`, "i"),
     /costs? \{?\d+\}? more to (cast|activate)/i,
     /can't untap [^.]{0,60}untap steps?/i,
-    /(target player|each opponent|that player) sacrifices? a(n)? (creature|permanent|artifact|enchantment|planeswalker)/i,
-    /(target player|each opponent|that player) discards? (a|an|one|two|three|four|five|x|\d+) cards?/i,
+    // « target opponent » ajouté le 03/10/2026 (Break Under Pressure).
+    /(target player|target opponent|each opponent|that player) sacrifices? a(n)? (creature|permanent|artifact|enchantment|planeswalker)/i,
+    /(target player|target opponent|each opponent|that player) discards? (a|an|one|two|three|four|five|x|\d+) cards?/i,
+    // 03/10/2026 : défausse/exil choisi dans la main révélée (Thoughtseize,
+    // Duress ; Solve for Disappointment, Stinging Vitriol, Null Summoner) —
+    // « That player discards that card » échappait au motif ci-dessus.
+    /reveals their hand\. you choose an? [^.]*card from it/i,
   ],
 };
 

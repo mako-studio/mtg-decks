@@ -71,7 +71,8 @@ export const THEMES: readonly ThemeDef[] = [
     id: "artifacts",
     label: "Artefacts",
     commander: [/artifacts? you control/i, /whenever (an|another|one or more) artifacts?/i, /artifact spells?/i],
-    card: [/artifacts? you control/i, /whenever (an|another) artifact/i],
+    // « heartwood token » (03/10/2026) : jeton d'artefact prédéfini de Reality Fracture.
+    card: [/artifacts? you control/i, /whenever (an|another) artifact/i, /heartwood tokens?/i],
     cardTypes: ["Artifact"],
   },
   {
@@ -133,14 +134,53 @@ export const THEMES: readonly ThemeDef[] = [
   {
     id: "treasure",
     label: "Trésors / mana",
-    commander: [/\btreasures?\b/i, /whenever you (sacrifice|tap) [^.]*for mana/i],
-    card: [/\btreasures?\b/i],
+    commander: [/\btreasures?\b/i, /whenever you (sacrifice|tap) [^.]*for mana/i, /heartwood tokens?/i],
+    card: [/\btreasures?\b/i, /heartwood tokens?/i],
   },
   {
     id: "poison",
     label: "Poison / infection",
     commander: [/poison counters?/i, /\binfect\b|\btoxic\b/i],
     card: [/poison counters?/i, /\binfect\b|\btoxic\b/i, /proliferate/i],
+  },
+  // --- Thèmes ajoutés le 03/10/2026 pour Reality Fracture (demande de Ben :
+  // classifier les nouvelles cartes pour tous les outils du site). Motifs
+  // écrits d'après le texte réel des 286 nouvelles cartes (voir
+  // analysis/reality-fracture/). Ajoutés EN FIN de liste : l'ordre fixe le
+  // bit de chaque thème dans `cardThemeMask`.
+  {
+    id: "planeswalkers",
+    label: "Planeswalkers / loyauté",
+    // Volontairement PAS /planeswalker/ seul : « destroy target creature or
+    // planeswalker » n'est pas une récompense du thème.
+    commander: [
+      /planeswalkers? you control/i,
+      /\bloyalty\b/i,
+      /planeswalker (spells?|cards?)/i,
+      /empower jace/i,
+      /\bjaces? you control/i,
+    ],
+    card: [/planeswalkers? you control/i, /\bloyalty (counters?|abilit)/i, /planeswalker spells?/i, /empower jace/i, /proliferate/i],
+    cardTypes: ["Planeswalker"],
+  },
+  {
+    id: "scry",
+    label: "Regard / surveillance",
+    commander: [/whenever you (scry|surveil)/i, /scried or surveilled/i],
+    // « empower jace » : le jeton Jace a « −1 : Surveil 1 ».
+    card: [/\b(scry|surveil) (\d+|x)\b/i, /whenever you (scry|surveil)/i, /scried or surveilled/i, /empower jace/i],
+  },
+  {
+    id: "prepare",
+    label: "Préparation",
+    commander: [/prepared spell/i, /becomes? prepared/i],
+    card: [/\bprepared\b/i],
+  },
+  {
+    id: "burn",
+    label: "Blessures directes",
+    commander: [/noncombat damage/i, /deals? \d+ damage to each opponent/i],
+    card: [/noncombat damage/i, /deals? (\d+|x) damage to (each opponent|target opponent|target player|any target)/i],
   },
 ];
 
@@ -291,6 +331,10 @@ const THEME_QUERIES: Record<string, string> = {
   discard: '(o:"whenever you discard" or keyword:madness)',
   treasure: 'o:treasure',
   poison: '(keyword:infect or keyword:toxic or o:proliferate)',
+  planeswalkers: '(t:planeswalker or o:"planeswalkers you control" or o:"loyalty counter" or o:"empower Jace")',
+  scry: '(o:"whenever you scry" or o:"surveil 2" or o:"scry 2")',
+  prepare: 'o:prepared',
+  burn: '(o:"noncombat damage" or o:"damage to each opponent")',
 };
 
 /** Requêtes (sans identité/légalité, ajoutées par l'appelant) pour les thèmes et tribus d'un commandant, 3 max. */

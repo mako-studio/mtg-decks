@@ -122,6 +122,13 @@ Voir la section « Structure » du README pour l'arbre complet.
   **`src/data/competitive-staples.ts`** (staples par rôle, commandants haute
   puissance) — des NOMS À ÉVALUER, jamais imposés (légalité/identité
   revérifiées via Scryfall).
+- **`src/lib/recent-sets.ts`** + `src/data/recent-set-cards.json`
+  (03/10/2026) — cartes NOUVELLES des dernières extensions (Reality
+  Fracture : 286). Des noms à faire évaluer : sans ce fichier, une carte
+  récente n'est jamais proposée (recherches triées par rang EDHREC). Utilisé
+  par `recommend.ts` et `competitive-actions.ts`. Généré depuis Forge
+  (`scripts/build-set-cards-from-forge.py`) ou Scryfall
+  (`scripts/fetch-set-cards.mjs`, sur le Mac). Section README du 03/10/2026.
 - **`src/lib/collection-builder.ts`** — réduit le 25/09/2026 à ses
   utilitaires (`isCommanderEligible`, `isLegalInFormat`,
   `BASIC_LAND_BY_COLOR`). L'ancien moteur de sélection et ses 6 Server
@@ -150,6 +157,15 @@ Voir la section « Structure » du README pour l'arbre complet.
   bloqué par un garde-fou de sécurité (contournement des restrictions
   réseau). Voies légitimes : appel en direct depuis le site déployé
   (Vercel), ou script que Ben lance lui-même sur son Mac.
+- **Textes de cartes sans Scryfall** : le dépôt GitHub de Forge
+  (`Card-Forge/forge`, clone partiel de `forge-gui/res/editions` et
+  `cardsfolder`) donne la liste de chaque édition et le texte de ~34 000
+  cartes. Utile pour tester une regex sur tout le pool
+  (`scripts/build-set-cards-from-forge.py` contient le convertisseur). Les
+  textes des cartes anciennes n'y sont pas tous à jour.
+- **`git status` sur le Mac** : utiliser `git --no-optional-locks status`.
+  Sans l'option, git laisse un `.git/index.lock` qu'il ne peut pas supprimer
+  (arrivé le 03/10/2026) et GitHub Desktop refuse ensuite de commiter.
 - **Pas d'API EDHREC** : score/suggestions = moteur heuristique interne.
   Décision assumée, ne pas la remettre en cause sans Ben.
 - **Tier = heuristique** inspirée des Brackets WotC, pas le système
@@ -178,7 +194,7 @@ Voir la section « Structure » du README pour l'arbre complet.
    `mcp__remote-devices__device_commit_files` vers
    `/Users/bensom/Documents/GitHub/mtg-decks/...`. Fichiers supprimés :
    demander la permission de suppression, sinon les lister à Ben.
-4. Vérifier : `cd "$HOME/mnt/mtg-decks" && git status --short` (via
+4. Vérifier : `cd "$HOME/mnt/mtg-decks" && git --no-optional-locks status --short` (via
    `device_bash`).
 5. **Ben commite/pousse lui-même.** Ne jamais `git commit`/`git push` sur le
    clone du Mac.
@@ -233,6 +249,13 @@ se lit dans `01-app/03-api-reference/03-file-conventions/02-route-segment-config
 ## 9. État actuel
 
 Se fier à `git status`/`git log` réels plutôt qu'à ce paragraphe.
+
+Au 03/10/2026 : Reality Fracture ajoutée (cartes nouvelles, piliers,
+4 thèmes de synergie, 7 decks précon, Extensions, Glossaire) — livrée sur le
+Mac, non commitée par Ben au moment de l'écriture. Les motifs de piliers
+corrigés font monter les scores des decks existants (voir README). En
+attente : `npm run fetch-set-cards -- fra frc` sur le Mac pour remplacer les
+données Forge par celles de Scryfall, et retour de Ben en usage réel.
 
 Au 25/09/2026 (2e passage) : duos, Commander Spellbook en direct,
 autocorrection des noms, script méta Duel — livrés sur le Mac, non commités

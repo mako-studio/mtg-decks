@@ -37,6 +37,7 @@ import { canHavePartner, pairLabel } from "./partners";
 import { referenceCardNames, type CommanderReference } from "./duel-reference";
 import { distinctCombos, estimateBracket, findMyCombos } from "./spellbook";
 import { resolveCardNames, type NameCorrection } from "./name-resolution";
+import { recentCommanderNames, recentPoolNames } from "./recent-sets";
 import { GAME_CHANGER_NAMES } from "@/data/game-changers";
 import { HIGH_POWER_COMMANDERS, STAPLES_BY_ROLE } from "@/data/competitive-staples";
 import { analyzeDeck, type DeckAnalysisResult } from "./actions";
@@ -402,6 +403,11 @@ export async function runCompetitiveBuild(input: {
       ...(isDuel ? duelMetaCardNames(0.05) : []),
       // Cœur des decks de tournoi de chaque commandant (≥ 50% de ses decks).
       ...(isDuel ? referenceCardNames(0.5) : []),
+      // 03/10/2026 : cartes des dernières extensions, trop récentes pour
+      // sortir des recherches triées par popularité (voir recent-sets.ts).
+      // Des noms à évaluer comme les autres : légalité vérifiée par
+      // Scryfall, retenues seulement si le moteur les classe devant.
+      ...recentPoolNames(),
     ]);
     const [poolCards, basics] = await Promise.all([
       getCardsByNames(Array.from(poolNames), { fuzzyFallback: false }),
@@ -430,6 +436,13 @@ export async function runCompetitiveBuild(input: {
     for (const card of ownedCards) addCandidate(card, "collection");
     for (const card of curatedCommanders.values()) addCandidate(card, isDuel ? "duel-meta" : "high-power");
     for (const card of popular) addCandidate(card, "popular");
+    // 03/10/2026 : les commandants des dernières extensions ne figurent pas
+    // encore parmi les « populaires » (pas de rang EDHREC) — ajoutés comme
+    // candidats, puis départagés comme les autres par commanderAffinity.
+    const recentCommanders = recentCommanderNames();
+    for (const card of poolCards.values()) {
+      if (recentCommanders.has(card.name.toLowerCase())) addCandidate(card, "recent");
+    }
     for (const card of backgrounds) addCandidate(card, "popular");
     // Backgrounds possédés d'abord.
     mates.sort((a, b) => Number(b.owned[0]) - Number(a.owned[0]));

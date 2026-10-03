@@ -10,7 +10,8 @@ import type {
   ScryfallCard,
   SwapCandidate,
 } from "./types";
-import { searchCards } from "./scryfall";
+import { getCardsByNames, searchCards } from "./scryfall";
+import { recentCardNames } from "./recent-sets";
 import { CATEGORY_LABELS, classifyCard, computeDeckStats, hasDeadSingletonSynergy } from "./deck-score";
 import { cardMatchesArchetype, detectArchetypes } from "./archetype";
 import { cardPowerScore } from "./deck-tier";
@@ -194,6 +195,41 @@ export async function suggestImprovements(
   const suggestions: CardSuggestion[] = [];
   const seen = new Set<string>();
 
+  // 03/10/2026 — cartes des dernières extensions (voir recent-sets.ts) : les
+  // recherches ci-dessous sont triées par popularité EDHREC, première page
+  // seulement, donc une carte sortie récemment (pas encore de rang) n'y
+  // figure jamais. On demande à part, en UNE requête, les cartes nouvelles
+  // de l'identité qui remplissent un des piliers faibles ; elles rejoignent
+  // ensuite les résultats de leur pilier et passent par le même tri
+  // (cardPowerScore) et les mêmes filtres. À puissance égale, l'ordre
+  // Scryfall reste prioritaire (tri stable) : une carte nouvelle n'est
+  // proposée que si le moteur la classe devant, jamais par faveur.
+  let recentCandidates: ScryfallCard[] = [];
+  if (weakestFirst.length > 0) {
+    const names = recentCardNames({
+      identity: colorIdentity,
+      categories: weakestFirst.map((c) => c.cat),
+      max: 75,
+    });
+    if (names.length > 0) {
+      try {
+        const resolved = await getCardsByNames(names, { fuzzyFallback: false });
+        const byName = new Map<string, ScryfallCard>();
+        for (const card of resolved.values()) byName.set(card.name, card);
+        recentCandidates = Array.from(byName.values()).filter((card) => {
+          const status = card.legalities?.[format.scryfallLegality];
+          if (status !== "legal" && status !== "restricted") return false;
+          // Équivalent des clauses de recherche "game:arena" / "-is:digital".
+          const games = card.games ?? [];
+          if (format.arenaOnly) return games.includes("arena");
+          return games.length === 0 || games.includes("paper") || games.includes("mtgo");
+        });
+      } catch {
+        // Scryfall indisponible : on continue sans les cartes récentes.
+      }
+    }
+  }
+
   // Budget réservé à la synergie thématique quand un archétype est
   // détecté (voir doc ci-dessus) — le reste va aux piliers génériques.
   const archetypeBudget = archetypes.length > 0 ? Math.min(ARCHETYPE_SUGGESTION_BUDGET, maxSuggestions) : 0;
@@ -219,7 +255,10 @@ export async function suggestImprovements(
     // suggestForArchetype ci-dessus : au sein d'un même pilier, on propose
     // d'abord les cartes les plus puissantes (cardPowerScore) plutôt que
     // les premières trouvées par la requête Scryfall.
-    results = [...results].sort((a, b) => cardPowerScore(b) - cardPowerScore(a));
+    const known = new Set(results.map((c) => c.name));
+    results = [...results, ...recentCandidates.filter((c) => !known.has(c.name))].sort(
+      (a, b) => cardPowerScore(b) - cardPowerScore(a)
+    );
 
     for (const card of results) {
       if (suggestions.length >= pillarBudget) break;

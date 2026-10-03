@@ -910,7 +910,8 @@ export function rescoreWithSpellbook(
   return { ...deck, tier };
 }
 
-export type CandidateSource = "collection" | "popular" | "high-power" | "duel-meta";
+/** "recent" (03/10/2026) : commandant d'une extension récente, voir recent-sets.ts. */
+export type CandidateSource = "collection" | "popular" | "high-power" | "duel-meta" | "recent";
 
 /** Un commandant seul OU un duo. */
 export interface CommanderCandidate {

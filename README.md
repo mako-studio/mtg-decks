@@ -2443,3 +2443,107 @@ peut être longue : file Scryfall « stricte » à 550 ms par requête, pause de
 Vérifié : eslint, `tsc`, build de prod, Playwright (coupure simulée).
 Non vérifié : le temps réel d'une construction en production, et que 300 s
 suffisent pour une liste de ~900 cartes.
+
+## 03/10/2026 — Reality Fracture : cartes nouvelles, classification, decks
+
+Demande de Ben : ajouter les cartes de Reality Fracture (sortie le 02/10/2026)
+« à la DB des cartes » et les classifier pour tous les outils du site.
+
+**Constat de départ.** Le site n'a pas de base de cartes : tout vient de
+Scryfall en direct, donc une carte nouvelle collée dans un deck était déjà
+analysée. Trois manques réels :
+1. les nouvelles mécaniques n'étaient pas (ou mal) classées par les piliers ;
+2. une carte nouvelle n'était jamais PROPOSÉE : suggestions et constructeur
+   interrogent Scryfall trié par popularité EDHREC, première page seulement,
+   et une carte sortie hier n'a pas de rang ;
+3. ni l'extension ni ses decks n'existaient dans Extensions / Glossaire /
+   la liste des précons.
+
+**Source des cartes.** `api.scryfall.com` est inaccessible depuis les
+environnements de dev. Les 286 cartes inédites (268 FRA + 18 FRC) viennent du
+dépôt GitHub du projet Forge (liste de l'édition + texte de chaque carte),
+converties par `scripts/build-set-cards-from-forge.py`. Fidélité mesurée sur
+les 4 074 cartes communes avec `cards-scryfall.json` : coût converti et
+identité couleur identiques à 100 % ; non mesurable sur les cartes FRA
+elles-mêmes. À remplacer par les données Scryfall :
+`npm run fetch-set-cards -- fra frc` sur le Mac (script jamais exécuté en réel).
+
+**Ce qui a été ajouté.**
+- `src/data/recent-set-cards.json` + `src/lib/recent-sets.ts` : la liste des
+  cartes nouvelles (coût, type, texte, identité). Elle sert à savoir quels
+  NOMS demander à Scryfall — jamais à remplacer Scryfall (légalité, prix,
+  image restent les siens), jamais à imposer une carte.
+  - `recommend.ts` : une requête de plus par analyse (≤ 75 noms de
+    l'identité, piliers faibles), fusionnée aux résultats de chaque pilier
+    avant le tri habituel. À puissance égale l'ordre Scryfall reste
+    prioritaire : pas de faveur aux cartes nouvelles.
+  - `competitive-actions.ts` : jusqu'à 225 noms dans le pool recommandé
+    (commandants possibles, rares/mythiques, cartes à pilier ≤ 3 manas), soit
+    3 requêtes et ~1,7 s de plus ; les 86 commandants possibles deviennent des
+    candidats (source `"recent"`).
+- `deck-score.ts` : motifs de piliers (détail ci-dessous).
+- `synergy.ts` : 4 thèmes (Planeswalkers / loyauté, Regard / surveillance,
+  Préparation, Blessures directes), jetons Heartwood dans Artefacts et
+  Trésors / mana.
+- `commander-decks.json` : 190 → 197 decks (Multiverse Reforged, les 5
+  Foundations Commander, Hatsune Miku). `fetch-precon-decks.mjs` retire le
+  suffixe « (Prepared) » que le dataset ajoute désormais à 5 cartes SOC ; les
+  cartes à préparation des 5 decks SOC passent du nom du recto seul à
+  « Recto // Sort » (forme Scryfall).
+- `tracked-sets.ts`, `set-notes.json` : fra, frc, fdc. `glossary.ts` :
+  Empower Jace, Heartwood token, Prepared.
+- `analysis/reality-fracture/classification.csv` : les 286 cartes avec
+  piliers, thèmes, « commandant possible », texte — pour relire le classement.
+
+**Classement des 286 cartes** (après correctifs) : Pioche 85, Removal 44,
+Rampe 32, Fixing 26, Protection 21, Finisher 11, Disruption 11, Board wipe 7,
+Tutor 5 ; 99 cartes hors terrains sans pilier (créatures et boosts de limité —
+relues une à une, pas des oublis) ; 86 commandants possibles. 31 cartes ont
+changé de classement par rapport au code d'avant.
+
+**Motifs corrigés dans `deck-score.ts`.** Chaque motif part d'une carte de
+l'extension mal classée, mais ils s'appliquent à TOUTES les cartes :
+- Rampe : « search… for up to two basic land cards » (Cultivate, Kodama's
+  Reach n'étaient pas reconnus), « add three mana of any one color » (Gilded
+  Lotus), « add an additional {B} », jetons Heartwood ; `\b` devant « lands
+  you control » (« Islands you control » comptait comme rampe).
+- Removal : « damage to any target » et cibles qualifiées (Lightning Bolt
+  n'était pas reconnu), « destroy up to one target », « noncreature, nonland
+  permanent », combat « up to one target », marqueurs -1/-1 ciblés, 0/0 de
+  base, renvoi en bibliothèque (Chaos Warp) ; retirés : « exile target
+  creature YOU control » (Cloudshift, Ephemerate) et « -5/-0 ».
+- Pioche : « empower Jace » explicite (plusieurs cartes n'ont pas le texte de
+  rappel).
+- Disruption : « target opponent sacrifices/discards », défausse choisie dans
+  la main révélée (Thoughtseize, Duress n'étaient pas reconnus) ; retiré :
+  « You can't cast this spell unless… ».
+
+**Effet sur les decks existants — à connaître.** Mesuré avant/après :
+- 4 077 cartes jouées en Duel (données Scryfall) : 254 reclassées
+  (+168 removal, +45 rampe, +23 disruption ; −14 removal, −4 rampe) ;
+- 11 decks de tournoi Duel : score +1,5 à +11,3 (médiane +8,5) ;
+- 197 précons (textes Forge) : score −1,4 à +11,2 (médiane +2,8).
+Les scores affichés montent donc, surtout pour les decks qui jouent de la
+blessure directe et de la défausse. Tier : seule la composante interaction
+(10 points max) est touchée. Si ce décalage gêne, tout tient dans
+`CATEGORY_PATTERNS`.
+
+**Vérifications.** `npx eslint .` propre, `npm run build` OK. Comparaison
+avant/après sur 33 842 cartes Forge (1 578 reclassées, échantillon relu).
+Suggestions et constructeur (Commander et Duel) exécutés de bout en bout avec
+un faux Scryfall alimenté par les données locales et la collection de Ben
+(1 480 cartes) : des cartes FRA entrent dans les decks proposés, un commandant
+FRA non possédé sort comme candidat.
+
+**Non vérifié.** Rien n'a tourné contre le vrai Scryfall : noms exacts des 21
+cartes à préparation (forme « Recto // Sort », cohérente avec l'export de
+collection de Ben), présence des codes fra/frc/fdc chez Scryfall, requête
+`not:reprint` de `fetch-set-cards.mjs`. Noms français des mécaniques et
+contenu des articles Wizards : lus via un résumé automatique (confiance
+« medium » dans les données). FRC : Forge compte 18 cartes inédites, l'article
+Wizards 16 d'après ce résumé.
+
+**Prochaine extension.** Cloner Forge (commande en tête du script Python),
+lancer `build-set-cards-from-forge.py` avec les codes encore récents, relire
+`classification` avec un script tsx, ajouter set-notes/tracked-sets/glossaire.
+Retirer une extension du fichier quand ses cartes ont un rang EDHREC.
