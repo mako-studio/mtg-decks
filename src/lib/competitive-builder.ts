@@ -29,6 +29,7 @@ import { duelMetaPresence, duelMetaPresenceInColors } from "./duel-meta";
 import { DUEL_PROFILES_AVAILABLE, duelPresenceForIdentity, duelStatsForIdentity } from "./duel-profiles";
 import { AXES, cardMechanics, cardRoles, type CardMechanics, type RoleId } from "./mechanics";
 import { axisTargets } from "./deck-trends";
+import { unmetDependencies } from "./dependencies";
 import { addToPlanCounts, emptyPlanCounts, planLandTarget, planScore, type BuildPlan, type PlanCounts } from "./game-plan";
 
 /**
@@ -358,6 +359,10 @@ export interface BuildContext {
    * est comparé.
    */
   plan?: BuildPlan;
+  /** Cartes interdites (clés minuscules) : dépendance non satisfaite, voir dependencies.ts. */
+  excluded?: Set<string>;
+  /** Malus de score par carte (clé minuscule) : dépendance mal satisfaite. */
+  penalized?: Map<string, number>;
 }
 
 /** Une carte non-terrain du deck ou du banc, dans l'ordre où le moteur l'a choisie. */
@@ -389,6 +394,10 @@ export interface BuiltDeck {
   picks: PickInfo[];
   /** Les suivantes, non retenues, POSSÉDÉES uniquement (un ajustement ne doit pas ajouter d'achat). */
   bench: PickInfo[];
+  /** Cartes écartées parce que le deck ne fournit pas ce dont elles dépendent (dependencies.ts). */
+  dropped: { name: string; reason: string }[];
+  /** Cartes gardées malgré une dépendance mal servie (phrases prêtes à afficher). */
+  weakDependencies: string[];
 }
 
 /**
@@ -620,6 +629,7 @@ function greedyPick(
       }
 
       if (acquired) score -= ACQUISITION_PENALTY;
+      score -= ctx.penalized?.get(f.key) ?? 0;
 
       if (score <= minScore) continue;
       const better =
@@ -733,7 +743,43 @@ export function mainDeckSize(format: FormatConfig, commanderCount: number): numb
  * 6. si trop de cartes non possédées ont été retenues, on garde les plus
  *    impactantes et on reconstruit avec seulement celles-là autorisées.
  */
+/** Malus d'une carte dont la dépendance est mal servie (même échelle que ACQUISITION_PENALTY). */
+const WEAK_DEPENDENCY_PENALTY = 2.5;
+const MAX_DEPENDENCY_REBUILDS = 3;
+
 export function buildDeckForCommander(ctx: BuildContext): BuiltDeck {
+  // Dépendances (03/10/2026, dependencies.ts) : une carte qui cherche un
+  // type absent du deck (« The Eleventh Hour » sans Docteurs) est écartée,
+  // puis le deck est reconstruit ; retirer une carte peut en priver une
+  // autre de ses cibles, d'où la boucle (bornée).
+  const excluded = new Set(ctx.excluded ?? []);
+  const penalized = new Map(ctx.penalized ?? []);
+  const dropped: { name: string; reason: string }[] = [];
+  const cardsOf = (d: BuiltDeck) =>
+    d.cards.map((c) => ctx.features.get(c.name.toLowerCase())).filter((f): f is CardFeatures => !!f && !f.isBasic).map((f) => f.card);
+  let deck = buildWithinBudget({ ...ctx, excluded, penalized });
+  for (let pass = 0; pass < MAX_DEPENDENCY_REBUILDS; pass++) {
+    // Une pièce de combo vaut par son combo, pas par sa ligne de recherche : on n'y touche pas.
+    const locked = new Set(deck.picks.filter((p) => p.locked).map((p) => p.key));
+    let changed = false;
+    for (const u of unmetDependencies(cardsOf(deck), deck.commanders)) {
+      const key = u.name.toLowerCase();
+      if (locked.has(key) || excluded.has(key) || penalized.has(key)) continue;
+      // Créature ou planeswalker : écartée seulement si sa recherche n'a AUCUNE cible (« Myr Kinsmith » sans Myr).
+      if (u.dependency.hard || (u.dependency.kind !== "tribe" && u.have === 0)) {
+        excluded.add(key);
+        dropped.push({ name: u.name, reason: u.reason });
+      } else penalized.set(key, WEAK_DEPENDENCY_PENALTY);
+      changed = true;
+    }
+    if (!changed) break;
+    deck = buildWithinBudget({ ...ctx, excluded, penalized });
+  }
+  const weak = unmetDependencies(cardsOf(deck), deck.commanders).map((u) => u.reason);
+  return { ...deck, dropped, weakDependencies: Array.from(new Set(weak)) };
+}
+
+function buildWithinBudget(ctx: BuildContext): BuiltDeck {
   const first = buildOnce(ctx);
   if (first.acquisitions.length <= ctx.maxAcquisitions) return first;
   const keep = new Set(
@@ -757,6 +803,7 @@ function buildOnce(ctx: BuildContext): BuiltDeck {
   const available: CardFeatures[] = [];
   for (const f of features.values()) {
     if (commanderKeys.has(f.key) || f.isBasic) continue;
+    if (ctx.excluded?.has(f.key)) continue;
     if (!inIdentity(f.card, identity)) continue;
     const isOwned = (owned.get(f.key) ?? 0) > 0;
     if (!isOwned && !acquirable.has(f.key)) continue;
@@ -930,7 +977,7 @@ function buildOnce(ctx: BuildContext): BuiltDeck {
     .filter((x) => !x.acquired)
     .map(info);
 
-  return { commanders, commandersOwned, cards: deckList, acquisitions, reasonsByName, stats, tier, profile, reference, plan: ctx.plan ?? null, picks, bench };
+  return { commanders, commandersOwned, cards: deckList, acquisitions, reasonsByName, stats, tier, profile, reference, plan: ctx.plan ?? null, picks, bench, dropped: [], weakDependencies: [] };
 }
 
 /** Score + tier d'une liste, avec les mêmes fonctions que le tableau de bord (computeDeckStats/computeDeckTier). */

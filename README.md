@@ -2699,3 +2699,63 @@ avant, 6 après — les 6 jetons (Hero, Pest, Knight, Spider, Illusion Villain,
 Treasure), qui ne sont pas des cartes de deck. Idem si le recto seul est
 refusé (étape 2), et si la recherche groupée échoue aussi (étape 3).
 **Non vérifié** contre le vrai Scryfall : à confirmer par Ben sur le site.
+
+## 03/10/2026 (4) — Cartes qui dépendent d'autres cartes
+
+**Signalement de Ben** : « The Eleventh Hour » (saga : « cherchez une carte
+de Docteur ») retenue dans un deck qui ne contient qu'un seul Docteur.
+
+**Cause** : la saga est classée « Tutor » (`deck-score.ts`), ce qui rapporte
+des points de tier, sans que rien ne vérifie que le deck contient de quoi
+chercher.
+
+**Correction** — nouveau module `src/lib/dependencies.ts`, qui lit dans le
+texte de chaque carte ce dont elle dépend :
+
+| Dépendance | Exemple | Repère |
+| --- | --- | --- |
+| Recherche typée | « search your library for a Doctor card », « an Aura or Equipment card » | 3 cibles (type de créature), 2 (Équipement, Aura, artefact, planeswalker...) |
+| Carte nommée | « a card named Godsire » | la carte doit être dans le deck |
+| Tribu | « other Elves you control », « Zombie spells you cast » | 4 membres (ou cartes qui en créent des jetons) |
+
+Dans `buildDeckForCommander` (`competitive-builder.ts`), après construction :
+
+- recherche sans assez de cibles sur un sort, une saga, un artefact, un
+  enchantement → carte **écartée**, deck reconstruit (3 passes au plus, car
+  retirer une carte peut priver une autre de ses cibles) ;
+- même cas sur une créature ou un planeswalker → écartée seulement s'il n'y a
+  **aucune** cible, sinon malus de 2,5 ;
+- tribu mal servie → malus de 2,5 ;
+- les pièces de combo verrouillées ne sont pas touchées ;
+- les recherches de terrains ne sont pas concernées.
+
+`staples.ts` ne propose plus un staple dont la recherche serait sans cible
+dans le deck. Le panneau du plan de jeu affiche un bloc « Cartes qui
+dépendent d'autres cartes » (écartées / gardées malgré tout, avec le compte).
+
+### Mesures (collection de Ben, données simulées, 20 propositions × 2 decks)
+
+- « The Eleventh Hour » écartée de 32 decks sur 40, « Sphinx's Approach » de
+  29, « Myr Kinsmith » de 25, « Amrou Scout » de 1.
+- Multi : indice de puissance inchangé à ±0,6 point.
+- Duel : l'indice baisse d'environ 1 à 5 points sur les decks concernés. Ce
+  n'est pas une régression de jeu : ces points venaient de tuteurs sans
+  cible, comptés à tort.
+- Balayage de toutes les cartes connues : 187 recherches typées, 57 cartes
+  nommées, 879 lignes tribales détectées.
+
+### Limites
+
+- Les seuils (3 / 2 / 1 / 4) et le malus (2,5) sont des choix de conception,
+  pas des mesures.
+- Le moteur **compte** les cibles, il ne juge pas leur qualité : trois
+  Docteurs médiocres satisfont la règle.
+- Lecture par motifs sur le texte anglais : une formulation inhabituelle
+  échappe à la détection (la carte est alors traitée comme avant). La liste
+  d'exclusions des faux positifs tribaux a été faite à la main sur un
+  échantillon, pas sur les 879 lignes.
+- Le commandant en zone de commandement ne compte pas comme cible d'une
+  recherche dans la bibliothèque.
+- Non couvert : les dépendances qui ne passent ni par une recherche ni par
+  une tribu (ex. une carte qui exige « un autre artefact » pour être utile).
+- Non vérifié sur le site déployé (Scryfall réel).

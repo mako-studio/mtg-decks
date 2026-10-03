@@ -1,3 +1,4 @@
+import { unmetDependencies } from "./dependencies";
 import type { FormatConfig, ScryfallCard } from "./types";
 import type { BuildMode, BuiltDeck, CardFeatures } from "./competitive-builder";
 import type { BuildPlan, SynergyReport } from "./game-plan";
@@ -50,6 +51,12 @@ export interface GamePlanSummary {
   finds: { name: string; why: string }[];
   weaknesses: string[];
   adjustments: string[];
+  /**
+   * Dépendances entre cartes (dependencies.ts, 03/10/2026) : `dropped` =
+   * cartes écartées faute de cible dans le deck ; `weak` = cartes gardées
+   * alors que le deck sert mal ce dont elles dépendent.
+   */
+  dependencies: { dropped: string[]; weak: string[] };
   variants: VariantSummary[];
   playtest: PlaytestReport;
   synergyIndex: number;
@@ -109,6 +116,11 @@ export function describeGamePlan(input: {
     .map((c) => features.get(c.name.toLowerCase()))
     .filter((f): f is CardFeatures => !!f && !f.isLand)
     .sort((a, b) => (order.get(a.key) ?? 999) - (order.get(b.key) ?? 999));
+  const inFinal = new Set(deck.cards.map((c) => c.name.toLowerCase()));
+  const finalCards = deck.cards
+    .map((c) => features.get(c.name.toLowerCase()))
+    .filter((f): f is CardFeatures => !!f && !f.isBasic)
+    .map((f) => f.card);
   const counts = roleCounts(nonLands);
   const recipe = plan?.recipe ?? nearestRecipe(counts);
   const names = (filter: (f: CardFeatures) => boolean, n: number) => list(nonLands.filter(filter).map((f) => f.card.name), n);
@@ -237,6 +249,11 @@ export function describeGamePlan(input: {
     finds,
     weaknesses,
     adjustments: input.adjustments,
+    dependencies: {
+      dropped: (deck.dropped ?? []).filter((d) => !inFinal.has(d.name.toLowerCase())).map((d) => d.reason),
+      // Recalculé sur la liste finale : les ajustements d'après parties simulées ont pu retirer une cible.
+      weak: Array.from(new Set(unmetDependencies(finalCards, deck.commanders).map((u) => u.reason))),
+    },
     variants: input.variants,
     playtest: rep,
     synergyIndex: synergy.index,

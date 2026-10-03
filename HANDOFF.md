@@ -201,6 +201,13 @@ Voir la section « Structure » du README pour l'arbre complet.
 - Un « rôle non identifié » n'est pas automatiquement un bug : vérifier le
   texte oracle réel avant d'élargir une regex.
 
+**Dépendances entre cartes (03/10/2026 (4))** — `src/lib/dependencies.ts` lit
+ce qu'une carte va chercher (type, carte nommée) ou récompense (tribu) ;
+`buildDeckForCommander` écarte les recherches sans cible et reconstruit
+(≤ 3 passes), malus de 2,5 pour les tribus mal servies. Seuils 3/2/1/4 =
+choix de conception. Le moteur compte les cibles, ne juge pas leur qualité.
+Détail et mesures : README « 03/10/2026 (4) ».
+
 ## 6. Workflow de transfert vers le Mac de Ben
 
 1. Coder/tester dans le cloud (section 7).

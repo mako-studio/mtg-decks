@@ -284,6 +284,30 @@ export function GamePlanPanel({ plan }: { plan: GamePlanSummary }) {
         </div>
       </div>
 
+      {(plan.dependencies.dropped.length > 0 || plan.dependencies.weak.length > 0) && (
+        <div className="mt-4">
+          <h4 className="text-xs font-semibold">Cartes qui dépendent d&apos;autres cartes</h4>
+          <p className="mt-1 text-xs text-muted">
+            Le moteur lit ce qu&apos;une carte va chercher ou récompense (un type, une tribu, une carte nommée) et compte ce que le deck
+            fournit. Il compte les cibles, il ne juge pas leur qualité.
+          </p>
+          {plan.dependencies.dropped.length > 0 && (
+            <ul className="mt-2 space-y-1 text-xs text-muted">
+              {plan.dependencies.dropped.map((d) => (
+                <li key={d}>· Écartée : {d}</li>
+              ))}
+            </ul>
+          )}
+          {plan.dependencies.weak.length > 0 && (
+            <ul className="mt-2 space-y-1 text-xs text-muted">
+              {plan.dependencies.weak.map((d) => (
+                <li key={d}>· Gardée malgré tout : {d}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
       <details className="mt-4 text-xs">
         <summary className="cursor-pointer font-semibold">
           {plan.variants.length} variante{plan.variants.length > 1 ? "s" : ""} essayée{plan.variants.length > 1 ? "s" : ""} pour ce deck

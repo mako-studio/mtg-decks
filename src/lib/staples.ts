@@ -1,3 +1,4 @@
+import { unmetDependencies } from "./dependencies";
 import type { FormatConfig, ScryfallCard } from "./types";
 import { evaluateDeck, unionIdentity, type BuildMode, type BuiltDeck, type CardFeatures } from "./competitive-builder";
 import { CATEGORY_LABELS } from "./deck-score";
@@ -75,6 +76,10 @@ export function missingStaples(input: {
   const inDeck = new Set(deck.cards.map((c) => c.name.toLowerCase()));
   const commanderKeys = new Set(deck.commanders.map((c) => c.name.toLowerCase()));
   const duel = mode === "duel";
+  const deckCards = deck.cards
+    .map((c) => features.get(c.name.toLowerCase()))
+    .filter((f): f is CardFeatures => !!f && !f.isBasic)
+    .map((f) => f.card);
 
   interface Candidate {
     f: CardFeatures;
@@ -114,6 +119,8 @@ export function missingStaples(input: {
       prior += 1;
     }
     if (reasons.length === 0) continue;
+    // Un staple qui cherche un type que ce deck ne contient pas n'en est pas un ici (dependencies.ts).
+    if (unmetDependencies([...deckCards, f.card], deck.commanders).some((u) => u.name === f.card.name && u.dependency.kind !== "tribe")) continue;
     candidates.push({ f, reasons, presence, prior });
   }
   // L'échange coûte un recalcul complet du deck : on ne l'évalue que pour les 40 plus plausibles.
