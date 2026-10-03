@@ -1,0 +1,1912 @@
+{
+ "generatedAt": "2026-10-03",
+ "sources": {
+  "duel": {
+   "decks": 2072,
+   "commanders": 208,
+   "period": "2026-07-05 → 2026-09-27",
+   "origin": "mtgtop8 (analysis/duelcommander/decks-mtgtop8.json)"
+  },
+  "multi": {
+   "decks": 197,
+   "origin": "précons Commander officiels (src/data/commander-decks.json)"
+  }
+ },
+ "axes": {
+  "tokens": {
+   "duel": {
+    "baseProducers": 2.9,
+    "builtProducers": {
+     "p25": 3,
+     "median": 4.5,
+     "p75": 5.8
+    },
+    "builtRewarders": 4,
+    "lift": 1.69,
+    "builtShare": 0.3,
+    "support": 63,
+    "examples": [
+     "Phelia, Exuberant Shepherd",
+     "Brigid, Clachan's Heart",
+     "Quintorius, History Chaser",
+     "Kraum, Ludevic's Opus + Yoshimaru, Ever Faithful",
+     "Toph, Greatest Earthbender"
+    ]
+   },
+   "multi": {
+    "baseProducers": 6.2,
+    "builtProducers": {
+     "p25": 6,
+     "median": 10,
+     "p75": 14.5
+    },
+    "builtRewarders": 7,
+    "lift": 1.78,
+    "builtShare": 0.28,
+    "support": 55,
+    "examples": [
+     "fdc-reign-of-dragons",
+     "fdc-tramplesaurus-rex",
+     "frc-multiverse-reforged",
+     "sld-hatsune-miku",
+     "msc-the-fantastic-four"
+    ]
+   }
+  },
+  "sacrifice": {
+   "duel": {
+    "baseProducers": 4.4,
+    "builtProducers": {
+     "p25": 10.2,
+     "median": 13.5,
+     "p75": 15.5
+    },
+    "builtRewarders": 3.6,
+    "lift": 3.08,
+    "builtShare": 0.06,
+    "support": 12,
+    "examples": [
+     "Ellie, Brick Master + Ellie, Vengeful Hunter",
+     "Prossh, Skyraider of Kher",
+     "Juri, Master of the Revue",
+     "Ellie, Vengeful Hunter + Ellie, Brick Master",
+     "Judith, the Scourge Diva"
+    ]
+   },
+   "multi": {
+    "baseProducers": 7.9,
+    "builtProducers": {
+     "p25": 8,
+     "median": 9,
+     "p75": 14.8
+    },
+    "builtRewarders": 3.5,
+    "lift": 1.47,
+    "builtShare": 0.13,
+    "support": 26,
+    "examples": [
+     "soc-witherbloom-pestilence",
+     "ecc-dance-of-the-elements",
+     "eoc-world-shaper",
+     "drc-eternal-might",
+     "dsc-endless-punishment"
+    ]
+   }
+  },
+  "blink": {
+   "duel": {
+    "baseProducers": 0.3,
+    "builtProducers": {
+     "p25": 0,
+     "median": 0.4,
+     "p75": 1.2
+    },
+    "builtRewarders": 12.6,
+    "lift": 4.26,
+    "builtShare": 0.25,
+    "support": 52,
+    "examples": [
+     "Cloud, Midgar Mercenary",
+     "Phelia, Exuberant Shepherd",
+     "Brigid, Clachan's Heart",
+     "Aragorn, King of Gondor",
+     "Terra, Magical Adept"
+    ]
+   },
+   "multi": {
+    "baseProducers": 0.4,
+    "builtProducers": {
+     "p25": 0,
+     "median": 1,
+     "p75": 2
+    },
+    "builtRewarders": 11,
+    "lift": 2.62,
+    "builtShare": 0.31,
+    "support": 61,
+    "examples": [
+     "msc-wakanda-forever",
+     "msc-wakanda-forever-collector-s-edition",
+     "ecc-blight-curse",
+     "ecc-dance-of-the-elements",
+     "fic-revival-trance-final-fantasy-vi"
+    ]
+   }
+  },
+  "arrivals": {
+   "duel": {
+    "baseProducers": 3.9,
+    "builtProducers": {
+     "p25": 3.4,
+     "median": 4,
+     "p75": 8
+    },
+    "builtRewarders": 3,
+    "lift": 1.48,
+    "builtShare": 0.04,
+    "support": 8,
+    "examples": [
+     "Amalia Benavides Aguirre + Lurrus of the Dream-Den",
+     "Arwen, Mortal Queen",
+     "Lonis, Cryptozoologist",
+     "Aang, at the Crossroads",
+     "Giada, Font of Hope"
+    ]
+   },
+   "multi": {
+    "baseProducers": 7.9,
+    "builtProducers": {
+     "p25": 5,
+     "median": 6,
+     "p75": 16.5
+    },
+    "builtRewarders": 3.5,
+    "lift": 1.42,
+    "builtShare": 0.04,
+    "support": 8,
+    "examples": [
+     "sld-hatsune-miku",
+     "blc-animated-army",
+     "blc-family-matters",
+     "moc-call-for-backup",
+     "ncc-cabaretti-cacophony"
+    ]
+   }
+  },
+  "spells": {
+   "duel": {
+    "baseProducers": 21.9,
+    "builtProducers": {
+     "p25": 32.6,
+     "median": 39,
+     "p75": 46.2
+    },
+    "builtRewarders": 5,
+    "lift": 1.77,
+    "builtShare": 0.25,
+    "support": 51,
+    "examples": [
+     "Spider-Man 2099",
+     "Zurgo Bellstriker",
+     "Hidetsugu and Kairi",
+     "The Fantasticar",
+     "Malcolm, Alluring Scoundrel"
+    ]
+   },
+   "multi": {
+    "baseProducers": 14.4,
+    "builtProducers": {
+     "p25": 20.8,
+     "median": 24,
+     "p75": 29
+    },
+    "builtRewarders": 7,
+    "lift": 1.68,
+    "builtShare": 0.16,
+    "support": 32,
+    "examples": [
+     "frc-multiverse-reforged",
+     "msc-the-fantastic-four",
+     "msc-the-fantastic-four-collector-s-edition",
+     "sld-goblin-storm",
+     "soc-prismari-artistry"
+    ]
+   }
+  },
+  "artifacts": {
+   "duel": {
+    "baseProducers": 6,
+    "builtProducers": {
+     "p25": 24.7,
+     "median": 33.7,
+     "p75": 49
+    },
+    "builtRewarders": 8.5,
+    "lift": 5.75,
+    "builtShare": 0.07,
+    "support": 15,
+    "examples": [
+     "Emry, Lurker of the Loch",
+     "The Fantasticar",
+     "Magda, Brazen Outlaw",
+     "Juri, Master of the Revue",
+     "Krang, Master Mind"
+    ]
+   },
+   "multi": {
+    "baseProducers": 12.1,
+    "builtProducers": {
+     "p25": 22.8,
+     "median": 29.5,
+     "p75": 37.3
+    },
+    "builtRewarders": 9.5,
+    "lift": 2.43,
+    "builtShare": 0.14,
+    "support": 28,
+    "examples": [
+     "fdc-keen-engineering",
+     "msc-wakanda-forever",
+     "msc-wakanda-forever-collector-s-edition",
+     "eoc-counter-intelligence",
+     "fic-limit-break-final-fantasy-vii"
+    ]
+   }
+  },
+  "enchantments": {
+   "duel": null,
+   "multi": {
+    "baseProducers": 5.6,
+    "builtProducers": {
+     "p25": 23.5,
+     "median": 28,
+     "p75": 30.5
+    },
+    "builtRewarders": 9.5,
+    "lift": 4.88,
+    "builtShare": 0.04,
+    "support": 8,
+    "examples": [
+     "soc-silverquill-influence",
+     "sld-20-ways-to-win",
+     "dsc-miracle-worker",
+     "blc-animated-army",
+     "woc-virtue-and-valor"
+    ]
+   }
+  },
+  "graveyard": {
+   "duel": {
+    "baseProducers": 3.7,
+    "builtProducers": {
+     "p25": 6.2,
+     "median": 10,
+     "p75": 11.9
+    },
+    "builtRewarders": 9.6,
+    "lift": 2.58,
+    "builtShare": 0.26,
+    "support": 54,
+    "examples": [
+     "Slimefoot and Squee",
+     "Terra, Magical Adept",
+     "Ellie, Brick Master + Ellie, Vengeful Hunter",
+     "Deadpool, Trading Card",
+     "Asmoranomardicadaistinaculdacar"
+    ]
+   },
+   "multi": {
+    "baseProducers": 2.5,
+    "builtProducers": {
+     "p25": 3,
+     "median": 5,
+     "p75": 10
+    },
+    "builtRewarders": 8,
+    "lift": 2.79,
+    "builtShare": 0.36,
+    "support": 70,
+    "examples": [
+     "fdc-wretched-ranks",
+     "msc-the-fantastic-four",
+     "msc-the-fantastic-four-collector-s-edition",
+     "msc-wakanda-forever",
+     "msc-wakanda-forever-collector-s-edition"
+    ]
+   }
+  },
+  "lands": {
+   "duel": {
+    "baseProducers": 0.4,
+    "builtProducers": {
+     "p25": 2.5,
+     "median": 8,
+     "p75": 12.8
+    },
+    "builtRewarders": 5.4,
+    "lift": 19.92,
+    "builtShare": 0.07,
+    "support": 15,
+    "examples": [
+     "Tifa Lockhart",
+     "Toph, Greatest Earthbender",
+     "Azusa, Lost but Seeking",
+     "Nissa, Resurgent Animist",
+     "Lumra, Bellow of the Woods"
+    ]
+   },
+   "multi": {
+    "baseProducers": 1.9,
+    "builtProducers": {
+     "p25": 3,
+     "median": 10,
+     "p75": 11.3
+    },
+    "builtRewarders": 5,
+    "lift": 4.53,
+    "builtShare": 0.08,
+    "support": 16,
+    "examples": [
+     "ecc-dance-of-the-elements",
+     "eoc-world-shaper",
+     "tdc-sultai-arisen",
+     "dsc-jump-scare",
+     "blc-animated-army"
+    ]
+   }
+  },
+  "lifegain": {
+   "duel": {
+    "baseProducers": 3.9,
+    "builtProducers": {
+     "p25": 15,
+     "median": 18,
+     "p75": 23.3
+    },
+    "builtRewarders": 3.5,
+    "lift": 4.46,
+    "builtShare": 0.02,
+    "support": 5,
+    "examples": [
+     "Amalia Benavides Aguirre + Lurrus of the Dream-Den",
+     "Sorin of House Markov",
+     "Cecil, Dark Knight",
+     "Giada, Font of Hope",
+     "The Kingpin of Crime"
+    ]
+   },
+   "multi": {
+    "baseProducers": 2.7,
+    "builtProducers": {
+     "p25": 11.3,
+     "median": 14.5,
+     "p75": 16.3
+    },
+    "builtRewarders": 9,
+    "lift": 5.31,
+    "builtShare": 0.04,
+    "support": 8,
+    "examples": [
+     "sld-hatsune-miku",
+     "soc-witherbloom-pestilence",
+     "tdc-abzan-armor",
+     "sld-angels-they-re-just-like-us-but-cooler-and-with-wings",
+     "ltc-food-and-fellowship"
+    ]
+   }
+  },
+  "drain": {
+   "duel": {
+    "baseProducers": 3.9,
+    "builtProducers": {
+     "p25": 6.1,
+     "median": 12.5,
+     "p75": 17.6
+    },
+    "builtRewarders": 3,
+    "lift": 3.38,
+    "builtShare": 0.03,
+    "support": 6,
+    "examples": [
+     "Taii Wakeen, Perfect Shot",
+     "Ludevic, Necro-Alchemist + Yoshimaru, Ever Faithful",
+     "Kefka, Court Mage",
+     "Kratos, God of War",
+     "Gev, Scaled Scorch"
+    ]
+   },
+   "multi": null
+  },
+  "counters": {
+   "duel": {
+    "baseProducers": 2.9,
+    "builtProducers": {
+     "p25": 6.2,
+     "median": 7,
+     "p75": 11
+    },
+    "builtRewarders": 4,
+    "lift": 3.28,
+    "builtShare": 0.04,
+    "support": 9,
+    "examples": [
+     "Tifa Lockhart",
+     "Animar, Soul of Elements",
+     "Yoshimaru, Ever Faithful + Tana, the Bloodsower",
+     "Marath, Will of the Wild",
+     "Arwen, Mortal Queen"
+    ]
+   },
+   "multi": {
+    "baseProducers": 3.5,
+    "builtProducers": {
+     "p25": 6,
+     "median": 12,
+     "p75": 20.3
+    },
+    "builtRewarders": 6,
+    "lift": 3.89,
+    "builtShare": 0.14,
+    "support": 28,
+    "examples": [
+     "soc-quandrix-unlimited",
+     "tmc-turtle-power",
+     "ecc-blight-curse",
+     "eoc-counter-intelligence",
+     "fic-counter-blitz-final-fantasy-x"
+    ]
+   }
+  },
+  "draw": {
+   "duel": null,
+   "multi": {
+    "baseProducers": 3.9,
+    "builtProducers": {
+     "p25": 3.3,
+     "median": 5,
+     "p75": 6.5
+    },
+    "builtRewarders": 3,
+    "lift": 1.27,
+    "builtShare": 0.07,
+    "support": 14,
+    "examples": [
+     "fdc-keen-engineering",
+     "msc-avengers-assemble",
+     "msc-avengers-assemble-collector-s-edition",
+     "msc-doom-prevails",
+     "msc-doom-prevails-collector-s-edition"
+    ]
+   }
+  },
+  "discard": {
+   "duel": null,
+   "multi": {
+    "baseProducers": 1.4,
+    "builtProducers": {
+     "p25": 4,
+     "median": 5,
+     "p75": 8.5
+    },
+    "builtRewarders": 6,
+    "lift": 4.37,
+    "builtShare": 0.04,
+    "support": 7,
+    "examples": [
+     "msc-doom-prevails",
+     "msc-doom-prevails-collector-s-edition",
+     "soc-lorehold-spirit",
+     "voc-vampiric-bloodline",
+     "c20-timeless-wisdom"
+    ]
+   }
+  },
+  "combat": {
+   "duel": {
+    "baseProducers": 9.1,
+    "builtProducers": {
+     "p25": 13,
+     "median": 15.5,
+     "p75": 18.6
+    },
+    "builtRewarders": 10.3,
+    "lift": 1.73,
+    "builtShare": 0.25,
+    "support": 52,
+    "examples": [
+     "Aragorn, King of Gondor",
+     "Slimefoot and Squee",
+     "Terra, Magical Adept",
+     "Ellie, Brick Master + Ellie, Vengeful Hunter",
+     "Kraum, Ludevic's Opus + Yoshimaru, Ever Faithful"
+    ]
+   },
+   "multi": {
+    "baseProducers": 15.5,
+    "builtProducers": {
+     "p25": 13,
+     "median": 15.5,
+     "p75": 19
+    },
+    "builtRewarders": 12,
+    "lift": 1.08,
+    "builtShare": 0.26,
+    "support": 52,
+    "examples": [
+     "msc-avengers-assemble",
+     "msc-avengers-assemble-collector-s-edition",
+     "msc-doom-prevails",
+     "msc-doom-prevails-collector-s-edition",
+     "msc-wakanda-forever"
+    ]
+   }
+  },
+  "voltron": {
+   "duel": {
+    "baseProducers": 2.5,
+    "builtProducers": {
+     "p25": 10.8,
+     "median": 12.1,
+     "p75": 19.8
+    },
+    "builtRewarders": 6.3,
+    "lift": 6.11,
+    "builtShare": 0.04,
+    "support": 8,
+    "examples": [
+     "Cloud, Midgar Mercenary",
+     "Light-Paws, Emperor's Voice",
+     "Kili the Resourceful",
+     "Dwalin, Weaponmaster",
+     "Kellan, the Fae-Blooded"
+    ]
+   },
+   "multi": {
+    "baseProducers": 2.5,
+    "builtProducers": {
+     "p25": 16,
+     "median": 16,
+     "p75": 21
+    },
+    "builtRewarders": 9,
+    "lift": 7.46,
+    "builtShare": 0.06,
+    "support": 11,
+    "examples": [
+     "soc-silverquill-influence",
+     "fic-limit-break-final-fantasy-vii",
+     "fic-limit-break-collector-s-edition-final-fantasy-vii",
+     "pip-scrappy-survivors",
+     "woc-virtue-and-valor"
+    ]
+   }
+  },
+  "planeswalkers": {
+   "duel": {
+    "baseProducers": 1.3,
+    "builtProducers": {
+     "p25": 1,
+     "median": 1.1,
+     "p75": 3.4
+    },
+    "builtRewarders": 3,
+    "lift": 2.18,
+    "builtShare": 0.04,
+    "support": 8,
+    "examples": [
+     "Grist, the Hunger Tide",
+     "Teferi, Temporal Archmage",
+     "Ral, Monsoon Mage",
+     "Thanos, the Mad Titan",
+     "Commodore Guff"
+    ]
+   },
+   "multi": {
+    "baseProducers": 0.8,
+    "builtProducers": {
+     "p25": 0,
+     "median": 0,
+     "p75": 1
+    },
+    "builtRewarders": 4,
+    "lift": 2.2,
+    "builtShare": 0.09,
+    "support": 17,
+    "examples": [
+     "frc-multiverse-reforged",
+     "soc-silverquill-influence",
+     "blc-peace-offering",
+     "mkc-blame-game",
+     "cmm-planeswalker-party"
+    ]
+   }
+  },
+  "scry": {
+   "duel": {
+    "baseProducers": 1,
+    "builtProducers": {
+     "p25": 0,
+     "median": 0,
+     "p75": 0.3
+    },
+    "builtRewarders": 3,
+    "lift": 0.34,
+    "builtShare": 0.02,
+    "support": 4,
+    "examples": [
+     "Elminster",
+     "Ravos, Soultender + Thrasios, Triton Hero",
+     "Thrasios, Triton Hero + Ravos, Soultender",
+     "Tymna the Weaver + Thrasios, Triton Hero"
+    ]
+   },
+   "multi": null
+  },
+  "untap": {
+   "duel": {
+    "baseProducers": 0.9,
+    "builtProducers": {
+     "p25": 0.9,
+     "median": 1.7,
+     "p75": 3.3
+    },
+    "builtRewarders": 3.1,
+    "lift": 2.42,
+    "builtShare": 0.04,
+    "support": 8,
+    "examples": [
+     "Brigid, Clachan's Heart",
+     "Raph & Mikey, Troublemakers",
+     "Magda, Brazen Outlaw",
+     "Kinnan, Bonder Prodigy",
+     "Hit-Monkey"
+    ]
+   },
+   "multi": {
+    "baseProducers": 0.8,
+    "builtProducers": {
+     "p25": 0,
+     "median": 0,
+     "p75": 1
+    },
+    "builtRewarders": 4,
+    "lift": 0.98,
+    "builtShare": 0.38,
+    "support": 74,
+    "examples": [
+     "fdc-keen-engineering",
+     "fdc-tramplesaurus-rex",
+     "frc-multiverse-reforged",
+     "sld-hatsune-miku",
+     "soc-quandrix-unlimited"
+    ]
+   }
+  },
+  "exilecast": {
+   "duel": null,
+   "multi": {
+    "baseProducers": 0.8,
+    "builtProducers": {
+     "p25": 5.5,
+     "median": 9,
+     "p75": 12.3
+    },
+    "builtRewarders": 5.5,
+    "lift": 10.69,
+    "builtShare": 0.02,
+    "support": 4,
+    "examples": [
+     "otc-grand-larceny",
+     "who-paradox-power",
+     "clb-exit-from-exile",
+     "afc-planar-portal"
+    ]
+   }
+  },
+  "treasure": {
+   "duel": {
+    "baseProducers": 0.7,
+    "builtProducers": {
+     "p25": 1.3,
+     "median": 4,
+     "p75": 5
+    },
+    "builtRewarders": 3,
+    "lift": 4.81,
+    "builtShare": 0.03,
+    "support": 7,
+    "examples": [
+     "Magda, Brazen Outlaw",
+     "Magda, the Hoardmaster",
+     "Kellogg, Dangerous Mind",
+     "Iron Man, Titan of Innovation",
+     "The Sackville-Bagginses"
+    ]
+   },
+   "multi": {
+    "baseProducers": 0.8,
+    "builtProducers": {
+     "p25": 4,
+     "median": 4.5,
+     "p75": 9.3
+    },
+    "builtRewarders": 3,
+    "lift": 7.72,
+    "builtShare": 0.04,
+    "support": 8,
+    "examples": [
+     "sld-20-ways-to-win",
+     "blc-animated-army",
+     "blc-squirreled-away",
+     "otc-most-wanted",
+     "lcc-ahoy-mateys"
+    ]
+   }
+  },
+  "bigmana": {
+   "duel": {
+    "baseProducers": 1.4,
+    "builtProducers": {
+     "p25": 0.6,
+     "median": 1.2,
+     "p75": 2.9
+    },
+    "builtRewarders": 9,
+    "lift": 1.39,
+    "builtShare": 0.27,
+    "support": 56,
+    "examples": [
+     "Terra, Magical Adept",
+     "Atraxa, Grand Unifier",
+     "Aminatou, the Fateshifter",
+     "Raph & Mikey, Troublemakers",
+     "Hidetsugu and Kairi"
+    ]
+   },
+   "multi": {
+    "baseProducers": 2,
+    "builtProducers": {
+     "p25": 0,
+     "median": 1,
+     "p75": 2
+    },
+    "builtRewarders": 17,
+    "lift": 0.62,
+    "builtShare": 0.33,
+    "support": 65,
+    "examples": [
+     "fdc-reign-of-dragons",
+     "frc-multiverse-reforged",
+     "sld-hatsune-miku",
+     "soc-quandrix-unlimited",
+     "ecc-dance-of-the-elements"
+    ]
+   }
+  },
+  "legends": {
+   "duel": {
+    "baseProducers": 7,
+    "builtProducers": {
+     "p25": 17,
+     "median": 26.3,
+     "p75": 28.1
+    },
+    "builtRewarders": 6.5,
+    "lift": 3.22,
+    "builtShare": 0.07,
+    "support": 15,
+    "examples": [
+     "Kraum, Ludevic's Opus + Yoshimaru, Ever Faithful",
+     "Ludevic, Necro-Alchemist + Yoshimaru, Ever Faithful",
+     "Yoshimaru, Ever Faithful + Kraum, Ludevic's Opus",
+     "Tana, the Bloodsower + Yoshimaru, Ever Faithful",
+     "Basim Ibn Ishaq"
+    ]
+   },
+   "multi": {
+    "baseProducers": 7.8,
+    "builtProducers": {
+     "p25": 14.5,
+     "median": 17,
+     "p75": 31
+    },
+    "builtRewarders": 4,
+    "lift": 2.94,
+    "builtShare": 0.04,
+    "support": 7,
+    "examples": [
+     "fic-scions-spellcraft-final-fantasy-xiv",
+     "fic-scions-spellcraft-collector-s-edition-final-fantasy-xiv",
+     "who-blast-from-the-past",
+     "ltc-riders-of-rohan",
+     "sld-from-cute-to-brute"
+    ]
+   }
+  },
+  "flash": {
+   "duel": {
+    "baseProducers": 21,
+    "builtProducers": {
+     "p25": 40.4,
+     "median": 42.6,
+     "p75": 49.9
+    },
+    "builtRewarders": 3,
+    "lift": 2.14,
+    "builtShare": 0.03,
+    "support": 6,
+    "examples": [
+     "Tivit, Seller of Secrets",
+     "Thanos, the Mad Titan",
+     "Kamiz, Obscura Oculus",
+     "Katara, Waterbending Master",
+     "Hei Bai, Forest Guardian"
+    ]
+   },
+   "multi": null
+  },
+  "poison": {
+   "duel": null,
+   "multi": {
+    "baseProducers": 0,
+    "builtProducers": {
+     "p25": 0,
+     "median": 0,
+     "p75": 0
+    },
+    "builtRewarders": 6,
+    "lift": 215.83,
+    "builtShare": 0.06,
+    "support": 12,
+    "examples": [
+     "ecc-blight-curse",
+     "eoc-counter-intelligence",
+     "fic-counter-blitz-final-fantasy-x",
+     "fic-counter-blitz-collector-s-edition-final-fantasy-x",
+     "pip-mutant-menace"
+    ]
+   }
+  },
+  "prepare": {
+   "duel": null,
+   "multi": null
+  }
+ },
+ "axisPairs": {
+  "duel": [
+   {
+    "a": "combat",
+    "b": "legends",
+    "lift": 3.2,
+    "support": 12
+   },
+   {
+    "a": "blink",
+    "b": "legends",
+    "lift": 2.93,
+    "support": 11
+   },
+   {
+    "a": "tokens",
+    "b": "legends",
+    "lift": 2.64,
+    "support": 12
+   },
+   {
+    "a": "tokens",
+    "b": "blink",
+    "lift": 2.29,
+    "support": 36
+   },
+   {
+    "a": "blink",
+    "b": "counters",
+    "lift": 2.22,
+    "support": 5
+   },
+   {
+    "a": "sacrifice",
+    "b": "graveyard",
+    "lift": 1.93,
+    "support": 6
+   },
+   {
+    "a": "blink",
+    "b": "combat",
+    "lift": 1.69,
+    "support": 22
+   },
+   {
+    "a": "tokens",
+    "b": "sacrifice",
+    "lift": 1.65,
+    "support": 6
+   },
+   {
+    "a": "tokens",
+    "b": "combat",
+    "lift": 1.65,
+    "support": 26
+   },
+   {
+    "a": "graveyard",
+    "b": "combat",
+    "lift": 1.56,
+    "support": 21
+   },
+   {
+    "a": "artifacts",
+    "b": "bigmana",
+    "lift": 1.49,
+    "support": 6
+   },
+   {
+    "a": "lands",
+    "b": "bigmana",
+    "lift": 1.49,
+    "support": 6
+   },
+   {
+    "a": "spells",
+    "b": "bigmana",
+    "lift": 1.31,
+    "support": 18
+   }
+  ],
+  "multi": [
+   {
+    "a": "counters",
+    "b": "poison",
+    "lift": 5.28,
+    "support": 9
+   },
+   {
+    "a": "combat",
+    "b": "voltron",
+    "lift": 2.41,
+    "support": 7
+   },
+   {
+    "a": "graveyard",
+    "b": "legends",
+    "lift": 2.01,
+    "support": 5
+   },
+   {
+    "a": "arrivals",
+    "b": "untap",
+    "lift": 2,
+    "support": 6
+   },
+   {
+    "a": "blink",
+    "b": "lands",
+    "lift": 1.82,
+    "support": 9
+   },
+   {
+    "a": "sacrifice",
+    "b": "graveyard",
+    "lift": 1.73,
+    "support": 16
+   },
+   {
+    "a": "untap",
+    "b": "treasure",
+    "lift": 1.66,
+    "support": 5
+   },
+   {
+    "a": "blink",
+    "b": "artifacts",
+    "lift": 1.61,
+    "support": 14
+   },
+   {
+    "a": "artifacts",
+    "b": "graveyard",
+    "lift": 1.61,
+    "support": 16
+   },
+   {
+    "a": "tokens",
+    "b": "lands",
+    "lift": 1.57,
+    "support": 7
+   },
+   {
+    "a": "planeswalkers",
+    "b": "untap",
+    "lift": 1.57,
+    "support": 10
+   },
+   {
+    "a": "lands",
+    "b": "bigmana",
+    "lift": 1.52,
+    "support": 8
+   },
+   {
+    "a": "untap",
+    "b": "bigmana",
+    "lift": 1.52,
+    "support": 37
+   },
+   {
+    "a": "tokens",
+    "b": "blink",
+    "lift": 1.41,
+    "support": 24
+   },
+   {
+    "a": "graveyard",
+    "b": "lands",
+    "lift": 1.41,
+    "support": 8
+   },
+   {
+    "a": "sacrifice",
+    "b": "artifacts",
+    "lift": 1.35,
+    "support": 5
+   },
+   {
+    "a": "sacrifice",
+    "b": "counters",
+    "lift": 1.35,
+    "support": 5
+   },
+   {
+    "a": "draw",
+    "b": "combat",
+    "lift": 1.35,
+    "support": 5
+   },
+   {
+    "a": "spells",
+    "b": "bigmana",
+    "lift": 1.33,
+    "support": 14
+   },
+   {
+    "a": "untap",
+    "b": "poison",
+    "lift": 1.33,
+    "support": 6
+   }
+  ]
+ },
+ "recipes": [
+  {
+   "id": "control",
+   "label": "Contrôle",
+   "summary": "contresorts au-dessus de la moyenne, créatures en dessous de la moyenne, pioche au-dessus de la moyenne",
+   "share": 0.29,
+   "commanders": 37,
+   "decks": 652,
+   "examples": [
+    "Aragorn, King of Gondor",
+    "Atraxa, Grand Unifier",
+    "Spider-Man 2099",
+    "Tasigur, the Golden Fang",
+    "Quintorius, History Chaser",
+    "Aang, Swift Savior"
+   ],
+   "roles": {
+    "creature": {
+     "p25": 6,
+     "median": 12,
+     "p75": 20
+    },
+    "cheapCreature": {
+     "p25": 2,
+     "median": 4,
+     "p75": 7
+    },
+    "threat": {
+     "p25": 1,
+     "median": 1,
+     "p75": 2
+    },
+    "counterspell": {
+     "p25": 14,
+     "median": 17,
+     "p75": 19
+    },
+    "cheapInteraction": {
+     "p25": 20,
+     "median": 22,
+     "p75": 24
+    },
+    "removal": {
+     "p25": 10,
+     "median": 12,
+     "p75": 14
+    },
+    "wipe": {
+     "p25": 0,
+     "median": 1,
+     "p75": 2
+    },
+    "draw": {
+     "p25": 11,
+     "median": 13,
+     "p75": 16
+    },
+    "ramp": {
+     "p25": 2,
+     "median": 2,
+     "p75": 5
+    },
+    "tutor": {
+     "p25": 0,
+     "median": 2,
+     "p75": 3
+    },
+    "protection": {
+     "p25": 1,
+     "median": 2,
+     "p75": 3
+    },
+    "recursion": {
+     "p25": 0,
+     "median": 0,
+     "p75": 1
+    },
+    "cmc01": {
+     "p25": 16,
+     "median": 19,
+     "p75": 22
+    },
+    "cmc2": {
+     "p25": 18,
+     "median": 20,
+     "p75": 21
+    },
+    "cmc3": {
+     "p25": 9,
+     "median": 11,
+     "p75": 14
+    },
+    "cmc4": {
+     "p25": 4,
+     "median": 5,
+     "p75": 7
+    },
+    "cmc5plus": {
+     "p25": 2,
+     "median": 4,
+     "p75": 6
+    }
+   },
+   "lands": {
+    "p25": 36,
+    "median": 38,
+    "p75": 39
+   },
+   "avgCmc": 2.35,
+   "colors": {
+    "1": 0.22,
+    "2": 0.38,
+    "3": 0.24,
+    "4": 0.08,
+    "5": 0.08
+   },
+   "z": {
+    "creature": -1.08,
+    "cheapCreature": -0.97,
+    "threat": -0.47,
+    "counterspell": 1.26,
+    "cheapInteraction": 1.05,
+    "removal": 0.13,
+    "wipe": 0.57,
+    "draw": 1.07,
+    "ramp": -0.34,
+    "tutor": -0.27,
+    "protection": -0.71,
+    "recursion": -0.34,
+    "cmc01": -0.19,
+    "cmc2": 0.13,
+    "cmc3": 0,
+    "cmc4": 0.17,
+    "cmc5plus": 0.03,
+    "lands": -0.07
+   }
+  },
+  {
+   "id": "creatures",
+   "label": "Créatures et valeur",
+   "summary": "créatures au-dessus de la moyenne, cartes à 3 manas au-dessus de la moyenne, removal au-dessus de la moyenne",
+   "share": 0.27,
+   "commanders": 34,
+   "decks": 626,
+   "examples": [
+    "Cloud, Midgar Mercenary",
+    "Phelia, Exuberant Shepherd",
+    "Slimefoot and Squee",
+    "Kraum, Ludevic's Opus + Yoshimaru, Ever Faithful",
+    "Deadpool, Trading Card",
+    "Nick Fury, Agent of S.H.I.E.L.D."
+   ],
+   "roles": {
+    "creature": {
+     "p25": 30,
+     "median": 33,
+     "p75": 36
+    },
+    "cheapCreature": {
+     "p25": 16,
+     "median": 19,
+     "p75": 21
+    },
+    "threat": {
+     "p25": 1,
+     "median": 2,
+     "p75": 4
+    },
+    "counterspell": {
+     "p25": 0,
+     "median": 1,
+     "p75": 1
+    },
+    "cheapInteraction": {
+     "p25": 12,
+     "median": 15,
+     "p75": 18
+    },
+    "removal": {
+     "p25": 11,
+     "median": 13,
+     "p75": 15
+    },
+    "wipe": {
+     "p25": 0,
+     "median": 0,
+     "p75": 1
+    },
+    "draw": {
+     "p25": 4,
+     "median": 6,
+     "p75": 7
+    },
+    "ramp": {
+     "p25": 1,
+     "median": 2,
+     "p75": 3
+    },
+    "tutor": {
+     "p25": 1,
+     "median": 3,
+     "p75": 5
+    },
+    "protection": {
+     "p25": 4,
+     "median": 7,
+     "p75": 10
+    },
+    "recursion": {
+     "p25": 0,
+     "median": 0,
+     "p75": 1
+    },
+    "cmc01": {
+     "p25": 16,
+     "median": 19,
+     "p75": 24
+    },
+    "cmc2": {
+     "p25": 17,
+     "median": 19,
+     "p75": 22
+    },
+    "cmc3": {
+     "p25": 10,
+     "median": 12,
+     "p75": 14
+    },
+    "cmc4": {
+     "p25": 4,
+     "median": 5,
+     "p75": 7
+    },
+    "cmc5plus": {
+     "p25": 2,
+     "median": 4,
+     "p75": 4
+    }
+   },
+   "lands": {
+    "p25": 36,
+    "median": 37,
+    "p75": 38
+   },
+   "avgCmc": 2.26,
+   "colors": {
+    "1": 0.24,
+    "2": 0.32,
+    "3": 0.38,
+    "5": 0.06
+   },
+   "z": {
+    "creature": 0.72,
+    "cheapCreature": 0.57,
+    "threat": 0.22,
+    "counterspell": -0.38,
+    "cheapInteraction": 0.13,
+    "removal": 0.61,
+    "wipe": -0.34,
+    "draw": -0.51,
+    "ramp": -0.6,
+    "tutor": -0.3,
+    "protection": 0.54,
+    "recursion": -0.55,
+    "cmc01": -0.3,
+    "cmc2": 0.45,
+    "cmc3": 0.63,
+    "cmc4": 0.36,
+    "cmc5plus": -0.33,
+    "lands": -0.3
+   }
+  },
+  {
+   "id": "engine",
+   "label": "Accélération et moteur",
+   "summary": "rampe au-dessus de la moyenne, tutors au-dessus de la moyenne, interaction à 1-2 manas en dessous de la moyenne",
+   "share": 0.19,
+   "commanders": 24,
+   "decks": 372,
+   "examples": [
+    "Brigid, Clachan's Heart",
+    "Tifa Lockhart",
+    "Emry, Lurker of the Loch",
+    "Toph, Greatest Earthbender",
+    "Raph & Mikey, Troublemakers",
+    "The Fantasticar"
+   ],
+   "roles": {
+    "creature": {
+     "p25": 13,
+     "median": 25,
+     "p75": 38
+    },
+    "cheapCreature": {
+     "p25": 7,
+     "median": 17,
+     "p75": 27
+    },
+    "threat": {
+     "p25": 0,
+     "median": 1,
+     "p75": 2
+    },
+    "counterspell": {
+     "p25": 0,
+     "median": 0,
+     "p75": 2
+    },
+    "cheapInteraction": {
+     "p25": 5,
+     "median": 8,
+     "p75": 9
+    },
+    "removal": {
+     "p25": 3,
+     "median": 7,
+     "p75": 9
+    },
+    "wipe": {
+     "p25": 0,
+     "median": 0,
+     "p75": 1
+    },
+    "draw": {
+     "p25": 2,
+     "median": 4,
+     "p75": 7
+    },
+    "ramp": {
+     "p25": 11,
+     "median": 13,
+     "p75": 18
+    },
+    "tutor": {
+     "p25": 1,
+     "median": 4,
+     "p75": 12
+    },
+    "protection": {
+     "p25": 4,
+     "median": 6,
+     "p75": 9
+    },
+    "recursion": {
+     "p25": 0,
+     "median": 0,
+     "p75": 1
+    },
+    "cmc01": {
+     "p25": 23,
+     "median": 29,
+     "p75": 35
+    },
+    "cmc2": {
+     "p25": 10,
+     "median": 15,
+     "p75": 16
+    },
+    "cmc3": {
+     "p25": 9,
+     "median": 10,
+     "p75": 12
+    },
+    "cmc4": {
+     "p25": 2,
+     "median": 5,
+     "p75": 6
+    },
+    "cmc5plus": {
+     "p25": 2,
+     "median": 2,
+     "p75": 4
+    }
+   },
+   "lands": {
+    "p25": 37,
+    "median": 38,
+    "p75": 40
+   },
+   "avgCmc": 1.95,
+   "colors": {
+    "0": 0.08,
+    "1": 0.25,
+    "2": 0.38,
+    "3": 0.21,
+    "4": 0.08
+   },
+   "z": {
+    "creature": 0.14,
+    "cheapCreature": 0.32,
+    "threat": -0.36,
+    "counterspell": -0.57,
+    "cheapInteraction": -0.88,
+    "removal": -0.85,
+    "wipe": -0.46,
+    "draw": -0.38,
+    "ramp": 1.07,
+    "tutor": 1.06,
+    "protection": 0.66,
+    "recursion": -0.27,
+    "cmc01": 0.84,
+    "cmc2": -0.35,
+    "cmc3": -0.22,
+    "cmc4": -0.37,
+    "cmc5plus": -0.26,
+    "lands": -0.16
+   }
+  },
+  {
+   "id": "aggro",
+   "label": "Agression",
+   "summary": "créatures à 1-2 manas au-dessus de la moyenne, cartes à 0-1 mana au-dessus de la moyenne, grosses menaces au-dessus de la moyenne",
+   "share": 0.12,
+   "commanders": 15,
+   "decks": 173,
+   "examples": [
+    "Ellie, Brick Master + Ellie, Vengeful Hunter",
+    "Light-Paws, Emperor's Voice",
+    "Asmoranomardicadaistinaculdacar",
+    "Amalia Benavides Aguirre + Lurrus of the Dream-Den",
+    "Tokka & Rahzar, Terrible Twos",
+    "Juri, Master of the Revue"
+   ],
+   "roles": {
+    "creature": {
+     "p25": 24,
+     "median": 37,
+     "p75": 39
+    },
+    "cheapCreature": {
+     "p25": 20,
+     "median": 24,
+     "p75": 32
+    },
+    "threat": {
+     "p25": 1,
+     "median": 5,
+     "p75": 6
+    },
+    "counterspell": {
+     "p25": 0,
+     "median": 0,
+     "p75": 1
+    },
+    "cheapInteraction": {
+     "p25": 7,
+     "median": 11,
+     "p75": 14
+    },
+    "removal": {
+     "p25": 8,
+     "median": 9,
+     "p75": 10
+    },
+    "wipe": {
+     "p25": 0,
+     "median": 0,
+     "p75": 0
+    },
+    "draw": {
+     "p25": 5,
+     "median": 7,
+     "p75": 9
+    },
+    "ramp": {
+     "p25": 1,
+     "median": 1,
+     "p75": 2
+    },
+    "tutor": {
+     "p25": 1,
+     "median": 2,
+     "p75": 2
+    },
+    "protection": {
+     "p25": 1,
+     "median": 2,
+     "p75": 14
+    },
+    "recursion": {
+     "p25": 1,
+     "median": 3,
+     "p75": 5
+    },
+    "cmc01": {
+     "p25": 25,
+     "median": 28,
+     "p75": 32
+    },
+    "cmc2": {
+     "p25": 17,
+     "median": 19,
+     "p75": 27
+    },
+    "cmc3": {
+     "p25": 1,
+     "median": 8,
+     "p75": 10
+    },
+    "cmc4": {
+     "p25": 2,
+     "median": 3,
+     "p75": 4
+    },
+    "cmc5plus": {
+     "p25": 1,
+     "median": 2,
+     "p75": 2
+    }
+   },
+   "lands": {
+    "p25": 35,
+    "median": 36,
+    "p75": 38
+   },
+   "avgCmc": 1.85,
+   "colors": {
+    "1": 0.33,
+    "2": 0.6,
+    "5": 0.07
+   },
+   "z": {
+    "creature": 0.75,
+    "cheapCreature": 1.41,
+    "threat": 1.04,
+    "counterspell": -0.56,
+    "cheapInteraction": -0.22,
+    "removal": 0.02,
+    "wipe": -0.39,
+    "draw": -0.07,
+    "ramp": -0.69,
+    "tutor": -0.64,
+    "protection": -0.34,
+    "recursion": 1,
+    "cmc01": 1.07,
+    "cmc2": 0.39,
+    "cmc3": -0.8,
+    "cmc4": -1,
+    "cmc5plus": -0.62,
+    "lands": -0.41
+   }
+  },
+  {
+   "id": "reanimator",
+   "label": "Réanimation et grosses menaces",
+   "summary": "cartes à 5 manas et plus au-dessus de la moyenne, cartes à 0-1 mana en dessous de la moyenne, récursion au-dessus de la moyenne",
+   "share": 0.08,
+   "commanders": 10,
+   "decks": 105,
+   "examples": [
+    "Terra, Magical Adept",
+    "Emet-Selch, Unsundered",
+    "Winter, Cynical Opportunist",
+    "The Reaper, King No More",
+    "Thor, God of Thunder",
+    "The Wandering Minstrel"
+   ],
+   "roles": {
+    "creature": {
+     "p25": 22,
+     "median": 27,
+     "p75": 32
+    },
+    "cheapCreature": {
+     "p25": 1,
+     "median": 3,
+     "p75": 7
+    },
+    "threat": {
+     "p25": 2,
+     "median": 3,
+     "p75": 4
+    },
+    "counterspell": {
+     "p25": 0,
+     "median": 0,
+     "p75": 1
+    },
+    "cheapInteraction": {
+     "p25": 3,
+     "median": 8,
+     "p75": 11
+    },
+    "removal": {
+     "p25": 9,
+     "median": 11,
+     "p75": 13
+    },
+    "wipe": {
+     "p25": 0,
+     "median": 0,
+     "p75": 1
+    },
+    "draw": {
+     "p25": 6,
+     "median": 7,
+     "p75": 8
+    },
+    "ramp": {
+     "p25": 3,
+     "median": 5,
+     "p75": 8
+    },
+    "tutor": {
+     "p25": 4,
+     "median": 5,
+     "p75": 5
+    },
+    "protection": {
+     "p25": 3,
+     "median": 4,
+     "p75": 6
+    },
+    "recursion": {
+     "p25": 4,
+     "median": 6,
+     "p75": 8
+    },
+    "cmc01": {
+     "p25": 9,
+     "median": 11,
+     "p75": 14
+    },
+    "cmc2": {
+     "p25": 15,
+     "median": 17,
+     "p75": 19
+    },
+    "cmc3": {
+     "p25": 7,
+     "median": 8,
+     "p75": 12
+    },
+    "cmc4": {
+     "p25": 4,
+     "median": 6,
+     "p75": 8
+    },
+    "cmc5plus": {
+     "p25": 14,
+     "median": 20,
+     "p75": 23
+    }
+   },
+   "lands": {
+    "p25": 35,
+    "median": 36,
+    "p75": 37
+   },
+   "avgCmc": 3.68,
+   "colors": {
+    "1": 0.1,
+    "2": 0.3,
+    "3": 0.3,
+    "5": 0.3
+   },
+   "z": {
+    "creature": 0.31,
+    "cheapCreature": -0.79,
+    "threat": 0.53,
+    "counterspell": -0.64,
+    "cheapInteraction": -0.76,
+    "removal": 0.21,
+    "wipe": 0.93,
+    "draw": -0.43,
+    "ramp": 0.31,
+    "tutor": -0.16,
+    "protection": -0.13,
+    "recursion": 1.39,
+    "cmc01": -1.47,
+    "cmc2": -0.84,
+    "cmc3": -0.06,
+    "cmc4": 1.14,
+    "cmc5plus": 2.4,
+    "lands": -0.16
+   }
+  },
+  {
+   "id": "lands",
+   "label": "Deck de terrains",
+   "summary": "terrains au-dessus de la moyenne, rampe au-dessus de la moyenne, interaction à 1-2 manas en dessous de la moyenne",
+   "share": 0.06,
+   "commanders": 7,
+   "decks": 63,
+   "examples": [
+    "Azusa, Lost but Seeking",
+    "Nissa, Resurgent Animist",
+    "Lumra, Bellow of the Woods",
+    "The Gitrog Monster",
+    "Golos, Tireless Pilgrim",
+    "Mole Man, Moloid Master"
+   ],
+   "roles": {
+    "creature": {
+     "p25": 18,
+     "median": 19,
+     "p75": 20
+    },
+    "cheapCreature": {
+     "p25": 3,
+     "median": 8,
+     "p75": 9
+    },
+    "threat": {
+     "p25": 1,
+     "median": 2,
+     "p75": 3
+    },
+    "counterspell": {
+     "p25": 0,
+     "median": 0,
+     "p75": 0
+    },
+    "cheapInteraction": {
+     "p25": 2,
+     "median": 3,
+     "p75": 4
+    },
+    "removal": {
+     "p25": 5,
+     "median": 7,
+     "p75": 7
+    },
+    "wipe": {
+     "p25": 0,
+     "median": 0,
+     "p75": 1
+    },
+    "draw": {
+     "p25": 3,
+     "median": 3,
+     "p75": 4
+    },
+    "ramp": {
+     "p25": 19,
+     "median": 20,
+     "p75": 22
+    },
+    "tutor": {
+     "p25": 6,
+     "median": 7,
+     "p75": 7
+    },
+    "protection": {
+     "p25": 3,
+     "median": 4,
+     "p75": 4
+    },
+    "recursion": {
+     "p25": 1,
+     "median": 2,
+     "p75": 3
+    },
+    "cmc01": {
+     "p25": 13,
+     "median": 16,
+     "p75": 18
+    },
+    "cmc2": {
+     "p25": 10,
+     "median": 11,
+     "p75": 15
+    },
+    "cmc3": {
+     "p25": 9,
+     "median": 10,
+     "p75": 11
+    },
+    "cmc4": {
+     "p25": 2,
+     "median": 3,
+     "p75": 5
+    },
+    "cmc5plus": {
+     "p25": 4,
+     "median": 4,
+     "p75": 9
+    }
+   },
+   "lands": {
+    "p25": 48,
+    "median": 53,
+    "p75": 54
+   },
+   "avgCmc": 2.77,
+   "colors": {
+    "1": 0.57,
+    "2": 0.14,
+    "3": 0.14,
+    "5": 0.14
+   },
+   "z": {
+    "creature": -0.37,
+    "cheapCreature": -0.62,
+    "threat": -0.33,
+    "counterspell": -0.75,
+    "cheapInteraction": -1.61,
+    "removal": -1.08,
+    "wipe": -0.32,
+    "draw": -1.1,
+    "ramp": 2.07,
+    "tutor": 0.86,
+    "protection": -0.23,
+    "recursion": 1.28,
+    "cmc01": -0.62,
+    "cmc2": -1.29,
+    "cmc3": -0.48,
+    "cmc4": -0.85,
+    "cmc5plus": 0.27,
+    "lands": 3.47
+   }
+  }
+ ],
+ "roleLabels": {
+  "creature": "créatures",
+  "cheapCreature": "créatures à 1-2 manas",
+  "threat": "grosses menaces",
+  "counterspell": "contresorts",
+  "cheapInteraction": "interaction à 1-2 manas",
+  "removal": "removal",
+  "wipe": "nettoyages de table",
+  "draw": "pioche",
+  "ramp": "rampe",
+  "tutor": "tutors",
+  "protection": "protection",
+  "recursion": "récursion",
+  "cmc01": "cartes à 0-1 mana",
+  "cmc2": "cartes à 2 manas",
+  "cmc3": "cartes à 3 manas",
+  "cmc4": "cartes à 4 manas",
+  "cmc5plus": "cartes à 5 manas et plus",
+  "lands": "terrains"
+ }
+}

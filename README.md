@@ -2543,7 +2543,129 @@ contenu des articles Wizards : lus via un résumé automatique (confiance
 « medium » dans les données). FRC : Forge compte 18 cartes inédites, l'article
 Wizards 16 d'après ce résumé.
 
+**Mise à jour du même jour, après `npm run fetch-set-cards -- fra frc` sur le
+Mac.** Le script fonctionne : 286 cartes, les mêmes 286 noms que la version
+Forge (cartes à préparation comprises, donc la forme « Recto // Sort » est
+confirmée), mêmes coûts, identités couleur et raretés. `recent-set-cards.json`
+contient désormais les données Scryfall. Le classement ne diffère que sur 2
+cartes : Pyre Rhymer gagne Rampe (faute de frappe dans le texte Forge) et
+Clash of Elements perdait Removal (« on top of their library », sans « the » :
+motif corrigé). Scryfall expose les mots-clés « Empower Jace » et « Prepared »,
+identiques aux `termEn` du glossaire. Restent non vérifiés : les pages
+Extensions fra/frc/fdc sur le site déployé et les noms français.
+
 **Prochaine extension.** Cloner Forge (commande en tête du script Python),
 lancer `build-set-cards-from-forge.py` avec les codes encore récents, relire
 `classification` avec un script tsx, ajouter set-notes/tracked-sets/glossaire.
 Retirer une extension du fichier quand ses cartes ont un rang EDHREC.
+
+## 03/10/2026 (2) — Moteur de construction : tendances apprises, plans de jeu, parties simulées, staples, chargeur
+
+Demandes de Ben : (1) le meilleur moteur possible — synergies, créativité,
+playtests et game plans pour maximiser les chances de victoire ; (2) ne pas
+s'en tenir aux commandants standard ni aux techniques rebattues, dénicher des
+plans surprenants mais efficaces, fondés sur l'analyse des decks connus ;
+(3) signaler les staples qui manquent ; (4) un chargeur qui montre les étapes.
+
+### Ce qui a été construit
+
+| Fichier | Rôle |
+|---|---|
+| `src/lib/mechanics.ts` | 26 AXES de mécanique. Pour chaque carte : ce qu'elle PRODUIT et ce qu'elle RÉCOMPENSE (jetons, cimetière, artefacts, gain de vie...). Deux cartes sont en synergie quand l'une produit ce que l'autre récompense, quel que soit leur nom. Plus 17 rôles de forme (créature, contresort, interaction à 1-2 manas, tranches de coût...). |
+| `scripts/learn-deck-trends.mts` → `src/data/deck-trends.json` | Apprentissage hors ligne sur 2 072 decks de tournoi Duel (208 commandants, 05/07 → 27/09/2026) et 197 précons. Par axe : densité de producteurs des decks construits autour de l'axe et « lift » ; paires d'axes construits ensemble ; 6 RECETTES de forme (k-moyennes sur les rôles). `npm run learn-trends`, aucun réseau. |
+| `src/lib/deck-trends.ts` | Accès typé + règle de prudence : une tendance n'est « validée » qu'avec ≥ 5 cas, ≥ 3 producteurs et un lift ≥ 1,3. |
+| `src/lib/game-plan.ts` | Plans de jeu : axes à servir + recette. Propose jusqu'à 4 plans par commandant (axes du commandant, axe compagnon appris, « piste trouvée dans la collection », deux recettes). Score d'une carte pour un plan, indice de synergies d'un deck. |
+| `src/lib/playtest.ts` | Parties simulées en solitaire : mulligan de Londres, terrain par tour, paiement avec les bonnes couleurs, accélération, pioche, tutors, commandant, attaque, combos. Graine fixe : résultats reproductibles. |
+| `src/lib/deck-optimizer.ts` | Pour un deck : variantes (base + plans) → tier, parties simulées, synergies → choix → ajustements ciblés. |
+| `src/lib/game-plan-summary.ts` | Le plan de jeu en clair : comment le deck gagne, trois phases, mulligan, synergies clés, trouvailles, points faibles. |
+| `src/lib/staples.ts` | Staples absentes du deck, avec le gain d'indice de l'échange. |
+| `src/lib/competitive-run.ts` | Le déroulé (ex-`competitive-actions.ts`), désormais en 8 étapes signalées par `onProgress`. `competitive-actions.ts` ne garde que les deux Server Actions. |
+| `src/app/api/competitive-build/route.ts` | Flux de lignes JSON : étapes en direct puis résultat. |
+| `src/lib/build-steps.ts`, `src/components/BuildPanels.tsx` | Étapes partagées serveur/interface ; chargeur, panneau « Plan de jeu », panneau « Staples manquants ». |
+
+### Ce que l'analyse des decks connus a donné
+
+Les 6 recettes (commandants de tournoi par famille) : Contrôle (37),
+Créatures et valeur (34), Accélération et moteur (24), Agression (15),
+Réanimation et grosses menaces (10), Deck de terrains (7). Exemples de
+densités apprises en Duel : un deck construit autour des artefacts aligne
+~34 producteurs (6 ailleurs), autour du sacrifice ~13,5 (4,4), du cimetière
+~10 (3,7), du gain de vie ~18 (3,9). Paires les plus liées : sacrifice +
+cimetière, jetons + sacrifice, combat + équipements (précons).
+Axes non validés faute de cas (cible par défaut, signalé dans l'UI) :
+regard/surveillance, préparation, poison, pioche et défausse en Duel.
+
+### Règle de choix (à connaître avant d'y toucher)
+
+« Tier d'abord » reste la règle, appliquée au PALIER (Tier N — Low/Mid/Top) :
+1. la variante au palier le plus haut gagne ;
+2. à palier égal : indice global = 0,6 × parties simulées + 0,4 × synergies ;
+3. une variante qui perd plus de 3 points d'indice de puissance sur le deck
+   de base est écartée, sauf si elle monte de palier ;
+4. un ajustement n'est gardé que s'il gagne ≥ 1 point de parties simulées
+   (même graine), sans baisser de palier ni perdre plus de 1,5 point.
+Les pondérations 0,6/0,4, les seuils 3 / 1,5 / 1 et les poids de l'indice de
+parties simulées sont des choix de conception, pas des valeurs mesurées.
+Le deck « de base » (moteur du 25-26/09) est toujours l'une des variantes :
+sans plan (`ctx.plan` absent), `greedyPick` est strictement inchangé.
+
+### Mesures
+
+Avec la collection de Ben (1 480 cartes) et un faux Scryfall alimenté par les
+données locales, 10 propositions × 2 decks par format :
+- un plan remplace le deck de base dans 9 decks sur 10 (multi et Duel), dont
+  6 sur 10 par la « piste trouvée dans la collection » pour les decks
+  possédés ;
+- quand un plan gagne : parties simulées +3,7 à +5,0 points, synergies +8 à
+  +18, indice de puissance −0,4 à +0,04 (donc palier inchangé) ;
+- ajustements gardés après parties simulées : 1 à 2 decks sur 10 ;
+- aucun deck invalide (taille, doublons, commandant dans la liste, plafond
+  d'acquisitions, deck amélioré ≥ deck possédé).
+Contrôle de bon sens du simulateur, sur des decks qu'il n'a pas servi à
+construire : indice médian 71,6 pour 296 decks de tournoi Duel contre 54,0
+pour les 197 précons (règles Duel) ; 69,0 contre 57,3 en règles multi.
+Durée : ~56 µs par partie ; l'étape « plans de jeu » prend 5 à 7 s pour
+~32 000 parties ; total 42-44 s sur le faux Scryfall contre ~35 s avant.
+
+### Limites — à ne pas perdre de vue
+
+- **Les parties simulées ne sont pas un taux de victoire.** Aucun adversaire :
+  pas de blocage, pas de removal subi, pas de course. L'indice mesure la
+  régularité et la vitesse à vide. Il sert à comparer des variantes, pas à
+  prédire un tournoi. L'interface le dit sous chaque panneau.
+- Le simulateur ne joue pas les rituels, les capacités activées, la taxe de
+  commandant ni les effets des « récompenses » (un deck à jetons ne gagne pas
+  plus vite parce qu'il a un anthem) : c'est l'indice de synergies qui porte
+  ce signal, et il est estimé par motifs de texte.
+- Les recettes viennent du DUEL. En multijoueur elles sont appliquées à
+  demi-poids et ne pénalisent jamais rampe, pioche ni nettoyages de table —
+  une extrapolation, signalée dans le texte de chaque plan.
+- Présence en tournoi n'est pas performance : mtgtop8 publie surtout les
+  tops, on ne voit pas ce qui a perdu.
+- « Hors méta » en multi repose sur le rang EDHREC (> 3 000 ou absent).
+- Rien de tout cela n'a tourné contre le vrai Scryfall ni sur Vercel. Le
+  flux d'étapes fonctionne sur un build de production local (Playwright,
+  multi et Duel) ; si l'hébergeur met la réponse en tampon, les étapes
+  arriveront d'un bloc, et si le flux échoue l'interface se replie sur la
+  Server Action (même résultat, sans le détail).
+
+### Autres changements
+
+- `rankProposals` ajoute jusqu'à 8 commandants POSSÉDÉS que la collection
+  sert le mieux sur leurs propres axes (`synergyAffinity`), même s'ils n'ont
+  pas passé la présélection par la puissance.
+- `BuiltDeck` expose `picks` (ordre de choix), `bench` (16 suivantes,
+  possédées) et `plan`.
+- `fetch-duel-meta.mjs` garde désormais force/endurance dans
+  `cards-scryfall.json` (le simulateur en a besoin pour rejouer l'archive ;
+  le fichier actuel ne les a pas, d'où `analysis/precons/cards-forge.json`
+  et un complément Forge pour le contrôle ci-dessus).
+- `analysis/precons/cards-forge.json` : texte des cartes de précons absentes
+  de `cards-scryfall.json` (source Forge), pour le script d'apprentissage.
+
+### Pistes
+
+Faire jouer les récompenses par le simulateur (jetons, anthems, drain) ;
+un adversaire simplifié (une réponse par tour) ; recettes multi à partir de
+decks cEDH si une source accessible existe ; recalibrer 0,6/0,4 quand Ben
+aura joué quelques decks proposés.

@@ -339,6 +339,10 @@ function trimCard(card) {
     color_identity: card.color_identity ?? [],
     keywords: card.keywords ?? [],
     produced_mana: card.produced_mana ?? null,
+    // 03/10/2026 : force/endurance gardées — le simulateur de parties
+    // (src/lib/playtest.ts) en a besoin pour rejouer ces decks hors ligne.
+    power: card.power ?? card.card_faces?.[0]?.power ?? null,
+    toughness: card.toughness ?? card.card_faces?.[0]?.toughness ?? null,
     game_changer: card.game_changer ?? false,
     edhrec_rank: card.edhrec_rank ?? null,
     layout: card.layout,

@@ -1,13 +1,10 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import {
-  openProposedDeck,
-  runCompetitiveBuild,
-  type AcquisitionOption,
-  type CompetitiveBuildResult,
-  type ProposalSummary,
-} from "@/lib/competitive-actions";
+import { openProposedDeck, runCompetitiveBuild } from "@/lib/competitive-actions";
+import type { AcquisitionOption, CompetitiveBuildResult, ProposalSummary } from "@/lib/competitive-run";
+import type { BuildProgress } from "@/lib/build-steps";
+import { BuildProgressPanel, GamePlanPanel, MissingStaplesPanel } from "./BuildPanels";
 import type { DeckAnalysisResult } from "@/lib/actions";
 import { parseCollectionCsv, parseCollectionText } from "@/lib/collection-import";
 import type { PowerTierLevel } from "@/lib/deck-tier";
@@ -80,13 +77,48 @@ const ACQ_OPTIONS: { value: AcquisitionOption; label: string }[] = [
   { value: 25, label: "25" },
 ];
 
-const BUILD_STEPS = [
-  "Lecture de ta liste auprès de Scryfall…",
-  "Recherche des commandants possibles (ta liste, populaires, haute puissance)…",
-  "Préparation du pool de cartes recommandées (Game Changers, staples, combos)…",
-  "Construction et évaluation d'un deck par commandant…",
-  "Recherche de cartes en synergie pour les meilleurs decks…",
-];
+/**
+ * Lance la construction par la route de flux et lit les étapes au fil de
+ * l'eau (03/10/2026 — voir src/app/api/competitive-build/route.ts). Une ligne
+ * = un message JSON. Lève une erreur si le flux ne s'établit pas ou se
+ * termine sans résultat : l'appelant se replie alors sur la Server Action.
+ */
+async function buildWithProgress(
+  input: { formatKey: FormatKey; collectionCards: { name: string; count: number }[]; maxAcquisitions: AcquisitionOption },
+  onProgress: (p: BuildProgress) => void
+): Promise<CompetitiveBuildResult> {
+  const res = await fetch("/api/competitive-build", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok || !res.body) throw new Error(`flux indisponible (HTTP ${res.status})`);
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let result: CompetitiveBuildResult | null = null;
+  const handle = (line: string) => {
+    if (!line.trim()) return;
+    const msg = JSON.parse(line) as ({ type: "progress" } & BuildProgress) | { type: "result"; result: CompetitiveBuildResult } | { type: "error"; message: string };
+    if (msg.type === "progress") onProgress(msg);
+    else if (msg.type === "result") result = msg.result;
+    else throw new Error(msg.message);
+  };
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (value) buffer += decoder.decode(value, { stream: true });
+    let nl = buffer.indexOf("\n");
+    while (nl >= 0) {
+      handle(buffer.slice(0, nl));
+      buffer = buffer.slice(nl + 1);
+      nl = buffer.indexOf("\n");
+    }
+    if (done) break;
+  }
+  handle(buffer);
+  if (!result) throw new Error("flux terminé sans résultat");
+  return result;
+}
 
 function Spinner({ label }: { label: string }) {
   return (
@@ -171,18 +203,12 @@ export function CompetitiveBuilder({ fromSimulator = false }: { fromSimulator?: 
 
   const [building, startBuilding] = useTransition();
   const [opening, startOpening] = useTransition();
-  const [stepIndex, setStepIndex] = useState(0);
-  const stepTimer = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  function startSteps() {
-    setStepIndex(0);
-    if (stepTimer.current) clearInterval(stepTimer.current);
-    stepTimer.current = setInterval(() => setStepIndex((i) => Math.min(i + 1, BUILD_STEPS.length - 1)), 2500);
-  }
-  function stopSteps() {
-    if (stepTimer.current) clearInterval(stepTimer.current);
-    stepTimer.current = null;
-  }
+  // Progression en direct (03/10/2026) : dernier message du serveur, heure de
+  // départ, et `live` = le flux d'étapes fonctionne-t-il pour cet essai.
+  const [progress, setProgress] = useState<BuildProgress | null>(null);
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [live, setLive] = useState(true);
+  const runId = useRef(0);
 
   async function openDeck(res: CompetitiveBuildResult, index: number, v: Variant) {
     const p = res.proposals[index];
@@ -202,17 +228,31 @@ export function CompetitiveBuilder({ fromSimulator = false }: { fromSimulator?: 
 
   function launch(cards: { name: string; count: number }[], fmt: FormatKey, acq: AcquisitionOption) {
     setFormError(null);
-    startSteps();
+    setProgress(null);
+    setLive(true);
+    setStartedAt(Date.now());
+    // Un message d'un essai précédent (relance pendant un calcul) ne doit pas écraser l'affichage du nouveau.
+    const id = ++runId.current;
     startBuilding(async () => {
       let res: CompetitiveBuildResult;
+      const input = { formatKey: fmt, collectionCards: cards, maxAcquisitions: acq };
       try {
-        res = await runCompetitiveBuild({ formatKey: fmt, collectionCards: cards, maxAcquisitions: acq });
-      } catch (err) {
-        stopSteps();
-        setFormError(serverActionErrorMessage("build", err));
-        return;
+        res = await buildWithProgress(input, (p) => {
+          if (runId.current === id) setProgress(p);
+        });
+      } catch (streamErr) {
+        // Flux d'étapes indisponible : même calcul par la Server Action, sans le détail des étapes.
+        console.warn("[constructeur] flux d'étapes indisponible, repli sur la Server Action", streamErr);
+        setLive(false);
+        try {
+          res = await runCompetitiveBuild(input);
+        } catch (err) {
+          setStartedAt(null);
+          setFormError(serverActionErrorMessage("build", err));
+          return;
+        }
       }
-      stopSteps();
+      setStartedAt(null);
       if (!res.ok) {
         setFormError(res.error);
         return;
@@ -459,15 +499,7 @@ export function CompetitiveBuilder({ fromSimulator = false }: { fromSimulator?: 
           >
             {building ? "Construction en cours…" : "Trouver mes decks les plus compétitifs"}
           </button>
-          {building && (
-            <div className="rounded-xl border border-border bg-surface p-4">
-              <Spinner label={BUILD_STEPS[stepIndex]} />
-              <p className="mt-1 text-xs text-muted">
-                Étapes indicatives — compter 5 à 20 secondes selon la taille de ta liste (plusieurs dizaines de
-                commandants sont évalués, chacun avec un deck complet).
-              </p>
-            </div>
-          )}
+          {building && <BuildProgressPanel progress={progress} startedAt={startedAt} live={live} />}
           {formError && <p className="rounded-lg bg-warning-soft px-3 py-2 text-sm text-warning">{formError}</p>}
         </div>
       </form>
@@ -520,11 +552,7 @@ export function CompetitiveBuilder({ fromSimulator = false }: { fromSimulator?: 
         </div>
       </div>
 
-      {building && (
-        <div className="rounded-xl border border-border bg-surface p-4">
-          <Spinner label={BUILD_STEPS[stepIndex]} />
-        </div>
-      )}
+      {building && startedAt !== null && <BuildProgressPanel progress={progress} startedAt={startedAt} live={live} />}
       {formError && <p className="rounded-lg bg-warning-soft px-3 py-2 text-sm text-warning">{formError}</p>}
 
       <div>
@@ -606,6 +634,14 @@ export function CompetitiveBuilder({ fromSimulator = false }: { fromSimulator?: 
                     {prop.pairLabel && (
                       <span className="rounded-full bg-synergy-soft px-1.5 text-[10px] font-medium text-synergy">{prop.pairLabel}</span>
                     )}
+                    {prop.offMeta && (
+                      <span
+                        className="rounded-full bg-synergy-soft px-1.5 text-[10px] font-medium text-synergy"
+                        title="Commandant absent des decks de tournoi connus (Duel) ou peu joué (multi) : une piste originale."
+                      >
+                        Hors méta
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -622,6 +658,11 @@ export function CompetitiveBuilder({ fromSimulator = false }: { fromSimulator?: 
                 {prop.owned.score}/100
                 {prop.owned.tier.signals.combos.length > 0 ? ` · ${prop.owned.tier.signals.combos.length} combo` : ""}
               </p>
+              {prop.owned.gamePlan && (
+                <p className="text-[11px] text-muted" title="Indices du deck « avec mes cartes » : parties simulées en solitaire et densité de synergies.">
+                  Parties simulées {prop.owned.gamePlan.playtest.score} · synergies {prop.owned.gamePlan.synergyIndex} · {prop.owned.gamePlan.archetype}
+                </p>
+              )}
             </button>
           </li>
         ))}
@@ -752,6 +793,10 @@ export function CompetitiveBuilder({ fromSimulator = false }: { fromSimulator?: 
               </div>
             </div>
           </div>
+
+          {shownDeck.gamePlan && <GamePlanPanel plan={shownDeck.gamePlan} />}
+
+          <MissingStaplesPanel staples={shownDeck.missingStaples} variantLabel={variant === "owned" ? "Avec mes cartes" : "Optimisé"} />
 
           {p.acquisitions.length > 0 && (
             <div className="mt-5">

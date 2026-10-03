@@ -94,10 +94,22 @@ Voir la section « Structure » du README pour l'arbre complet.
   profil Multi/Duel + pénalité d'acquisition), `buildDeckForCommander`,
   `commanderAffinity` (présélection), `rankProposals` (tier d'abord).
   Fonctions pures, testables sans réseau.
-- **`src/lib/competitive-actions.ts`** (25/09/2026) — `runCompetitiveBuild`
-  (résolution Scryfall, candidats commandants, pool recommandé, classement,
-  recherches de synergie pour le top 3) et `openProposedDeck` (délègue à
-  `analyzeDeck`).
+- **`src/lib/competitive-run.ts`** (ex-competitive-actions, 03/10/2026) —
+  `runCompetitiveBuildCore(input, onProgress?)` : le déroulé en 8 étapes
+  (liste, commandants, pool, classement, synergies, combos, plans de jeu et
+  parties simulées, finalisation). Appelé par la route de flux
+  `src/app/api/competitive-build/route.ts` (étapes en direct) et, en repli,
+  par la Server Action `runCompetitiveBuild` de `competitive-actions.ts`
+  (qui garde aussi `openProposedDeck`).
+- **Moteur du 03/10/2026** (section README « Moteur de construction ») :
+  `mechanics.ts` (axes produit/récompense, rôles), `deck-trends.ts` +
+  `src/data/deck-trends.json` (tendances apprises par
+  `scripts/learn-deck-trends.mts`, `npm run learn-trends`), `game-plan.ts`
+  (plans, indice de synergies), `playtest.ts` (parties simulées),
+  `deck-optimizer.ts` (variantes → choix → ajustements),
+  `game-plan-summary.ts`, `staples.ts`, `build-steps.ts`,
+  `components/BuildPanels.tsx`. Règle de choix : palier de tier d'abord,
+  puis 0,6 × parties simulées + 0,4 × synergies.
 - **`src/lib/partners.ts`** (25/09/2026, 2e passage) — règles des duos ;
   le constructeur gère 1 ou 2 commandants (`commanders[]` partout).
 - **`src/lib/spellbook.ts`** (25/09/2026, 2e passage) — Commander Spellbook
@@ -227,7 +239,11 @@ réassigne `global.fetch` (renvoyer de vrais `new Response(...)`, le cache
 Next appelle `.arrayBuffer()`), puis
 `rm -rf .next && npm run build` et
 `NODE_OPTIONS="--require ./mock.cjs" npm run start -- -p 4173`. Tuer un
-ancien serveur par PID (`ps aux | grep next`), pas `pkill`. Scripts
+ancien serveur par PID (`ps aux | grep '[n]ext-server'`), pas `pkill` —
+`pkill -f "next start"` tue aussi le shell qui le lance (arrivé le
+03/10/2026). Un faux Scryfall prêt à reconstruire : index des cartes =
+`cards-scryfall.json` + `recent-set-cards.json` + scripts Forge, servi sur
+`/cards/collection`, `/cards/search` (`is:commander`) et `/cards/named`. Scripts
 Playwright dans le scratchpad (`require` du playwright global,
 Chromium préinstallé). Pièges connus : attendre la fin des recalculs avec
 `waitForFunction` sur un texte (« Recalcul », « Ouverture du deck »), pas
@@ -249,6 +265,12 @@ se lit dans `01-app/03-api-reference/03-file-conventions/02-route-segment-config
 ## 9. État actuel
 
 Se fier à `git status`/`git log` réels plutôt qu'à ce paragraphe.
+
+Au 03/10/2026 (soir) : moteur de construction refondu (tendances apprises
+des decks connus, plans de jeu, parties simulées, staples manquants,
+chargeur à étapes) — livré sur le Mac, non commité par Ben au moment de
+l'écriture. En attente : retour de Ben sur le site déployé (le flux d'étapes
+passe-t-il sur Vercel ? durée réelle ? pertinence des plans).
 
 Au 03/10/2026 : Reality Fracture ajoutée (cartes nouvelles, piliers,
 4 thèmes de synergie, 7 decks précon, Extensions, Glossaire) — livrée sur le
@@ -297,7 +319,11 @@ constructeur compétitif.
   parallèle. Exemple : le constructeur calcule le gain de tier avec
   `tierComponentsFromCounts`, la même fonction que le badge.
 - **Tier d'abord, score en départage** pour toute sélection/tout
-  classement de cartes ou de commandants (formats à commandant).
+  classement de cartes ou de commandants (formats à commandant). Depuis le
+  03/10/2026, entre VARIANTES d'un même deck : palier de tier d'abord, puis
+  parties simulées et synergies (voir deck-optimizer.ts).
+- **Parties simulées ≠ taux de victoire** : ne jamais présenter l'indice de
+  playtest comme une chance de gagner (aucun adversaire dans le simulateur).
 - `npx eslint .` + `rm -rf .next && npm run build` avant de livrer ;
   aucun fichier scratch dans le repo (`git status --short`).
 - Réponses à Ben : concises, livrer plutôt que décrire.

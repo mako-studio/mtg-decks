@@ -27,6 +27,9 @@ import { BASIC_LAND_BY_COLOR, canBeCommanderInFormat, isLegalInFormat } from "./
 import { getDisplayOracleText } from "./scryfall";
 import { duelMetaPresence, duelMetaPresenceInColors } from "./duel-meta";
 import { DUEL_PROFILES_AVAILABLE, duelPresenceForIdentity, duelStatsForIdentity } from "./duel-profiles";
+import { AXES, cardMechanics, cardRoles, type CardMechanics, type RoleId } from "./mechanics";
+import { axisTargets } from "./deck-trends";
+import { addToPlanCounts, emptyPlanCounts, planLandTarget, planScore, type BuildPlan, type PlanCounts } from "./game-plan";
 
 /**
  * Constructeur de decks COMPÉTITIF (25/09/2026, demande de Ben) :
@@ -209,6 +212,12 @@ const NONLAND_SHORTLIST = 260;
 /** Voir `withPrior` dans greedyPick. */
 const CURVE_PRIOR_CARDS = 10;
 const LAND_SHORTLIST = 120;
+/**
+ * Cartes non-terrain gardées « sur le banc » après la sélection (03/10/2026) :
+ * les suivantes dans l'ordre du moteur. Elles servent aux ajustements après
+ * les parties simulées (deck-optimizer.ts) et au calcul des staples manquants.
+ */
+const BENCH_SIZE = 16;
 
 /** Tout ce qu'on sait d'une carte, calculé UNE fois (voir buildFeatureIndex). */
 export interface CardFeatures {
@@ -227,6 +236,10 @@ export interface CardFeatures {
   duelMetaChoice: number;
   /** Part globale (pour l'affichage si pas de part à couleurs égales). */
   duelMetaGlobal: number;
+  /** Axes de mécanique produits / récompensés (mechanics.ts, 03/10/2026). */
+  mech: CardMechanics;
+  /** Rôles fonctionnels (créature, contresort, interaction à bas coût, tranche de coût...). */
+  roles: RoleId[];
 }
 
 const CURATED_PIECES = comboPieceSet(CURATED_COMBOS);
@@ -264,6 +277,8 @@ export function buildFeatureIndex(cards: Iterable<ScryfallCard>, format: FormatC
       fetchesBasicType: isLand && BASIC_TYPE_FETCH.test(getDisplayOracleText(card)),
       duelMetaChoice: duelMetaPresenceInColors(card.name),
       duelMetaGlobal: duelMetaPresence(card.name),
+      mech: cardMechanics(card),
+      roles: cardRoles(card, categories),
     });
   }
   return index;
@@ -285,6 +300,8 @@ interface PickState {
   pickedCoKeys: Set<string>;
   /** Référence tournoi du/des commandant(s), si disponible (Duel). */
   reference: CommanderReference | null;
+  /** Producteurs / récompenses par axe et rôles déjà choisis (plans de jeu, 03/10/2026). */
+  plan: PlanCounts;
 }
 
 interface PickedEntry {
@@ -335,6 +352,22 @@ export interface BuildContext {
   combos?: readonly ComboDef[];
   /** Référence tournoi ; par défaut recherchée automatiquement en Duel (duel-reference.ts). */
   reference?: CommanderReference | null;
+  /**
+   * Plan de jeu à suivre (game-plan.ts, 03/10/2026). Absent = le moteur
+   * d'avant, inchangé : c'est la variante « de base » à laquelle chaque plan
+   * est comparé.
+   */
+  plan?: BuildPlan;
+}
+
+/** Une carte non-terrain du deck ou du banc, dans l'ordre où le moteur l'a choisie. */
+export interface PickInfo {
+  key: string;
+  name: string;
+  score: number;
+  acquired: boolean;
+  /** À ne pas retirer lors d'un ajustement : pièce de combo, Game Changer, mana rapide. */
+  locked: boolean;
 }
 
 export interface BuiltDeck {
@@ -350,6 +383,12 @@ export interface BuiltDeck {
   tier: DeckTierResult;
   profile: CommanderProfile;
   reference: CommanderReference | null;
+  /** Plan suivi (null = variante de base). */
+  plan: BuildPlan | null;
+  /** Cartes non-terrain du deck, de la première choisie à la dernière (la dernière est la plus faible aux yeux du moteur). */
+  picks: PickInfo[];
+  /** Les suivantes, non retenues, POSSÉDÉES uniquement (un ajustement ne doit pas ajouter d'achat). */
+  bench: PickInfo[];
 }
 
 /**
@@ -499,6 +538,16 @@ function greedyPick(
         if (labels.length) reasons.push(`Synergie : ${labels.join(", ")}`);
       }
 
+      // Plan de jeu : axes à servir + recette de forme (game-plan.ts). Sans
+      // plan, rien ne change par rapport au moteur d'avant.
+      if (ctx.plan) {
+        const ps = planScore(f, ctx.plan, state.plan);
+        if (ps.score !== 0) {
+          score += ps.score;
+          reasons.push(...ps.reasons);
+        }
+      }
+
       if (state.pieceSet.has(f.key) && comboPiecesLower.some((pieces) => pieces.includes(f.key))) {
         score += COMBO_PIECE_BONUS;
         if (completes === 0) reasons.push("Pièce de combo");
@@ -594,6 +643,7 @@ function greedyPick(
     state.tierCounts = next;
     state.pickedKeys.add(f.key);
     state.pickedCoKeys.add(cooccurrenceKey(f.card.name));
+    addToPlanCounts(state.plan, f, count);
 
     picked.push({ f, count, acquired, score: best.score, tierGain: best.tierGain, reasons: best.reasons });
     if (acquired) acquiredCount++;
@@ -758,9 +808,10 @@ function buildOnce(ctx: BuildContext): BuiltDeck {
   // Duel : nombre de terrains et de terrains de base = médianes des decks de
   // tournoi de cette identité (duel-profiles.ts) ; multi : ratio du format
   // et plancher MIN_BASICS_BY_COLORS.
-  const landTarget = duelStats
-    ? Math.max(34, Math.min(40, Math.round(duelStats.lands)))
-    : Math.round(format.categories.idealLandRatio * deckSize);
+  const landTarget = planLandTarget(
+    ctx.plan,
+    duelStats ? Math.max(34, Math.min(40, Math.round(duelStats.lands))) : Math.round(format.categories.idealLandRatio * deckSize)
+  );
   const basicsTarget = duelStats ? Math.round(duelStats.basics) : minBasicsFor(identity.length);
   const nonLandTarget = deckSize - landTarget;
 
@@ -773,6 +824,7 @@ function buildOnce(ctx: BuildContext): BuiltDeck {
     comboPiecesPicked: new Set(),
     pickedCoKeys: new Set(commanders.map((c) => cooccurrenceKey(c.name))),
     reference,
+    plan: emptyPlanCounts(),
   };
   // Les commandants comptent pour les combos et les Game Changers — pas pour
   // les piliers/la courbe (même convention que computeDeckStats).
@@ -793,7 +845,7 @@ function buildOnce(ctx: BuildContext): BuiltDeck {
   const landAcq = landPicks.filter((x) => x.acquired).length;
   const nonLandPicks = greedyPick(
     nonLands,
-    nonLandTarget + p.maxLandCut,
+    nonLandTarget + p.maxLandCut + BENCH_SIZE,
     { ...ctx, maxAcquisitions: Math.max(0, ctx.maxAcquisitions - landAcq) },
     profile,
     state,
@@ -865,7 +917,20 @@ function buildOnce(ctx: BuildContext): BuiltDeck {
   const deckList = Array.from(cards.values());
   const { stats, tier } = evaluateDeck(deckList, commanders, features, basics, format, comboDefs);
 
-  return { commanders, commandersOwned, cards: deckList, acquisitions, reasonsByName, stats, tier, profile, reference };
+  const info = (x: PickedEntry): PickInfo => ({
+    key: x.f.key,
+    name: x.f.card.name,
+    score: x.score,
+    acquired: x.acquired,
+    locked: pieceSet.has(x.f.key) || x.f.tier.gameChanger || x.f.tier.fastMana,
+  });
+  const picks = finalNonLands.map(info);
+  const bench = nonLandPicks
+    .slice(nonLandTarget + cut)
+    .filter((x) => !x.acquired)
+    .map(info);
+
+  return { commanders, commandersOwned, cards: deckList, acquisitions, reasonsByName, stats, tier, profile, reference, plan: ctx.plan ?? null, picks, bench };
 }
 
 /** Score + tier d'une liste, avec les mêmes fonctions que le tableau de bord (computeDeckStats/computeDeckTier). */
@@ -1048,7 +1113,74 @@ export interface RankParams {
  * d'abord, score en départage.
  */
 export function rankProposals(params: RankParams): DeckProposal[] {
-  const { candidates, features, owned, acquirable, maxAcquisitions, format, basics } = params;
+  const proposals = selectTrials(params).map((t) => buildProposal(t, params));
+  sortProposals(proposals);
+  return proposals;
+}
+
+/**
+ * Même classement, mais rend la main entre deux commandants et signale
+ * l'avancement (03/10/2026 : chargeur à étapes de l'interface). `onTrial`
+ * peut être asynchrone — c'est ce qui laisse partir le flux de progression.
+ */
+export async function rankProposalsAsync(
+  params: RankParams,
+  onTrial: (done: number, total: number, label: string) => void | Promise<void>
+): Promise<DeckProposal[]> {
+  const trials = selectTrials(params);
+  const proposals: DeckProposal[] = [];
+  for (const [i, t] of trials.entries()) {
+    proposals.push(buildProposal(t, params));
+    await onTrial(i + 1, trials.length, candidateKey(t.c));
+  }
+  sortProposals(proposals);
+  return proposals;
+}
+
+interface Trial {
+  c: CommanderCandidate;
+  affinity: number;
+}
+
+/**
+ * Affinité « par les synergies » d'un commandant avec la collection
+ * (03/10/2026, demande de Ben : ne pas s'en tenir aux commandants
+ * standard). Pour chaque axe que le commandant récompense : la part de la
+ * densité cible que les cartes POSSÉDÉES de son identité peuvent fournir,
+ * pondérée par ce que les decks connus en disent (lift). Un commandant peu
+ * joué mais que la collection sert très bien sort ainsi du lot, même si son
+ * affinité « puissance » est moyenne.
+ */
+function synergyAffinity(
+  commanders: ScryfallCard[],
+  features: Map<string, CardFeatures>,
+  owned: Map<string, number>,
+  mode: BuildMode
+): number {
+  const rewards = new Set<number>();
+  for (const c of commanders) for (const i of cardMechanics(c).rewards) rewards.add(i);
+  if (rewards.size === 0) return 0;
+  const identity = unionIdentity(commanders);
+  const producers = new Map<number, number>();
+  for (const f of features.values()) {
+    if (f.isLand || (owned.get(f.key) ?? 0) <= 0 || !inIdentity(f.card, identity)) continue;
+    for (const i of f.mech.produces) if (rewards.has(i)) producers.set(i, (producers.get(i) ?? 0) + 1);
+  }
+  const targets = axisTargets(mode);
+  let s = 0;
+  for (const i of rewards) {
+    const t = targets[i];
+    if (BROAD_AXES.has(AXES[i].id)) continue;
+    s += Math.min(1, (producers.get(i) ?? 0) / Math.max(1, t.target)) * (t.validated ? Math.min(2, t.lift) : 0.7);
+  }
+  return s;
+}
+
+/** Axes que presque tout deck sert sans le vouloir : ils ne distinguent pas un commandant. */
+const BROAD_AXES = new Set(["combat", "flash", "legends", "bigmana", "blink", "arrivals", "draw", "untap"]);
+
+function selectTrials(params: RankParams): Trial[] {
+  const { candidates, features, owned, format } = params;
   const mode = modeForFormat(format);
   const maxTrials = params.maxTrials ?? 30;
   const minOwned = params.minOwnedTrials ?? 8;
@@ -1073,26 +1205,35 @@ export function rankProposals(params: RankParams): DeckProposal[] {
     if (chosen.size >= maxTrials) break;
     if (!chosen.has(candidateKey(x.c))) chosen.set(candidateKey(x.c), x);
   }
+  // Pistes originales : les commandants POSSÉDÉS que la collection sert le
+  // mieux sur leurs propres axes, même s'ils n'ont pas passé la présélection
+  // par la puissance. Au plus EXTRA_SYNERGY_TRIALS decks de plus à construire.
+  const bySynergy = withAffinity
+    .filter((x) => x.c.owned.every(Boolean) && !chosen.has(candidateKey(x.c)))
+    .map((x) => ({ x, s: synergyAffinity(x.c.cards, features, owned, mode) }))
+    .filter((y) => y.s >= 1.5)
+    .sort((a, b) => b.s - a.s || candidateKey(a.x.c).localeCompare(candidateKey(b.x.c)))
+    .slice(0, EXTRA_SYNERGY_TRIALS);
+  for (const { x } of bySynergy) chosen.set(candidateKey(x.c), x);
   if (maxPairs > 0) {
     for (const x of generatePairs(withAffinity, params.mates ?? [], features, owned, format, mode, 25, maxPairs, maxColors)) {
       chosen.set(candidateKey(x.c), x);
     }
   }
+  return Array.from(chosen.values());
+}
 
-  const proposals: DeckProposal[] = [];
-  for (const { c, affinity } of chosen.values()) {
-    const profile = mergeProfiles(c.cards.map(commanderProfile));
-    const base = { commanders: c.cards, format, mode, features, owned, basics, profile, combos: params.combos };
-    const ownedDeck = buildDeckForCommander({ ...base, acquirable: new Set(), maxAcquisitions: 0 });
-    const upgradedDeck =
-      acquirable.size > 0 && maxAcquisitions > 0
-        ? buildDeckForCommander({ ...base, acquirable, maxAcquisitions })
-        : ownedDeck;
-    proposals.push({ candidate: c, ownedDeck, upgradedDeck, affinity });
-  }
+const EXTRA_SYNERGY_TRIALS = 8;
 
-  sortProposals(proposals);
-  return proposals;
+function buildProposal({ c, affinity }: Trial, params: RankParams): DeckProposal {
+  const { features, owned, acquirable, maxAcquisitions, format, basics } = params;
+  const mode = modeForFormat(format);
+  const profile = mergeProfiles(c.cards.map(commanderProfile));
+  const base = { commanders: c.cards, format, mode, features, owned, basics, profile, combos: params.combos };
+  const ownedDeck = buildDeckForCommander({ ...base, acquirable: new Set(), maxAcquisitions: 0 });
+  const upgradedDeck =
+    acquirable.size > 0 && maxAcquisitions > 0 ? buildDeckForCommander({ ...base, acquirable, maxAcquisitions }) : ownedDeck;
+  return { candidate: c, ownedDeck, upgradedDeck, affinity };
 }
 
 /** Tri « tier d'abord » (partagé avec competitive-actions.ts après enrichissement Commander Spellbook). */
