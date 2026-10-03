@@ -178,6 +178,10 @@ Voir la section « Structure » du README pour l'arbre complet.
 - **`git status` sur le Mac** : utiliser `git --no-optional-locks status`.
   Sans l'option, git laisse un `.git/index.lock` qu'il ne peut pas supprimer
   (arrivé le 03/10/2026) et GitHub Desktop refuse ensuite de commiter.
+- **`/cards/collection` ne reconnaît pas « Recto // Verso »** (03/10/2026) :
+  il faut lui envoyer le recto. `getCardsByNames` le fait ; un faux Scryfall
+  de test DOIT refuser les noms complets, sinon ce genre de défaut passe
+  inaperçu (c'est ce qui est arrivé).
 - **Pas d'API EDHREC** : score/suggestions = moteur heuristique interne.
   Décision assumée, ne pas la remettre en cause sans Ben.
 - **Tier = heuristique** inspirée des Brackets WotC, pas le système

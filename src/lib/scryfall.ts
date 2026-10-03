@@ -140,6 +140,8 @@ function cacheCard(key: string, card: ScryfallCard): void {
 
 /** Nombre max de recherches approchées une par une dans getCardsByNames (550 ms chacune). */
 const MAX_FUZZY_FALLBACK = 20;
+/** Nombre max de cartes à double nom (« A // B ») retentées une par une dans getCardsByNames. */
+const MAX_DOUBLE_NAME_LOOKUPS = 60;
 
 /**
  * Enveloppe `fetch` en avalant les erreurs réseau (timeout, DNS, hôte
@@ -233,12 +235,22 @@ export async function getCardsByNames(
     } else toFetch.push(name);
   }
 
+  // 03/10/2026 (signalement de Ben : 38 cartes « A // B » de sa collection
+  // « non reconnues » — aventures, cartes à préparation, cartes doubles,
+  // recto-verso). `/cards/collection` ne reconnaît PAS le nom complet
+  // « Recto // Verso » : il faut lui envoyer le nom du RECTO seul. On envoie
+  // donc le recto, puis on rattache la carte reçue au nom saisi. Constat fait
+  // sur le site déployé (la liste de Ben), pas reproduit en direct depuis
+  // l'environnement de dev ; d'où le filet ci-dessous pour les cartes doubles
+  // qui échoueraient encore.
+  const frontOf = (name: string) => name.split(" // ")[0].trim();
   for (let i = 0; i < toFetch.length; i += CHUNK) {
     const chunk = toFetch.slice(i, i + CHUNK);
+    const queries = Array.from(new Set(chunk.map(frontOf)));
     const res = await scryfallFetch(`/cards/collection`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ identifiers: chunk.map((name) => ({ name })) }),
+      body: JSON.stringify({ identifiers: queries.map((name) => ({ name })) }),
     });
     if (!res) continue; // réseau KO ou pause 429 en cours (déjà journalisé)
     if (!res.ok) {
@@ -246,21 +258,56 @@ export async function getCardsByNames(
       continue;
     }
     const data = (await res.json()) as { data: ScryfallCard[] };
+    const byFront = new Map<string, ScryfallCard>();
     for (const card of data.data) {
       result.set(card.name.toLowerCase(), card);
       cacheCard(card.name.toLowerCase(), card);
+      const front = frontOf(card.name).toLowerCase();
+      if (!byFront.has(front)) byFront.set(front, card);
     }
-    // Clés d'entrée (ex. face avant seule d'une carte double) → même carte en cache.
+    // Clés d'entrée (nom complet « A // B » ou recto seul) → la carte reçue.
     for (const name of chunk) {
       const k = name.toLowerCase();
       if (result.has(k)) continue;
-      for (const card of data.data) {
-        if (card.name.split(" // ")[0].toLowerCase() === k) {
-          cacheCard(k, card);
-          break;
-        }
+      const card = byFront.get(frontOf(name).toLowerCase());
+      if (card) {
+        result.set(k, card);
+        cacheCard(k, card);
       }
     }
+  }
+
+  // Filet pour les cartes à double nom encore introuvables (au cas où le
+  // recto seul ne suffirait pas pour certaines, ex. une carte double) :
+  // 1. recherche par nom EXACT, groupée — `!"A // B" or !"C // D"`, syntaxe
+  //    Scryfall standard, 12 noms par requête ;
+  // 2. puis `/cards/named` une par une pour ce qui reste (c'est lui qui
+  //    résout « Insult // Injury » dans la recherche manuelle), plafonné.
+  // Indépendant de `fuzzyFallback` : ce ne sont pas des fautes de frappe.
+  const stillDouble = () => uniqueNames.filter((name) => name.includes(" // ") && !result.has(name.toLowerCase()));
+  const attach = (cards: ScryfallCard[], wanted: string[]) => {
+    for (const name of wanted) {
+      const k = name.toLowerCase();
+      const card =
+        cards.find((c) => c.name.toLowerCase() === k) ?? cards.find((c) => frontOf(c.name).toLowerCase() === frontOf(name).toLowerCase());
+      if (!card) continue;
+      result.set(k, card);
+      result.set(card.name.toLowerCase(), card);
+      cacheCard(k, card);
+    }
+  };
+  let missing = stillDouble();
+  for (let i = 0; i < missing.length && i < 96; i += 12) {
+    if (scryfallRateLimitStatus().limited) break;
+    const group = missing.slice(i, i + 12);
+    const query = group.map((name) => `!"${name.replace(/"/g, "")}"`).join(" or ");
+    attach(await searchCards(query, 1, "name", "cards"), group);
+  }
+  missing = stillDouble();
+  for (const name of missing.slice(0, MAX_DOUBLE_NAME_LOOKUPS)) {
+    if (scryfallRateLimitStatus().limited) break;
+    const card = (await getCardByName(name, "exact")) ?? (await getCardByName(frontOf(name), "fuzzy"));
+    if (card) attach([card], [name]);
   }
 
   // Recherche approchée une par une : plafonnée (550 ms chacune) et jamais

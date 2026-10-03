@@ -2669,3 +2669,33 @@ Faire jouer les récompenses par le simulateur (jetons, anthems, drain) ;
 un adversaire simplifié (une réponse par tour) ; recettes multi à partir de
 decks cEDH si une source accessible existe ; recalibrer 0,6/0,4 quand Ben
 aura joué quelques decks proposés.
+
+## 03/10/2026 (3) — Cartes à double nom « A // B » non reconnues
+
+**Symptôme (Ben, site déployé)** : 38 cartes de sa collection listées « Non
+reconnues par Scryfall (ignorées) », toutes de la forme « Recto // Verso » :
+aventures (Brazen Borrower // Petty Theft), cartes à préparation (Hallway
+Heckler // Vicious Verse), cartes doubles (Fire // Ice, Insult // Injury),
+recto-verso (Ashling, Rekindled // Ashling, Rimebound). Elles n'entraient
+donc dans aucun deck.
+
+**Cause** : `getCardsByNames` envoyait le nom complet à `/cards/collection`,
+qui ne le reconnaît pas ; il attend le nom du recto. Les étapes de rattrapage
+(autocomplétion, recherche approchée) sont plafonnées et ne couvraient qu'une
+partie des cas. Le filet du 26/08/2026 (« Insult // Injury ») traitait déjà
+ce symptôme sans en connaître la cause. Mes essais du jour ne l'avaient pas
+vu : le faux Scryfall acceptait les noms complets.
+
+**Correctif** (`src/lib/scryfall.ts`, donc valable pour TOUS les outils :
+constructeur, analyse de deck, précons, suggestions) :
+1. on envoie le recto, et la carte reçue est rattachée au nom saisi ;
+2. pour ce qui manquerait encore : recherche groupée par nom exact
+   (`!"A // B" or …`, 12 noms par requête) ;
+3. puis `/cards/named` carte par carte (60 au plus).
+
+**Vérifié** avec un faux Scryfall qui refuse désormais les noms complets,
+sur la collection de Ben (1 480 noms, 55 à double nom) : 53 non reconnus
+avant, 6 après — les 6 jetons (Hero, Pest, Knight, Spider, Illusion Villain,
+Treasure), qui ne sont pas des cartes de deck. Idem si le recto seul est
+refusé (étape 2), et si la recherche groupée échoue aussi (étape 3).
+**Non vérifié** contre le vrai Scryfall : à confirmer par Ben sur le site.
