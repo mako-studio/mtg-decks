@@ -37,6 +37,8 @@ export interface AxisDef {
   /** Types de carte qui produisent l'axe par nature (un artefact « produit » des artefacts). */
   producesTypes?: string[];
   rewards: RegExp[];
+  /** Gabarits de carte (card.layout) qui produisent l'axe : une aventure se lance depuis l'exil. */
+  producesLayouts?: string[];
   /** Mots-clés Scryfall (card.keywords) qui valent production / récompense. */
   producesKeywords?: string[];
   rewardsKeywords?: string[];
@@ -259,9 +261,25 @@ export const AXES: readonly AxisDef[] = [
   {
     id: "exilecast",
     label: "Sorts lancés hors de la main",
-    event: "tu joues une carte depuis l'exil ou le dessus de la bibliothèque",
-    produces: [/exile the top [^.]*cards? of your library[^.]*(you may|may) (play|cast)/i, /\b(cascade|discover|foretell|suspend|plot)\b/i, /you may (play|cast) (it|that card|them) (this turn|until)/i],
-    rewards: [/whenever you (cast|play) [^.]*from (exile|anywhere other than your hand)/i, /spells? you cast from (exile|your graveyard|anywhere)/i],
+    event: "tu joues une carte depuis l'exil, le cimetière ou le dessus de la bibliothèque",
+    // 04/10/2026 : élargi aux mots-clés qui font lancer une carte d'ailleurs
+    // que la main (rappel éclair, aventure, harmonisation...). Spider-Man
+    // 2099 récompense « un sort lancé d'ailleurs que de ta main » : ses decks
+    // de tournoi jouent tous Reckless Charge, Wild Ride, Detective's Phoenix.
+    produces: [
+      /exile the top [^.]*cards? of your library[^.]*(you may|may) (play|cast)/i,
+      /\b(cascade|discover|foretell|suspend|plot|flashback|harmonize|escape|jump-start|retrace|rebound|madness|disturb|aftermath)\b/i,
+      /you may (play|cast) (it|that card|them|those cards) (this turn|until)/i,
+      /you may (cast|play) [^.]*from your graveyard/i,
+      /play lands? (and cast spells )?from (your graveyard|the top of your library)/i,
+    ],
+    producesKeywords: ["flashback", "harmonize", "escape", "jump-start", "retrace", "rebound", "madness", "disturb", "aftermath", "foretell", "plot", "suspend", "cascade", "discover"],
+    producesLayouts: ["adventure"],
+    rewards: [
+      /whenever you (cast|play) [^.]*from (exile|anywhere other than your hand)/i,
+      /spells? you cast from (exile|your graveyard|anywhere)/i,
+      /(cast a spell|played a land or cast a spell)[^.]*from anywhere other than your hand/i,
+    ],
   },
   {
     id: "treasure",
@@ -353,7 +371,8 @@ export function cardMechanics(card: ScryfallCard): CardMechanics {
     const p =
       axis.produces.some((re) => re.test(text)) ||
       (axis.producesTypes?.some((t) => typeLine.includes(t)) ?? false) ||
-      (axis.producesKeywords?.some((k) => keywords.has(k)) ?? false);
+      (axis.producesKeywords?.some((k) => keywords.has(k)) ?? false) ||
+      (axis.producesLayouts?.includes(card.layout ?? "") ?? false);
     const r = axis.rewards.some((re) => re.test(text)) || (axis.rewardsKeywords?.some((k) => keywords.has(k)) ?? false);
     if (p) produces.push(i);
     if (r || (axis.id === "bigmana" && isManaSink(card))) rewards.push(i);

@@ -1,6 +1,7 @@
 import type { CategoryConfig, DeckCategory, DeckStats, EnrichedCard, FormatKey, ScryfallCard } from "./types";
 import { getDisplayOracleText } from "./scryfall";
 import { classifyCard } from "./deck-score";
+import { isRealAcceleration } from "./card-quality";
 import { CURATED_COMBOS, findCompleteCombos, type ComboDef } from "./combos";
 import { duelMetaPresence } from "./duel-meta";
 
@@ -161,11 +162,24 @@ export interface CardTierSignals {
   duelMeta: number;
 }
 
+const COUNTERSPELL_PATTERN = /counter target [^.]*(spell|ability)/i;
+
+/** Contresort qui n'est pas déjà compté comme removal ou disruption (pour ne pas le compter deux fois). */
+export function isPureCounterspell(card: ScryfallCard, categories: readonly DeckCategory[] = classifyCard(card)): boolean {
+  if (card.type_line?.split(" // ")[0].includes("Land")) return false;
+  return COUNTERSPELL_PATTERN.test(getDisplayOracleText(card)) && !categories.includes("removal") && !categories.includes("disruption");
+}
+
 export function cardTierSignals(card: ScryfallCard, categories: DeckCategory[] = classifyCard(card)): CardTierSignals {
   const text = getDisplayOracleText(card);
   return {
     gameChanger: card.game_changer === true,
-    fastMana: categories.includes("ramp") && card.cmc <= 2,
+    // 04/10/2026 : une VRAIE accélération seulement (card-quality.ts). Avant,
+    // tout ce que le pilier « rampe » reconnaît à 2 manas ou moins comptait :
+    // un filtre de mana (Chromatic Star), un Trésor conditionnel (Diamond
+    // Pick-Axe) rapportaient +3 points d'indice chacun, et le constructeur
+    // les choisissait pour cette seule raison.
+    fastMana: categories.includes("ramp") && card.cmc <= 2 && isRealAcceleration(card),
     extraTurn: EXTRA_TURN_PATTERN.test(text),
     massLandDenial: MASS_LAND_DENIAL_PATTERNS.some((p) => p.test(text)),
     tutor: categories.includes("tutor"),
@@ -358,6 +372,16 @@ export function computeDeckTier(
   // comme avant le 25/09/2026 — mêmes comptes que le tableau de bord.
   counts.tutor = stats.categoryCounts.tutor;
   counts.interaction = stats.categoryCounts.removal + stats.categoryCounts.disruption;
+  // Duel (04/10/2026) : un contresort EST une interaction. Le pilier
+  // « protection » de deck-score.ts les range avec l'anti-ciblage, si bien
+  // qu'un deck de contrôle à 17 contresorts passait pour un deck qui
+  // interagit peu. Compté ici pour le Duel seulement (en multijoueur, un
+  // contresort ne répond qu'à un adversaire sur trois : cible inchangée).
+  if (formatKey === "duelcommander") {
+    for (const entry of cards) {
+      if (entry.card && isPureCounterspell(entry.card)) counts.interaction += entry.count;
+    }
+  }
   counts.nonLandCount = stats.totalNonLandCards;
   counts.nonLandCmcSum = stats.avgCmc * stats.totalNonLandCards;
 

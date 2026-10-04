@@ -344,7 +344,8 @@ function nameRecipe(z: Record<string, number>): { id: string; label: string } {
   return { id: "midrange", label: "Milieu de partie" };
 }
 
-function learnRecipes(groups: Map<string, Profile[]>, k: number): Recipe[] {
+function learnRecipes(groups: Map<string, Profile[]>, k: number): { recipes: Recipe[]; familyOf: Map<string, string> } {
+  const familyOf = new Map<string, string>();
   const keys = Array.from(groups.keys()).filter((key) => groups.get(key)!.length >= 2);
   const raw = keys.map((key) => shapeVector(groups.get(key)!));
   const mu = SHAPE.map((_, j) => mean(raw.map((r) => r[j])));
@@ -375,6 +376,7 @@ function learnRecipes(groups: Map<string, Profile[]>, k: number): Recipe[] {
       colorCount[col] = (colorCount[col] ?? 0) + 1;
     }
     const top = [...SHAPE].sort((a, b) => Math.abs(z[b]) - Math.abs(z[a])).slice(0, 3);
+    for (const m of members) familyOf.set(m, n > 1 ? `${named.id}-${n}` : named.id);
     recipes.push({
       id: n > 1 ? `${named.id}-${n}` : named.id,
       label: n > 1 ? `${named.label} (variante ${n})` : named.label,
@@ -390,7 +392,7 @@ function learnRecipes(groups: Map<string, Profile[]>, k: number): Recipe[] {
       z,
     });
   }
-  return recipes.sort((a, b) => b.commanders - a.commanders);
+  return { recipes: recipes.sort((a, b) => b.commanders - a.commanders), familyOf };
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -433,6 +435,26 @@ const preconProfiles = precons
 const multiGroups = byCommander(preconProfiles);
 const multi = axisTrends(multiGroups);
 
+// ---------- Forme propre à chaque commandant (04/10/2026) ----------
+// Pour un commandant assez joué, la forme de SES decks est un meilleur guide
+// que celle de sa famille (une famille mélange 30 commandants). Fourchettes
+// de chaque rôle sur ses decks ; 4 decks au moins, sinon on s'en tient à la
+// famille. Clé : noms des commandants joints par « + », tels que mtgtop8 les
+// écrit (deck-trends.ts normalise à la lecture).
+const learned = learnRecipes(duelGroups, 6);
+const shapes: Record<string, { decks: number; recipe: string | null; roles: Record<string, { p25: number; median: number; p75: number }>; lands: { p25: number; median: number; p75: number }; avgCmc: number }> = {};
+for (const [key, ps] of duelGroups) {
+  if (ps.length < 4) continue;
+  const range = (xs: number[]) => ({ p25: round(quantile(xs, 0.25), 0), median: round(quantile(xs, 0.5), 0), p75: round(quantile(xs, 0.75), 0) });
+  shapes[key] = {
+    decks: ps.length,
+    recipe: learned.familyOf.get(key) ?? null,
+    roles: Object.fromEntries(ROLE_IDS.map((r) => [r, range(ps.map((p) => p.roles[r]))])),
+    lands: range(ps.map((p) => p.lands)),
+    avgCmc: round(mean(ps.map((p) => p.avgCmc)), 2),
+  };
+}
+
 const dates = duelDecks.map((d) => d.date ?? "").filter(Boolean).sort();
 const out = {
   generatedAt: new Date().toISOString().slice(0, 10),
@@ -442,7 +464,8 @@ const out = {
   },
   axes: Object.fromEntries(AXES.map((a) => [a.id, { duel: duel.axes[a.id] ?? null, multi: multi.axes[a.id] ?? null }])),
   axisPairs: { duel: pairTrends(duel.built, 5), multi: pairTrends(multi.built, 5) },
-  recipes: learnRecipes(duelGroups, 6),
+  recipes: learned.recipes,
+  shapes,
   roleLabels: ROLE_LABELS,
 };
 writeFileSync(path.join(ROOT, "src/data/deck-trends.json"), JSON.stringify(out, null, 1) + "\n", "utf8");

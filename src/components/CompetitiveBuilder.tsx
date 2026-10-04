@@ -4,7 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { openProposedDeck, runCompetitiveBuild } from "@/lib/competitive-actions";
 import type { AcquisitionOption, CompetitiveBuildResult, ProposalSummary } from "@/lib/competitive-run";
 import type { BuildProgress } from "@/lib/build-steps";
-import { BuildProgressPanel, GamePlanPanel, MissingStaplesPanel } from "./BuildPanels";
+import { BuildProgressPanel, GamePlanPanel, MissingStaplesPanel, RankingPanel } from "./BuildPanels";
 import type { DeckAnalysisResult } from "@/lib/actions";
 import { parseCollectionCsv, parseCollectionText } from "@/lib/collection-import";
 import type { PowerTierLevel } from "@/lib/deck-tier";
@@ -221,6 +221,7 @@ export function CompetitiveBuilder({ fromSimulator = false }: { fromSimulator?: 
       cards: deck.cards,
       acquisitionNames,
       label: `${p.commander} — ${v === "upgraded" ? "optimisé" : "avec mes cartes"}`,
+      planHint: deck.planHint,
     });
     setOpened(opened);
     setOpenedKey(`${res.formatKey}:${p.commander}:${v}:${res.maxAcquisitions}`);
@@ -557,7 +558,8 @@ export function CompetitiveBuilder({ fromSimulator = false }: { fromSimulator?: 
 
       <div>
         <h2 className="text-lg font-semibold tracking-tight">
-          {result.proposals.length} deck{result.proposals.length > 1 ? "s" : ""} proposé{result.proposals.length > 1 ? "s" : ""}, classés par tier dans chaque groupe
+          {result.proposals.length} deck{result.proposals.length > 1 ? "s" : ""} proposé{result.proposals.length > 1 ? "s" : ""}, classés par{" "}
+          {result.formatKey === "duelcommander" ? "solidité du deck et valeur du commandant" : "tier"} dans chaque groupe
         </h2>
         <p className="mt-0.5 text-xs text-muted">
           {result.candidateCount} commandants considérés, {result.evaluatedCount} évalués avec un deck complet. Barre
@@ -658,7 +660,20 @@ export function CompetitiveBuilder({ fromSimulator = false }: { fromSimulator?: 
                 {prop.owned.score}/100
                 {prop.owned.tier.signals.combos.length > 0 ? ` · ${prop.owned.tier.signals.combos.length} combo` : ""}
               </p>
-              {prop.owned.gamePlan && (
+              {prop.ranking && (
+                <p className="text-[11px]" title="Score de classement : solidité du deck avec tes cartes (qualité des cartes, forme, cohérence, parties simulées, tier) + valeur du commandant en Duel.">
+                  <span className="font-semibold">Classement {prop.ranking.score}</span>
+                  <span className="text-muted">
+                    {" "}
+                    · solidité {prop.owned.solidity?.score ?? "—"} ·{" "}
+                    {prop.ranking.commander.tournamentDecks > 0
+                      ? `commandant vu dans ${prop.ranking.commander.tournamentDecks} deck${prop.ranking.commander.tournamentDecks > 1 ? "s" : ""} de tournoi`
+                      : "commandant jamais vu en tournoi"}
+                  </span>
+                </p>
+              )}
+              {prop.owned.reading && <p className="text-[11px] text-muted">{prop.owned.reading.line.style}{prop.owned.reading.line.axes.length ? ` · ${prop.owned.reading.line.axes.map((a) => a.label).join(" + ")}` : ""}</p>}
+              {!prop.ranking && prop.owned.gamePlan && (
                 <p className="text-[11px] text-muted" title="Indices du deck « avec mes cartes » : parties simulées en solitaire et densité de synergies.">
                   Parties simulées {prop.owned.gamePlan.playtest.score} · synergies {prop.owned.gamePlan.synergyIndex} · {prop.owned.gamePlan.archetype}
                 </p>
@@ -794,6 +809,15 @@ export function CompetitiveBuilder({ fromSimulator = false }: { fromSimulator?: 
             </div>
           </div>
 
+          {p.ranking && (
+            <RankingPanel
+              ranking={p.ranking}
+              solidity={shownDeck.solidity}
+              alternatives={p.alternatives}
+              variantLabel={variant === "owned" ? "avec mes cartes" : "optimisé"}
+            />
+          )}
+
           {shownDeck.gamePlan && <GamePlanPanel plan={shownDeck.gamePlan} />}
 
           <MissingStaplesPanel staples={shownDeck.missingStaples} variantLabel={variant === "owned" ? "Avec mes cartes" : "Optimisé"} />
@@ -802,8 +826,10 @@ export function CompetitiveBuilder({ fromSimulator = false }: { fromSimulator?: 
             <div className="mt-5">
               <h3 className="text-sm font-semibold">Pool recommandé hors de ta liste ({p.acquisitions.length})</h3>
               <p className="text-xs text-muted">
-                Classées par gain d&apos;indice de tier au moment où le moteur les a choisies. Prix Scryfall (EUR, indicatif,
-                peut manquer).
+                {result.formatKey === "duelcommander"
+                  ? "De la mieux notée par le moteur à la moins bien notée (qualité, place dans la forme et le plan du deck). Au plus un tiers de terrains."
+                  : "Classées par gain d'indice de tier au moment où le moteur les a choisies."}{" "}
+                Prix Scryfall (EUR, indicatif, peut manquer).
               </p>
               <div className="mt-2 overflow-x-auto">
                 <table className="w-full min-w-[560px] text-left text-xs">

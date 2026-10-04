@@ -1,4 +1,5 @@
 import { unmetDependencies } from "./dependencies";
+import { multiplayerOnly } from "./deck-audit";
 import type { FormatConfig, ScryfallCard } from "./types";
 import { evaluateDeck, unionIdentity, type BuildMode, type BuiltDeck, type CardFeatures } from "./competitive-builder";
 import { CATEGORY_LABELS } from "./deck-score";
@@ -93,11 +94,15 @@ export function missingStaples(input: {
     if (!f.card.color_identity.every((c) => identity.includes(c))) continue;
     const reasons: string[] = [];
     let prior = 0;
-    if (GAME_CHANGERS.has(f.key) || f.tier.gameChanger) {
+    // Duel (04/10/2026) : ni la liste des Game Changers (notion du multijoueur)
+    // ni la liste curatée du site ne font un staple — seuls les decks de
+    // tournoi le disent. Avant, « Gamble » sortait en tête en Duel pour son
+    // seul statut de Game Changer.
+    if (!duel && (GAME_CHANGERS.has(f.key) || f.tier.gameChanger)) {
       reasons.push("Game Changer (liste officielle)");
-      prior += duel ? 0.5 : 3;
+      prior += 3;
     }
-    const role = CURATED.get(f.key);
+    const role = duel ? undefined : CURATED.get(f.key);
     if (role) {
       reasons.push(`Staple « ${ROLE_LABEL[role] ?? role} » (liste curatée du site)`);
       prior += 1.5;
@@ -119,6 +124,8 @@ export function missingStaples(input: {
       prior += 1;
     }
     if (reasons.length === 0) continue;
+    // Duel : une mécanique pensée pour le multijoueur n'est pas un staple ici (deck-audit.ts).
+    if (duel && (multiplayerOnly(f.card)?.severity ?? 0) >= 0.5) continue;
     // Un staple qui cherche un type que ce deck ne contient pas n'en est pas un ici (dependencies.ts).
     if (unmetDependencies([...deckCards, f.card], deck.commanders).some((u) => u.name === f.card.name && u.dependency.kind !== "tribe")) continue;
     candidates.push({ f, reasons, presence, prior });
@@ -162,7 +169,8 @@ export function missingStaples(input: {
     });
   }
   // Ce qui améliore le tier d'abord ; ensuite ce que les tournois jouent le plus ; les échanges perdants en dernier.
-  out.sort((a, b) => b.tierGain - a.tierGain || b.presence - a.presence || b.scoreGain - a.scoreGain || a.name.localeCompare(b.name));
+  if (duel) out.sort((a, b) => b.presence - a.presence || b.tierGain - a.tierGain || a.name.localeCompare(b.name));
+  else out.sort((a, b) => b.tierGain - a.tierGain || b.presence - a.presence || b.scoreGain - a.scoreGain || a.name.localeCompare(b.name));
   // Un échange qui fait BAISSER l'indice n'est pas une amélioration : écarté, sauf carte massivement jouée en tournoi.
   return out.filter((s) => s.tierGain > 0 || (s.tierGain >= 0 && s.scoreGain > 0) || s.presence >= 0.3).slice(0, max);
 }

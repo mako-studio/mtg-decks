@@ -313,8 +313,9 @@ export function GamePlanPanel({ plan }: { plan: GamePlanSummary }) {
           {plan.variants.length} variante{plan.variants.length > 1 ? "s" : ""} essayée{plan.variants.length > 1 ? "s" : ""} pour ce deck
         </summary>
         <p className="mt-1 text-muted">
-          Règle de choix : le palier de tier le plus haut d&apos;abord ; à palier égal, l&apos;indice global (60 % parties
-          simulées, 40 % synergies). Une variante qui perd plus de 3 points d&apos;indice de puissance est écartée.
+          {plan.choiceRule === "solidite"
+            ? "Règle de choix : l'indice de solidité le plus haut — qualité des cartes (30 %), forme (20 %), cohérence (15 %), parties simulées (20 %), indice de tier (15 %). Deux variantes à moins de 2 points d'écart se valent."
+            : "Règle de choix : le palier de tier le plus haut d'abord ; à palier égal, l'indice global (60 % parties simulées, 40 % synergies). Une variante qui perd plus de 3 points d'indice de puissance est écartée."}
         </p>
         <div className="mt-2 overflow-x-auto">
           <table className="w-full min-w-[620px] text-left">
@@ -325,7 +326,7 @@ export function GamePlanPanel({ plan }: { plan: GamePlanSummary }) {
                 <th className="py-1 pr-2 text-right font-medium">Puissance</th>
                 <th className="py-1 pr-2 text-right font-medium">Parties</th>
                 <th className="py-1 pr-2 text-right font-medium">Synergies</th>
-                <th className="py-1 text-right font-medium">Global</th>
+                <th className="py-1 text-right font-medium">{plan.choiceRule === "solidite" ? "Solidité" : "Global"}</th>
               </tr>
             </thead>
             <tbody>
@@ -341,7 +342,7 @@ export function GamePlanPanel({ plan }: { plan: GamePlanSummary }) {
                   <td className="py-1 pr-2 text-right tabular-nums">{v.powerIndex}</td>
                   <td className="py-1 pr-2 text-right tabular-nums">{v.playtest}</td>
                   <td className="py-1 pr-2 text-right tabular-nums">{v.synergy}</td>
-                  <td className="py-1 text-right tabular-nums">{v.overall}</td>
+                  <td className="py-1 text-right tabular-nums">{plan.choiceRule === "solidite" ? v.solidity : v.overall}</td>
                 </tr>
               ))}
             </tbody>
@@ -442,3 +443,75 @@ export function MissingStaplesPanel({ staples, variantLabel }: { staples: Staple
     </div>
   );
 }
+
+/**
+ * « Pourquoi ce deck est classé là » (Duel, 04/10/2026, retour de Ben : « je
+ * ne suis pas certain du choix ou de la decklist »). Montre ce que le
+ * classement additionne : la solidité du deck « avec mes cartes » (cinq
+ * mesures) et la note du commandant, avec les raisons en clair, puis les
+ * autres commandants de la liste qui mènent pratiquement au même deck.
+ */
+export function RankingPanel({
+  ranking,
+  solidity,
+  alternatives,
+  variantLabel,
+}: {
+  ranking: { score: number; commander: { score: number; tournamentDecks: number; notes: string[] } };
+  solidity: { score: number; parts: { quality: number; structure: number; coherence: number; playtest: number; tier: number } } | null;
+  alternatives: { commander: string; owned: boolean; score: number | null }[];
+  variantLabel: string;
+}) {
+  const bonus = Math.round((ranking.commander.score - 5) * 3 * 10) / 10;
+  return (
+    <div className="mt-5 rounded-lg border border-border p-4" data-testid="ranking-panel">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h3 className="text-sm font-semibold">Pourquoi ce deck est classé là</h3>
+        <span className="text-xs text-muted">
+          Score de classement <strong className="text-foreground">{ranking.score}</strong> = solidité du deck avec tes cartes{" "}
+          {bonus >= 0 ? "+" : "−"} {Math.abs(bonus).toLocaleString("fr-FR")} pour le commandant
+        </span>
+      </div>
+      <div className="mt-3 grid gap-4 lg:grid-cols-2">
+        <div>
+          <p className="text-xs font-semibold">
+            Commandant : {ranking.commander.score.toLocaleString("fr-FR")}/10
+            {ranking.commander.tournamentDecks > 0 ? ` · ${ranking.commander.tournamentDecks} deck${ranking.commander.tournamentDecks > 1 ? "s" : ""} de tournoi` : " · jamais vu en tournoi"}
+          </p>
+          <ul className="mt-1 space-y-1 text-xs text-muted">
+            {ranking.commander.notes.map((n) => (
+              <li key={n}>· {n}</li>
+            ))}
+          </ul>
+          {alternatives.length > 0 && (
+            <p className="mt-2 text-xs text-muted">
+              <span className="font-medium text-foreground">Autres commandants de mêmes couleurs, pour un deck identique ou voisin :</span>{" "}
+              {alternatives.map((a) => `${a.commander}${a.score !== null ? ` (${a.score})` : ""}`).join(", ")}. Deux propositions au plus par
+              combinaison de couleurs, pour que la liste ne soit pas cinq fois le même deck ; à score proche (2 points ou moins), ces
+              commandants se valent.
+            </p>
+          )}
+        </div>
+        {solidity ? (
+          <div className="space-y-2">
+            <p className="text-xs font-semibold">
+              Solidité ({variantLabel}) : {solidity.score.toLocaleString("fr-FR")}/100
+            </p>
+            <Meter label="Qualité des cartes (30 %)" value={solidity.parts.quality / 100} hint="Qualité moyenne des cartes hors terrains : présence dans les decks de tournoi Duel, sinon estimation d'après le texte." />
+            <Meter label="Forme (20 %)" value={solidity.parts.structure / 100} hint="Créatures, contresorts, réponses, pioche, courbe : écart aux fourchettes des decks de tournoi." />
+            <Meter label="Cohérence (15 %)" value={solidity.parts.coherence / 100} hint="Part des cartes qui ont un rôle clair, moins les cartes à revoir, et réalisation du plan annoncé." />
+            <Meter label="Parties simulées (20 %)" value={solidity.parts.playtest / 100} hint="Régularité et vitesse en solitaire — pas un taux de victoire." />
+            <Meter label="Indice de tier (15 %)" value={solidity.parts.tier / 100} hint="L'indice de puissance du badge de tier." />
+          </div>
+        ) : (
+          <p className="text-xs text-muted">Solidité non calculée pour cette version.</p>
+        )}
+      </div>
+      <p className="mt-3 text-[11px] text-muted">
+        Les pondérations sont des choix de conception, pas des valeurs mesurées. Le tier affiché reste calculé comme partout sur le site ; il ne
+        décide plus seul du classement, parce qu&apos;à tier égal il ne distingue pas un deck cohérent d&apos;un assemblage de cartes.
+      </p>
+    </div>
+  );
+}
+

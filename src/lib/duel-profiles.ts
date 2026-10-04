@@ -71,6 +71,8 @@ const presenceCache = new Map<string, number>();
 export function duelPresenceForIdentity(cardName: string, cardColors: readonly string[], deckColors: readonly string[]): number {
   const deckKey = identityKey(deckColors);
   const nameKey = cardName.toLowerCase().split(" // ")[0];
+  // Cartes doubles : mtgtop8 écrit « Fire/Ice », Scryfall « Fire // Ice » (04/10/2026).
+  const splitKey = cardName.toLowerCase().replace(" // ", "/");
   const cacheKey = `${deckKey}|${nameKey}`;
   const hit = presenceCache.get(cacheKey);
   if (hit !== undefined) return hit;
@@ -80,7 +82,7 @@ export function duelPresenceForIdentity(cardName: string, cardColors: readonly s
   for (const g of GROUPS) {
     const w = similarity(target, g.colors);
     if (w === 0 || !cardColors.every((c) => g.colors.includes(c))) continue;
-    num += w * g.decks * (g.cards.get(nameKey) ?? 0);
+    num += w * g.decks * (g.cards.get(nameKey) ?? g.cards.get(splitKey) ?? 0);
     den += w * g.decks;
   }
   const v = den > 0 ? num / den : 0;
@@ -119,4 +121,33 @@ export function duelStatsForIdentity(deckColors: readonly string[]): DuelIdentit
     fetches: avg("fetches"),
     avgCmc: avg("avgCmc"),
   };
+}
+
+/**
+ * Cartes jouées par au moins `minShare` des decks de tournoi de cette
+ * identité (et voisines, mêmes poids que duelPresenceForIdentity), de la plus
+ * jouée à la moins jouée. Sert aux suggestions de la page de deck en Duel
+ * (duel-suggest.ts, 04/10/2026). Noms en minuscules, face avant.
+ */
+export function duelCardsForIdentity(deckColors: readonly string[], minShare = 0.15): { name: string; presence: number }[] {
+  const target = colorsOf(identityKey(deckColors));
+  const names = new Set<string>();
+  for (const g of GROUPS) {
+    if (similarity(target, g.colors) === 0) continue;
+    for (const n of g.cards.keys()) names.add(n);
+  }
+  const out: { name: string; presence: number }[] = [];
+  for (const name of names) {
+    let num = 0;
+    let den = 0;
+    for (const g of GROUPS) {
+      const w = similarity(target, g.colors);
+      if (w === 0) continue;
+      num += w * g.decks * (g.cards.get(name) ?? 0);
+      den += w * g.decks;
+    }
+    const presence = den > 0 ? num / den : 0;
+    if (presence >= minShare) out.push({ name, presence });
+  }
+  return out.sort((a, b) => b.presence - a.presence);
 }

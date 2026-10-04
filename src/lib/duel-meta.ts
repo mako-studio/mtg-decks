@@ -64,8 +64,9 @@ export function duelMetaPresence(name: string): number {
   const direct = LOWER_CARDS.get(key);
   if (direct !== undefined) return direct;
   // Cartes recto-verso : l'échantillon peut n'avoir retenu que la face avant.
+  // Cartes doubles : mtgtop8 écrit « Fire/Ice », Scryfall « Fire // Ice » (04/10/2026).
   const front = key.split(" // ")[0];
-  return front !== key ? (LOWER_CARDS.get(front) ?? 0) : 0;
+  return front !== key ? (LOWER_CARDS.get(key.replace(" // ", "/")) ?? LOWER_CARDS.get(front) ?? 0) : 0;
 }
 
 /**
@@ -75,7 +76,7 @@ export function duelMetaPresence(name: string): number {
 export function duelMetaPresenceInColors(name: string): number {
   const key = name.toLowerCase();
   if (BASIC_NAMES.has(key)) return 0;
-  const v = LOWER_IN_COLORS.get(key) ?? LOWER_IN_COLORS.get(key.split(" // ")[0]);
+  const v = LOWER_IN_COLORS.get(key) ?? LOWER_IN_COLORS.get(key.replace(" // ", "/")) ?? LOWER_IN_COLORS.get(key.split(" // ")[0]);
   return v ?? duelMetaPresence(name);
 }
 
@@ -89,4 +90,17 @@ export function duelMetaCardNames(minShare = 0.05): string[] {
   return Object.entries(CARDS)
     .filter(([name, share]) => share >= minShare && !BASIC_NAMES.has(name.toLowerCase()))
     .map(([name]) => name);
+}
+
+const LOWER_COMMANDERS = new Map<string, number>(Object.entries(COMMANDERS).map(([k, v]) => [k.toLowerCase().split(" // ")[0], v]));
+
+/**
+ * Nombre de decks de tournoi de l'échantillon menés par ce commandant
+ * (04/10/2026, classement des commandants). Pour un duo : le plus petit des
+ * deux comptes (chaque partenaire est compté séparément dans le fichier).
+ * 0 = jamais vu comme commandant.
+ */
+export function duelCommanderDeckCount(names: readonly string[]): number {
+  if (names.length === 0) return 0;
+  return Math.min(...names.map((n) => LOWER_COMMANDERS.get(n.toLowerCase().split(" // ")[0]) ?? 0));
 }

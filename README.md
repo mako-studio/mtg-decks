@@ -2759,3 +2759,202 @@ dépendent d'autres cartes » (écartées / gardées malgré tout, avec le compt
 - Non couvert : les dépendances qui ne passent ni par une recherche ni par
   une tribu (ex. une carte qui exige « un autre artefact » pour être utile).
 - Non vérifié sur le site déployé (Scryfall réel).
+
+## 04/10/2026 — Moteur Duel refondu : qualité des cartes, forme, cohérence, commandants notés, justification par carte
+
+**Signalements de Ben (même séance)** : (1) « il y a encore des cartes
+contre-productives et contre-intuitives dans tes suggestions ; si une carte
+se justifie, je veux la justification sur la page de deck » ; (2) « l'algo
+s'enferme dans des schémas : toujours The Rani comme meilleur commandant
+Duel, et je ne suis sûr ni du choix ni de la liste » ; (3) « des mécaniques
+sans rapport dans un même deck (spores, vampires, Docteurs…) » ; (4) « se
+concentrer sur la cohérence et l'homogénéité : choisir un type de jeu ou une
+mécanique et pousser le deck dans cette direction » ; (5) « concentre-toi sur
+le Duel, c'est le format que je joue ».
+
+**Périmètre** : le DUEL. Le multijoueur garde son moteur du 03/10 (tier
+d'abord) ; il n'hérite que des corrections communes listées plus bas.
+
+### Diagnostic (reproduit sur la collection de Ben, 1 480 cartes)
+
+1. **Le classement ne regardait pas le commandant.** Il triait par indice de
+   tier, qui compte des cases (mana rapide, tutors, interaction…). À cases
+   égales, deux commandants de mêmes couleurs obtenaient le même deck et le
+   même indice ; les premiers étaient ceux dont les couleurs ouvrent le plus
+   de cartes. The Rani (bleu-noir-rouge) sortait première sans que rien
+   n'évalue son texte — or son incitation (goad) se retourne contre elle à
+   deux joueurs.
+2. **Une carte était notée par les cases qu'elle coche, jamais par ce
+   qu'elle vaut.** Deathspore Thallid cochait « jetons + sacrifice +
+   removal » ; Chromatic Star (un filtre) et Diamond Pick-Axe (un Trésor
+   conditionnel) comptaient comme « mana rapide » (+3 points d'indice
+   chacun) ; Diabolic Tutor rapportait des points de tier. Les 30 derniers
+   créneaux d'un deck se remplissaient par ordre alphabétique de cartes
+   « interaction à bas coût ».
+3. **Aucune forme.** Un deck de tempo sortait avec 40 réponses et presque
+   aucune créature ; un tricolore avec 31 terrains spéciaux dont une
+   douzaine engagés.
+4. **Le schéma fermé.** La « piste trouvée dans la collection » était la
+   même pour tous les commandants (sacrifice) : 40 cartes de remplissage
+   « produisent des jetons ». L'indice de synergies qui la validait comptait
+   les récompenses que le plan venait lui-même d'ajouter.
+
+### Ce qui a été construit
+
+| Fichier | Rôle |
+| --- | --- |
+| `src/lib/card-quality.ts` | **Qualité d'une carte, 0-10.** Duel : présence dans les decks de tournoi de ces couleurs (5,5 à 10) ; jamais vue : modèle de texte, comprimé entre 1 et 5,8. Multi : rang EDHREC. `isRealAcceleration` (vraie accélération de mana). |
+| `scripts/learn-card-quality.mts` → `src/data/card-quality-model.json` | Modèle de texte : régression logistique, 97 descripteurs (rôle × coût, vitesse, corps de créature, rareté…), apprise sur 2 397 cartes jouées en tournoi contre 12 000 jamais jouées. `npm run learn-quality -- forge-cards.json` (index produit par `scripts/dump-forge-cards.py`). |
+| `src/lib/deck-audit.ts` | **Lecture d'un deck** : ligne directrice, rôle + justification + verdict de chaque carte (ok / contre-intuitif / discutable / contre-productif), cohérence, forme, qualité moyenne ; mécaniques multijoueur (`multiplayerOnly`) ; note d'un commandant (`commanderRating`). Utilisée par le constructeur, la page de deck et les suggestions. |
+| `src/lib/deck-reading.ts` | Libellés et ordre des groupes de rôle, sans dépendance (pour les composants client). |
+| `src/lib/duel-suggest.ts` | Suggestions de la page de deck en Duel : cartes des decks de tournoi absentes du deck, échangées dans le même rôle contre la carte la moins solide. |
+| `scripts/learn-deck-trends.mts` → `shapes` dans `deck-trends.json` | Forme propre à chaque commandant qui a ≥ 4 decks de tournoi (78 commandants) : fourchettes de chaque rôle sur SES decks. |
+| `src/lib/competitive-builder.ts` | `duelCardScore`, `duelLandScore`, boucle de relecture, classement par score. |
+| `src/lib/deck-optimizer.ts` | `deckSolidity`, `rankScore`, choix des variantes par solidité en Duel. |
+| `src/components/DeckReadingPanel.tsx`, `CardTile.tsx`, `DeckBuilder.tsx` | Page de deck : bloc « Ligne directrice », liste rangée par rôle, une phrase de justification sous chaque carte, réserves en couleur. |
+| `src/components/BuildPanels.tsx` (`RankingPanel`) | « Pourquoi ce deck est classé là ». |
+
+### Les règles (à connaître avant d'y toucher)
+
+**Note d'une carte candidate en Duel** (`duelCardScore`) :
+qualité (0-10) + 6 × présence dans les decks de tournoi de ces couleurs
++ 12 × part des decks de tournoi de CE commandant
++ forme (`structureNeed` : +1,6 sous le 1er quartile des decks de tournoi
+pour un rôle de la carte, +0,8 sous la médiane, frein croissant au-delà du
+3e quartile ; même logique à demi-poids pour la tranche de coût)
++ axes du plan (un axe nourri par le seul type de la carte compte au quart)
++ tribu du commandant, cartes souvent jouées ensemble, pièce de combo
++ 0,35 × gain de tier × facteur de qualité
+− 1,5 si la carte n'a aucun rôle reconnu et n'est pas jouée en tournoi
+− 6 × gravité d'une mécanique multijoueur, − coût élevé, − achat.
+
+**Terrains non-base** (`duelLandScore`) : comparés à un terrain de base (0).
+Présence ≥ 5 % dans ces couleurs → 1 + 8 × présence ; sinon +1,5 s'il donne
+gratuitement deux couleurs du deck, −0,3 pour une seule, −1,5 incolore ; −1
+mana restreint, −1,5 coût d'entretien, −2 toujours engagé (−1,2 en
+tricolore, −1,5 de plus au-delà de trois). Au plus un tiers des achats en
+terrains.
+
+**Relecture** : après construction, `auditDeck` relit le deck ; une carte
+« contre-productive » est écartée, une carte « discutable » (hors
+remplissage) pénalisée de 4, puis le deck est reconstruit (3 passes au plus).
+
+**Indice de solidité** (0-100) = 30 % qualité moyenne (3,5/10 → 0, 8,5/10 →
+100) + 20 % forme + 15 % cohérence + 20 % parties simulées + 15 % indice de
+tier. Il départage les variantes d'un deck.
+
+**Note d'un commandant** (0-10) : 5 + 5 × √(decks de tournoi / 50), jamais
+moins que la note de son texte (1 à 5,8 ; 6,4 pour une carte trop récente) ;
+−0,6 par mana au-delà de 4 s'il n'a jamais été joué ; −4 × gravité d'une
+mécanique multijoueur.
+
+**Classement** = solidité du deck « avec mes cartes » + 3 × (note du
+commandant − 5). Deux propositions au plus par combinaison de couleurs, et
+une seule par deck (≥ 75 % de cartes communes) : les autres commandants sont
+cités comme variantes.
+
+⚠️ **« Tier d'abord » ne s'applique plus au Duel** pour choisir une carte,
+une variante ou un commandant. Le tier AFFICHÉ reste calculé par la formule
+commune ; il pèse 15 % de la solidité. C'est un changement de la règle du
+24/09/2026, décidé pour répondre aux retours ci-dessus. Pour revenir en
+arrière : `SOLIDITY_WEIGHTS` (deck-optimizer.ts) et `DUEL_TIER_WEIGHT`
+(competitive-builder.ts).
+
+Tous ces poids et seuils sont des **choix de conception**, pas des valeurs
+mesurées.
+
+### Corrections communes aux deux formats
+
+- `fastMana` (deck-tier.ts) exige une vraie accélération : un filtre de mana
+  ou un Trésor conditionnel ne rapporte plus de points d'indice. Les tiers
+  des decks existants peuvent baisser de quelques points.
+- Duel uniquement : un contresort compte dans la composante « interaction »
+  du tier (il était rangé avec la « protection »).
+- `deck-score.ts` : « blessures réparties » (Forked Bolt, Fire // Ice)
+  reconnu comme removal.
+- `mechanics.ts` : l'axe « sorts lancés hors de la main » reconnaît rappel
+  éclair, aventure, harmonisation, etc.
+- `duel-meta.ts` / `duel-profiles.ts` : « Fire/Ice » (mtgtop8) retrouvé
+  depuis « Fire // Ice » (Scryfall).
+- Page de deck : la lecture (ligne directrice, justification par carte)
+  s'affiche pour tous les formats ; en multijoueur, la qualité vient du rang
+  EDHREC et l'indice « forme » n'est qu'un repère.
+
+### Mesures
+
+Toutes sur un faux Scryfall alimenté par les données du dépôt et par le
+texte Forge des cartes absentes (34 694 cartes). Rien n'a tourné contre le
+vrai Scryfall ni sur Vercel.
+
+**Collection de Ben, 5 premiers decks « commandant possédé », avant → après**
+(relus par le même code, celui d'aujourd'hui) :
+
+| Mesure | Avant | Après |
+| --- | --- | --- |
+| Commandants mesurés | The Rani, Sin, Dralnu, Idris, Prismari | Veyran, Baral, Ashling, The Emperor of Palamecia, Galazeth Prismari |
+| Qualité moyenne des cartes | 5,87/10 | 6,73/10 |
+| Forme | 70/100 | 88/100 |
+| Cohérence | 94/100 | 97/100 |
+| Cartes à revoir par deck | 2,2 | 0 |
+| Note du commandant | 2,3/10 | 5,6/10 |
+| Indice de tier (formule d'aujourd'hui) | 34,7 | 33,5 |
+| Parties simulées (solitaire) | 76,8 | 72,4 |
+
+(Mesure faite avant le plafond de deux propositions par combinaison de
+couleurs : sur le site, les cinq propositions affichées sont Ashling,
+Veyran, The Thirteenth Doctor, Baral et The Master, Formed Anew.)
+
+Lecture honnête de ce tableau : qualité, forme et cohérence sont les
+critères que le nouveau moteur vise — il est normal qu'il y progresse, ce
+n'est pas une preuve indépendante. L'indice de parties simulées BAISSE : les
+anciens decks étaient plus rapides à vide (plus de créatures, pas de
+contresorts) ; le repère mesuré le 03/10 sur 296 decks de tournoi est 71,6.
+L'indice de tier est stable.
+
+**Contrôle indépendant** — avec toutes les cartes de tournoi disponibles,
+part du « cœur » réel (cartes jouées par ≥ 50 % des decks d'un commandant)
+retrouvée, 16 commandants à ≥ 10 decks : 92,0 % avec la référence du
+commandant (93,4 % avant), 78,7 % sans (75,0 % avant). Le nouveau moteur ne
+reproduit donc pas moins bien les decks réels.
+
+**Modèle de texte** : AUC 0,79 en validation croisée (5 plis) pour séparer
+une carte jouée en tournoi d'une carte jamais jouée. Un tri grossier.
+
+**Durée** : 64-65 s de bout en bout sur le faux Scryfall (42-44 s le 03/10) ;
+classement ≈ 8 s, variantes et parties simulées ≈ 6 s. Aucun deck invalide
+sur 40 decks vérifiés (taille, doublons, identité, plafond d'achats).
+
+**Interface** (Playwright, build de production) : construction Duel, page de
+deck « avec mes cartes » et « optimisé », Super Opti, page d'un deck de
+tournoi, page d'un précon — sans erreur de page.
+
+### Limites — à ne pas perdre de vue
+
+- **Spider-Man 2099** : 61 decks de tournoi dans l'archive, tous d'avant le
+  27/07/2026, date de son bannissement comme commandant. Le moteur ne le
+  propose pas (banlist), et sa présence comme carte du deck reste mesurée
+  sur une période où il était commandant.
+- Un commandant « jamais vu en tournoi » est jugé sur un modèle de texte :
+  c'est faible. Les scores de classement à 2 points d'écart ou moins ne sont
+  pas départagés de façon fiable ; l'interface le dit.
+- La rareté entre dans le modèle de texte ; à l'apprentissage, c'est celle
+  de l'impression la plus récente dans Forge. Celle que renvoie Scryfall en
+  production peut différer (non vérifié).
+- La lecture d'un deck lit des motifs de texte anglais. Les effets miroirs
+  reconnus sont peu nombreux (cimetière, artefacts, effets d'arrivée, taxe
+  de sorts, enchantements, terrains non-base).
+- Les suggestions Duel de la page de deck ne proposent que des cartes déjà
+  jouées en tournoi, sans tenir compte de ce que Ben possède.
+- Super Opti en Duel juge un échange par la lecture du deck (qualité, forme,
+  cohérence), sans parties simulées.
+- Le score de complétude (9 piliers) n'est plus un objectif en Duel : il
+  peut baisser (la cible « 6 tutors » du format, par exemple, n'est pas
+  suivie par les decks de tournoi bleu-rouge).
+
+### Pistes
+
+Un adversaire simplifié dans les parties simulées (l'indice actuel favorise
+les decks rapides à vide) ; note de commandant apprise sur les commandants
+de tournoi plutôt que sur les cartes ; mêmes principes pour le multijoueur
+quand une source de decks forts sera disponible ; rejouer l'apprentissage du
+modèle de texte après chaque mise à jour de l'archive.

@@ -58,6 +58,8 @@ export interface GamePlanSummary {
    */
   dependencies: { dropped: string[]; weak: string[] };
   variants: VariantSummary[];
+  /** Règle qui a départagé les variantes : indice de solidité (Duel, 04/10/2026) ou palier de tier (multijoueur). */
+  choiceRule: "solidite" | "palier";
   playtest: PlaytestReport;
   synergyIndex: number;
   recipe: { label: string; summary: string; examples: string[]; rows: RecipeFitRow[] } | null;
@@ -255,6 +257,7 @@ export function describeGamePlan(input: {
       weak: Array.from(new Set(unmetDependencies(finalCards, deck.commanders).map((u) => u.reason))),
     },
     variants: input.variants,
+    choiceRule: duel ? "solidite" : "palier",
     playtest: rep,
     synergyIndex: synergy.index,
     recipe: recipe

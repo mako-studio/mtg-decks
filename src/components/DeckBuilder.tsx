@@ -12,6 +12,8 @@ import { ImproveDeckPanel } from "./ImproveDeckPanel";
 import { DeckDashboard } from "./DeckDashboard";
 import { ArenaExportButton } from "./ArenaExportButton";
 import { RemovedCardsList } from "./RemovedCardsList";
+import { DeckReadingPanel } from "./DeckReadingPanel";
+import { ROLE_GROUP_LABELS, ROLE_GROUP_ORDER, type RoleGroup } from "@/lib/deck-reading";
 
 /** Liste transmise du simulateur au constructeur (lue par CompetitiveBuilder). */
 export const SIMULATOR_LIST_KEY = "mtg-opti:liste-simulateur";
@@ -219,6 +221,8 @@ export function DeckBuilder({
           deckName: result.deckName,
           commanders,
           cards: cardList,
+          // Le plan du constructeur suit le deck : sa lecture garde la même ligne directrice.
+          planHint: result.planHint ?? null,
         });
       } catch (err) {
         console.error("[simulateur] échec du recalcul", err);
@@ -529,16 +533,24 @@ export function DeckBuilder({
     });
   }
 
+  /** Lecture d'une carte dans ce deck (rôle, justification, réserve) — voir DeckAnalysisResult.audit. */
+  function verdictOf(e: EnrichedCard) {
+    return result.audit?.verdicts[(e.card?.name ?? e.name).toLowerCase()];
+  }
+
   function exportCsv() {
     // Colonne "Commandant" dédiée (plutôt que de surcharger "Ajoutée via
     // suggestion" avec la valeur "non (commandant)") : plus lisible dans un
     // tableur, et exploitée telle quelle par l'import CSV (csv-import.ts)
     // pour reconnaître le(s) commandant(s) sans ambiguïté.
+    // 04/10/2026 : rôle, justification et réserve de chaque carte (lecture du
+    // deck) en fin de ligne — l'import CSV lit les colonnes par leur nom et
+    // ignore celles qu'il ne connaît pas.
     const rows: string[][] = [
-      ["Commandant", "Nombre", "Nom", "Coût de mana", "Type", "Ajoutée via suggestion", "Marquée à retirer"],
+      ["Commandant", "Nombre", "Nom", "Coût de mana", "Type", "Ajoutée via suggestion", "Marquée à retirer", "Rôle dans le deck", "Justification", "Réserve"],
     ];
     for (const c of result.commanderEntries) {
-      rows.push(["oui", String(c.count), c.name, c.card?.mana_cost ?? "", c.card?.type_line ?? "", "non", "non"]);
+      rows.push(["oui", String(c.count), c.name, c.card?.mana_cost ?? "", c.card?.type_line ?? "", "non", "non", "Commandant", "", ""]);
     }
     for (const c of [...result.cards].sort((a, b) => a.name.localeCompare(b.name, "fr"))) {
       rows.push([
@@ -549,6 +561,9 @@ export function DeckBuilder({
         c.card?.type_line ?? "",
         addedNames.has(c.name.toLowerCase()) ? "oui" : "non",
         markedForRemoval.has(c.name.toLowerCase()) ? "oui" : "non",
+        verdictOf(c) ? ROLE_GROUP_LABELS[verdictOf(c)!.group] : "",
+        verdictOf(c)?.why ?? "",
+        verdictOf(c)?.note ?? "",
       ]);
     }
     downloadCsv(`${deckSlug || "deck"}.csv`, rows);
@@ -559,9 +574,20 @@ export function DeckBuilder({
   // mana était invisible. Sorts d'abord, puis terrains, chacun sous un
   // intertitre avec son nombre.
   const isLandEntry = (e: EnrichedCard) => Boolean(e.card?.type_line?.includes("Land"));
+  // 04/10/2026 (demande de Ben : la justification de chaque carte, intégrée à
+  // la page) : la liste est rangée par RÔLE dans le deck (lecture du deck,
+  // deck-audit.ts) — cœur du plan, menaces, contresorts, réponses, pioche,
+  // mana... — puis par coût, au lieu d'une seule liste alphabétique. Sans
+  // lecture disponible, on retombe sur « sorts puis terrains ».
+  const groupOf = (e: EnrichedCard): RoleGroup => verdictOf(e)?.group ?? (isLandEntry(e) ? "terrain" : "autre");
   const sortedCards = [...result.cards].sort(
-    (a, b) => Number(isLandEntry(a)) - Number(isLandEntry(b)) || a.name.localeCompare(b.name, "fr")
+    (a, b) =>
+      ROLE_GROUP_ORDER.indexOf(groupOf(a)) - ROLE_GROUP_ORDER.indexOf(groupOf(b)) ||
+      (a.card?.cmc ?? 0) - (b.card?.cmc ?? 0) ||
+      a.name.localeCompare(b.name, "fr")
   );
+  const groupTotals = new Map<RoleGroup, number>();
+  for (const e of result.cards) groupTotals.set(groupOf(e), (groupTotals.get(groupOf(e)) ?? 0) + e.count);
   const landTotal = result.cards.filter(isLandEntry).reduce((s, c) => s + c.count, 0);
   const deckTotal = result.cards.reduce((s, c) => s + c.count, 0);
 
@@ -705,6 +731,10 @@ export function DeckBuilder({
             </>
           )}
 
+          {result.audit && result.cards.length > 0 && (
+            <DeckReadingPanel audit={result.audit} duel={result.formatKey === "duelcommander"} />
+          )}
+
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-sm font-medium text-muted">
               Deck ({deckTotal} cartes : {deckTotal - landTotal} sorts · {landTotal} terrains)
@@ -746,13 +776,18 @@ export function DeckBuilder({
           <div className="space-y-2">
             {visibleCards.map((entry, i) => (
               <Fragment key={`${entry.name}-${i}`}>
-              {!categoryFilter && (i === 0 || isLandEntry(entry) !== isLandEntry(visibleCards[i - 1])) && (
+              {!categoryFilter && (i === 0 || groupOf(entry) !== groupOf(visibleCards[i - 1])) && (
                 <h3 className={`text-xs font-semibold uppercase tracking-wide text-muted ${i === 0 ? "" : "pt-3"}`}>
-                  {isLandEntry(entry) ? `Terrains (${landTotal})` : `Sorts et permanents (${deckTotal - landTotal})`}
+                  {result.audit
+                    ? `${ROLE_GROUP_LABELS[groupOf(entry)]} (${groupTotals.get(groupOf(entry)) ?? 0})`
+                    : isLandEntry(entry)
+                      ? `Terrains (${landTotal})`
+                      : `Sorts et permanents (${deckTotal - landTotal})`}
                 </h3>
               )}
               <CardTile
                 entry={entry}
+                verdict={verdictOf(entry)}
                 added={addedNames.has(entry.name.toLowerCase())}
                 markedForRemoval={markedForRemoval.has(entry.name.toLowerCase())}
                 onRemove={() => handleRemove(entry)}

@@ -35,12 +35,15 @@ export async function openProposedDeck(input: {
   cards: { name: string; count: number }[];
   acquisitionNames: string[];
   label: string;
+  /** Plan suivi par le constructeur : la page du deck lit le deck avec la même ligne directrice. */
+  planHint?: { axes: string[]; recipeId: string | null } | null;
 }): Promise<DeckAnalysisResult & { addedNames: string[] }> {
   const result = await analyzeDeck({
     formatKey: input.formatKey,
     deckName: input.label,
     commanders: input.commanders.slice(0, 2),
     cards: input.cards,
+    planHint: input.planHint ?? null,
   });
   return { ...result, addedNames: input.acquisitionNames.map((n) => n.toLowerCase()) };
 }

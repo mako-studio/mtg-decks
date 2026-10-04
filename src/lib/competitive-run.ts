@@ -29,6 +29,7 @@ import {
   searchCards,
 } from "./scryfall";
 import { commanderProfile, mergeProfiles, synergySearchQueries } from "./synergy";
+import { AXES } from "./mechanics";
 import { allComboPieceNames, CURATED_COMBOS, mergeCombos, type ComboDef } from "./combos";
 import { duelMetaCardNames, duelMetaCommanderNames, DUEL_META_INFO } from "./duel-meta";
 import { canHavePartner, pairLabel } from "./partners";
@@ -38,7 +39,8 @@ import { resolveCardNames, type NameCorrection } from "./name-resolution";
 import { recentCommanderNames, recentPoolNames } from "./recent-sets";
 import { GAME_CHANGER_NAMES } from "@/data/game-changers";
 import { HIGH_POWER_COMMANDERS, STAPLES_BY_ROLE } from "@/data/competitive-staples";
-import { optimizeDeck, type OptimizedDeck } from "./deck-optimizer";
+import { deckSolidity, optimizeDeck, quickPlaytest, rankScore, type OptimizedDeck, type Solidity } from "./deck-optimizer";
+import { commanderRating, type CommanderRating, type DeckAudit } from "./deck-audit";
 import { describeGamePlan, type GamePlanSummary } from "./game-plan-summary";
 import { missingStaples } from "./staples";
 import { BUILD_STEPS, type BuildProgress } from "./build-steps";
@@ -129,6 +131,14 @@ export interface ProposalSummary {
   pathToTier4: string[];
   /** Comparaison avec les decks de tournoi de ce commandant, si disponible (Duel). */
   reference: ReferenceSummary | null;
+  /**
+   * Classement (04/10/2026, Duel) : score = solidité du deck « avec mes
+   * cartes » + ce que vaut le commandant. null en multijoueur (classement au
+   * tier, comme avant).
+   */
+  ranking: { score: number; commander: CommanderRating } | null;
+  /** Autres commandants évalués de MÊMES couleurs, non affichés : même deck à ≥ 75 % ou troisième proposition de ces couleurs. */
+  alternatives: { commander: string; owned: boolean; score: number | null }[];
 }
 
 /** Une staple absente du deck (staples.ts), prête pour l'interface. */
@@ -144,6 +154,12 @@ export interface StapleCard {
 }
 
 export interface DeckVariant {
+  /** Lecture du deck (deck-audit.ts) : ligne directrice, cartes à revoir, indices. Les verdicts carte par carte sont recalculés sur la page du deck. */
+  reading: { line: DeckAudit["line"]; flagged: DeckAudit["flagged"]; coherence: number; structure: number; avgQuality: number } | null;
+  /** Indice de solidité et ses composantes (deck-optimizer.ts) — null si l'optimisation n'a pas tourné pour ce deck. */
+  solidity: Solidity | null;
+  /** Plan suivi par le constructeur, transmis à la page du deck pour qu'elle lise le deck avec la même ligne directrice. */
+  planHint: { axes: string[]; recipeId: string | null } | null;
   /** Plan de jeu, parties simulées, variantes essayées (03/10/2026). null si l'optimisation n'a pas tourné pour ce deck. */
   gamePlan: GamePlanSummary | null;
   /** Staples absentes de CE deck, possédées ou non, de la plus utile à la moins utile. */
@@ -218,6 +234,8 @@ function priceEur(card: ScryfallCard): number | null {
  * seul classement par tier laissait souvent 8 commandants à acquérir.
  */
 const PROPOSALS_PER_GROUP = 5;
+/** Duel : au plus deux propositions par identité couleur dans un groupe (les suivantes sont citées comme variantes). */
+const MAX_PER_IDENTITY = 2;
 /** Propositions dont le pool recommandé est élargi par des recherches de synergie (requêtes Scryfall supplémentaires). */
 const SYNERGY_SEARCH_TOP = 4;
 /** Propositions enrichies par Commander Spellbook (1 find-my-combos + 2 estimate-bracket chacune). */
@@ -241,14 +259,15 @@ function pathToTier4(tier: DeckTierResult, isDuel: boolean): string[] {
   const c = tier.components;
   const s = tier.signals;
   const tips: { gain: number; text: string }[] = [];
-  if (c.gameChanger < 40) {
+  // Duel : les Game Changers comptent dans l'indice (formule commune au site) mais le constructeur ne les recherche pas — la piste n'est pas proposée.
+  if (c.gameChanger < 40 && !isDuel) {
     const next = s.gameChangerCount === 0 ? 10 : 6;
     tips.push({ gain: next, text: `Game Changers : ${s.gameChangerCount} dans le deck. Chaque Game Changer supplémentaire rapporte +${next} (plafond 40, atteint à 6).` });
   }
   if (c.fastMana < 15) tips.push({ gain: 3, text: `Mana rapide (rampe à coût ≤ 2) : ${s.fastManaCount}/5 — +3 par source jusqu'à 5.` });
   if (c.combo < 12) tips.push({ gain: c.combo === 0 ? 8 : 4, text: s.combos.length === 0 ? "Aucune combo connue : en assembler une rapporte +8 (+12 pour deux)." : "Une 2e combo rapporterait +4." });
   if (c.tutor < 10) tips.push({ gain: 10 - c.tutor, text: `Tutors : ${s.tutorCount} — jusqu'à +${Math.round((10 - c.tutor) * 10) / 10} en atteignant la cible du format.` });
-  if (c.interaction < 10) tips.push({ gain: 10 - c.interaction, text: `Interaction (removal + disruption) : jusqu'à +${Math.round((10 - c.interaction) * 10) / 10}.` });
+  if (c.interaction < 10) tips.push({ gain: 10 - c.interaction, text: `Interaction (removal + disruption${isDuel ? " + contresorts" : ""}) : jusqu'à +${Math.round((10 - c.interaction) * 10) / 10}.` });
   if (c.curve < 5) tips.push({ gain: 5 - c.curve, text: `Courbe : coût moyen ${s.avgCmc} — baisser la courbe rapporte jusqu'à +${Math.round((5 - c.curve) * 10) / 10}.` });
   if (isDuel && c.duelMeta < 25) tips.push({ gain: 25 - c.duelMeta, text: `Cartes du méta Duel : présence cumulée ${s.duelMetaSum} — jusqu'à +${Math.round((25 - c.duelMeta) * 10) / 10} en jouant les cartes les plus présentes en tournoi.` });
   tips.sort((a, b) => b.gain - a.gain);
@@ -259,7 +278,11 @@ function pathToTier4(tier: DeckTierResult, isDuel: boolean): string[] {
 }
 
 function variantOf(deck: BuiltDeck, owned: Map<string, number>, extras?: VariantExtras): DeckVariant {
+  const a = deck.audit;
   return {
+    reading: a.line.text ? { line: a.line, flagged: a.flagged, coherence: a.coherence, structure: a.structure, avgQuality: a.avgQuality } : null,
+    solidity: extras?.solidity ?? null,
+    planHint: deck.plan ? { axes: deck.plan.axes.map((x) => AXES[x.axis].id), recipeId: deck.plan.recipe?.id ?? null } : null,
     gamePlan: extras?.gamePlan ?? null,
     missingStaples: extras?.staples ?? [],
     tier: deck.tier,
@@ -279,6 +302,7 @@ const BASIC_NAMES = new Set(["plains", "island", "swamp", "mountain", "forest", 
 interface VariantExtras {
   gamePlan: GamePlanSummary | null;
   staples: StapleCard[];
+  solidity: Solidity | null;
 }
 /** Extras des deux decks d'une proposition (clé : candidateKey). */
 interface ProposalExtras {
@@ -321,7 +345,8 @@ function summarize(
   owned: Map<string, number>,
   isDuel: boolean,
   opportunities: ComboOpportunity[],
-  extras: ProposalExtras = {}
+  extras: ProposalExtras = {},
+  alternatives: ProposalSummary["alternatives"] = []
 ): ProposalSummary {
   const acquisitions: ProposalCard[] = p.upgradedDeck.acquisitions.map((a) => ({
     name: a.name,
@@ -357,6 +382,8 @@ function summarize(
     comboOpportunities: opportunities.filter((o) => !o.missing.every((m) => inUpgraded.has(m.toLowerCase()))).slice(0, 6),
     pathToTier4: pathToTier4(p.upgradedDeck.tier, isDuel),
     reference: referenceSummary(p.upgradedDeck.reference, p.ownedDeck, p.upgradedDeck, owned),
+    ranking: isDuel && p.rankScore !== undefined ? { score: p.rankScore, commander: commanderRating(cards, "duel") } : null,
+    alternatives,
   };
 }
 
@@ -550,12 +577,46 @@ export async function runCompetitiveBuildCore(
         maxTrials: 30,
         minOwnedTrials: 12,
         maxPairTrials: 10,
+        // Duel (04/10/2026) : classement par solidité du deck + note du
+        // commandant (deck-optimizer.ts), plus par l'indice de tier.
+        evaluate: isDuel ? (deck) => rankScore(deck, quickPlaytest(deck, { features, basics, mode }), mode) : undefined,
       },
       (done, total, label) => emit("rank", done / total, `Deck ${done}/${total} : ${label}`)
     );
     const isOwnedCandidate = (p: DeckProposal) => p.candidate.owned.every(Boolean);
-    const ownedTop = ranked.filter(isOwnedCandidate).slice(0, PROPOSALS_PER_GROUP);
-    const otherTop = ranked.filter((p) => !isOwnedCandidate(p)).slice(0, PROPOSALS_PER_GROUP);
+    // Duel (04/10/2026, retour de Ben : « l'algo s'enferme dans des schémas ») :
+    // plusieurs commandants de mêmes couleurs mènent au même deck à quelques
+    // cartes près. On n'en garde qu'UN par deck — le mieux classé — et on cite
+    // les autres comme variantes, pour que les cinq propositions soient cinq
+    // decks différents.
+    const alternativesByKey = new Map<string, ProposalSummary["alternatives"]>();
+    const nonLandKeys = (d: BuiltDeck) => new Set(d.picks.map((x) => x.key));
+    const pickDistinct = (list: DeckProposal[]): DeckProposal[] => {
+      if (!isDuel) return list.slice(0, PROPOSALS_PER_GROUP);
+      const kept: { p: DeckProposal; id: string; keys: Set<string> }[] = [];
+      for (const p of list) {
+        const id = unionIdentity(p.candidate.cards).join("");
+        const keys = nonLandKeys(p.ownedDeck);
+        const sameColors = kept.filter((k) => k.id === id);
+        // Même deck (≥ 75 % de cartes communes), ou déjà deux propositions de ces couleurs : variante de la mieux classée.
+        const twin =
+          sameColors.find((k) => {
+            let common = 0;
+            for (const key of keys) if (k.keys.has(key)) common++;
+            return common / Math.max(1, Math.min(keys.size, k.keys.size)) >= 0.75;
+          }) ?? (sameColors.length >= MAX_PER_IDENTITY ? sameColors[0] : undefined);
+        if (twin) {
+          const alts = alternativesByKey.get(candidateKey(twin.p.candidate)) ?? [];
+          if (alts.length < 6) alts.push({ commander: candidateKey(p.candidate), owned: isOwnedCandidate(p), score: p.rankScore ?? null });
+          alternativesByKey.set(candidateKey(twin.p.candidate), alts);
+          continue;
+        }
+        if (kept.length < PROPOSALS_PER_GROUP) kept.push({ p, id, keys });
+      }
+      return kept.map((k) => k.p);
+    };
+    const ownedTop = pickDistinct(ranked.filter(isOwnedCandidate));
+    const otherTop = pickDistinct(ranked.filter((p) => !isOwnedCandidate(p)));
     const top = [...ownedTop, ...otherTop];
     // Ordre d'enrichissement (synergie, Commander Spellbook) : alterné entre
     // les deux groupes, pour que chacun ait ses meilleurs decks enrichis.
@@ -573,8 +634,12 @@ export async function runCompetitiveBuildCore(
         acq.size > 0 && maxAcquisitions > 0 ? buildDeckForCommander({ ...ctx, acquirable: acq, maxAcquisitions }) : ownedDeck;
       return { ownedDeck, upgradedDeck };
     };
+    // Duel : « meilleur » = indice de solidité plus haut ; multijoueur : tier, puis score (règle d'avant).
+    const solidityOf = (d: BuiltDeck) => deckSolidity(d, quickPlaytest(d, { features, basics, mode })).score;
     const better = (a: BuiltDeck, b: BuiltDeck) =>
-      a.tier.powerIndex > b.tier.powerIndex || (a.tier.powerIndex === b.tier.powerIndex && a.stats.score >= b.stats.score);
+      isDuel
+        ? solidityOf(a) >= solidityOf(b)
+        : a.tier.powerIndex > b.tier.powerIndex || (a.tier.powerIndex === b.tier.powerIndex && a.stats.score >= b.stats.score);
 
     // 5. Élargissement du pool par la synergie pour les meilleures propositions
     const acquirableByProposal = new Map<string, Set<string>>();
@@ -684,7 +749,7 @@ export async function runCompetitiveBuildCore(
         upgradedOpt = optimizeDeck({ ...base, acquirable: acq, maxAcquisitions }, p.upgradedDeck);
         gamesPlayed += upgradedOpt.gamesPlayed;
         // Le deck amélioré ne doit jamais passer sous le deck possédé.
-        if (better(upgradedOpt.deck, ownedOpt.deck)) p.upgradedDeck = upgradedOpt.deck;
+        if (isDuel ? upgradedOpt.solidity.score >= ownedOpt.solidity.score : better(upgradedOpt.deck, ownedOpt.deck)) p.upgradedDeck = upgradedOpt.deck;
         else {
           p.upgradedDeck = p.ownedDeck;
           upgradedOpt = null;
@@ -693,6 +758,8 @@ export async function runCompetitiveBuildCore(
         p.upgradedDeck = p.ownedDeck;
       }
       optimized.set(key, { owned: ownedOpt, upgraded: upgradedOpt });
+      // Classement final sur le deck optimisé (400 parties simulées au lieu de 120).
+      if (isDuel) p.rankScore = rankScore(p.ownedDeck, ownedOpt.playtest.score, mode);
     }
 
     // 8. Estimation de bracket + combos confirmées (Commander Spellbook) sur
@@ -744,6 +811,7 @@ export async function runCompetitiveBuildCore(
           gamesPlayed: o.gamesPlayed,
         }),
         staples: missingStaples({ deck, features, owned, basics, format, mode, combos }).map(toStaple),
+        solidity: o.solidity,
       });
       extrasByKey.set(key, {
         owned: extrasFor(p.ownedDeck, opt.owned),
@@ -805,7 +873,14 @@ export async function runCompetitiveBuildCore(
       unresolvedNames: resolution.unresolved,
       corrections: resolution.corrections,
       proposals: top.map((p) =>
-        summarize(p, owned, isDuel, opportunitiesByKey.get(candidateKey(p.candidate)) ?? [], extrasByKey.get(candidateKey(p.candidate)))
+        summarize(
+          p,
+          owned,
+          isDuel,
+          opportunitiesByKey.get(candidateKey(p.candidate)) ?? [],
+          extrasByKey.get(candidateKey(p.candidate)),
+          alternativesByKey.get(candidateKey(p.candidate)) ?? []
+        )
       ),
       candidateCount: candidates.length,
       evaluatedCount: ranked.length,

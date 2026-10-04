@@ -1,7 +1,7 @@
 import type { ScryfallCard } from "./types";
 import type { CardFeatures } from "./competitive-builder";
 import { AXES, ROLE_IDS, cardMechanics, type RoleId } from "./mechanics";
-import { axisTargets, pairLift, RECIPES, type AxisTarget, type Recipe, type TrendMode } from "./deck-trends";
+import { axisTargets, ownShape, pairLift, RECIPES, type AxisTarget, type Recipe, type TrendMode } from "./deck-trends";
 
 /**
  * PLANS DE JEU (03/10/2026, demande de Ben : « ne pas forcément appliquer
@@ -87,6 +87,9 @@ export function addToPlanCounts(counts: PlanCounts, f: Pick<CardFeatures, "mech"
 const RECIPE_ROLES: RoleId[] = ["creature", "cheapCreature", "threat", "counterspell", "cheapInteraction", "removal", "wipe", "draw", "ramp", "tutor", "protection", "recursion"];
 const CURVE_ROLES: RoleId[] = ["cmc01", "cmc2", "cmc3", "cmc4", "cmc5plus"];
 
+/** Axes qu'une carte alimente par son seul type (voir planScore). */
+export const TYPE_FED_AXES = new Set(AXES.map((a, i) => (a.producesTypes?.length ? i : -1)).filter((i) => i >= 0));
+
 /** Plafonds : un plan oriente le choix entre cartes de valeur proche, il ne doit pas faire passer une carte faible devant un vrai gain de tier (≥ 3 points). */
 const MULTI_NEVER_CAPPED = new Set<RoleId>(["ramp", "draw", "wipe"]);
 const AXIS_SCORE_CAP = 3.5;
@@ -105,7 +108,9 @@ const RECIPE_SCORE_CAP = 2.5;
 export function planScore(
   f: Pick<CardFeatures, "mech" | "roles" | "isLand">,
   plan: BuildPlan,
-  counts: PlanCounts
+  counts: PlanCounts,
+  /** false : seulement les axes de mécanique (en Duel, la forme est notée par structureScore, competitive-builder.ts). */
+  withRecipe = true
 ): { score: number; reasons: string[] } {
   if (f.isLand) return { score: 0, reasons: [] };
   const reasons: string[] = [];
@@ -116,7 +121,12 @@ export function planScore(
     if (f.mech.produces.includes(a.axis)) {
       const need = prod < a.target ? 1 : 0.25;
       const payoff = Math.min(1, (rew + 0.5 * Math.min(a.availRewarders, 6)) / 3);
-      const s = a.weight * 1.2 * need * payoff;
+      // Axe alimenté par le TYPE de la carte (tout éphémère « produit » l'axe
+      // des sorts, tout artefact celui des artefacts) : être du bon type n'est
+      // pas un mérite, le crédit est réduit au quart (04/10/2026 — sinon un
+      // rituel médiocre passait devant une bonne créature dans un deck de sorts).
+      const byType = TYPE_FED_AXES.has(a.axis) ? 0.25 : 1;
+      const s = a.weight * 1.2 * need * payoff * byType;
       if (s > 0.3) reasons.push(`Alimente « ${AXES[a.axis].label} »`);
       axisScore += s;
     }
@@ -130,7 +140,7 @@ export function planScore(
   axisScore = Math.min(AXIS_SCORE_CAP, axisScore);
 
   let recipeScore = 0;
-  if (plan.recipe) {
+  if (plan.recipe && withRecipe) {
     const multi = plan.mode === "multi";
     for (const r of RECIPE_ROLES) {
       if (!f.roles.includes(r)) continue;
@@ -225,6 +235,62 @@ function recipeFit(recipe: Recipe, commanders: ScryfallCard[], colors: number, r
   return prior * 0.6 + cmdFit * 0.4 + supportShare * 0.5;
 }
 
+/** Rôles qui portent la forme d'un deck, pour juger ce que la collection peut fournir. */
+const SUPPORT_ROLES: RoleId[] = ["creature", "cheapCreature", "counterspell", "cheapInteraction", "removal", "draw", "ramp"];
+/** Axes qui demandent beaucoup de créatures / beaucoup de sorts : une forme qui les contredit est moins adaptée. */
+const CREATURE_AXES = new Set(["combat", "tokens", "counters", "voltron", "sacrifice", "arrivals", "blink"]);
+const SPELL_AXES = new Set(["spells"]);
+
+/**
+ * Adéquation d'une recette en DUEL (04/10/2026). Trois questions :
+ * 1. le commandant va-t-il avec cette forme ? Son coût, et ce qu'il
+ *    récompense : un commandant qui paie pour chaque éphémère ne va pas dans
+ *    un deck à 30 créatures, un commandant qui récompense l'attaque ne va pas
+ *    dans un deck à 10 créatures ;
+ * 2. les decks de tournoi de cette famille ont-ils ce nombre de couleurs ?
+ * 3. la collection a-t-elle de BONNES cartes pour les rôles que cette forme
+ *    demande ? Pour chaque rôle : qualité moyenne (card-quality.ts) des N
+ *    meilleures cartes disponibles, N = la médiane de la famille ; une carte
+ *    manquante compte 2,5. C'est ce qui fait choisir « contrôle » à une
+ *    collection riche en contresorts et « agression » à une collection riche
+ *    en petites créatures, au lieu d'une forme fixe par commandant.
+ */
+function recipeFitDuel(
+  recipe: Recipe,
+  commanders: ScryfallCard[],
+  colors: number,
+  byRole: Map<RoleId, number[]>,
+  cmdRewards: boolean[]
+): number {
+  const prior = recipe.colors[String(colors)] ?? 0.05;
+  const cmc = Math.max(...commanders.map((c) => c.cmc ?? 0));
+  let cmdFit = 0.5;
+  if (cmc <= 3 && recipe.avgCmc <= 2.4) cmdFit = 0.8;
+  if (cmc >= 5 && recipe.avgCmc >= 2.7) cmdFit = 0.9;
+  if (cmc >= 5 && recipe.avgCmc < 2) cmdFit = 0.3;
+  const zCreature = recipe.z.creature ?? 0;
+  let axisFit = 0;
+  AXES.forEach((axis, i) => {
+    if (!cmdRewards[i]) return;
+    if (SPELL_AXES.has(axis.id)) axisFit += zCreature < -0.3 ? 0.4 : zCreature > 0.4 ? -0.3 : 0;
+    if (CREATURE_AXES.has(axis.id)) axisFit += zCreature > 0 ? 0.3 : zCreature < -0.5 ? -0.3 : 0;
+  });
+  axisFit = Math.max(-0.4, Math.min(0.5, axisFit));
+  let sum = 0;
+  let weight = 0;
+  for (const r of SUPPORT_ROLES) {
+    const need = Math.round(recipe.roles[r]?.median ?? 0);
+    if (need <= 0) continue;
+    const best = byRole.get(r) ?? [];
+    let q = 0;
+    for (let i = 0; i < need; i++) q += best[i] ?? 2.5;
+    sum += q;
+    weight += need;
+  }
+  const support = weight ? Math.max(0, Math.min(1, (sum / weight - 4) / 3)) : 0.5;
+  return prior * 0.5 + cmdFit * 0.4 + axisFit + support * 0.8;
+}
+
 /**
  * Plans à essayer pour un commandant (ou un duo), du plus au moins prometteur.
  * `available` : cartes non-terrain jouables dans l'identité (possédées +
@@ -238,7 +304,11 @@ export function proposePlans(
   max = 4
 ): BuildPlan[] {
   const targets = axisTargets(mode);
-  const depth = poolDepth(available);
+  // Duel (04/10/2026) : la profondeur de la collection sur un axe ne compte
+  // que les cartes JOUABLES (qualité ≥ 4,3, card-quality.ts). Avant, 40
+  // cartes de remplissage qui « produisent des jetons » faisaient du
+  // sacrifice la « piste trouvée dans la collection » de tous les commandants.
+  const depth = poolDepth(mode === "duel" ? available.filter((f) => f.quality.score >= 4.3) : available);
   const cmdRewards = AXES.map(() => false);
   const cmdProduces = AXES.map(() => false);
   for (const c of commanders) {
@@ -303,12 +373,22 @@ export function proposePlans(
     if (r.id.startsWith("reanimator")) return cmdRewards[graveyardAxis] || found === graveyardAxis || companion === graveyardAxis || depth.rewarders[graveyardAxis] >= 8;
     return true;
   };
+  // Qualités des cartes disponibles par rôle, triées (pour recipeFitDuel).
+  const byRole = new Map<RoleId, number[]>();
+  if (mode === "duel") {
+    for (const r of SUPPORT_ROLES) byRole.set(r, available.filter((f) => f.roles.includes(r)).map((f) => f.quality.score).sort((a, b) => b - a));
+  }
   const recipes = [...RECIPES]
     .filter(allowed)
-    .map((r) => ({ r, fit: recipeFit(r, commanders, colors, roleAvail) }))
+    .map((r) => ({ r, fit: mode === "duel" ? recipeFitDuel(r, commanders, colors, byRole, cmdRewards) : recipeFit(r, commanders, colors, roleAvail) }))
     .sort((a, b) => b.fit - a.fit);
-  const r1 = recipes[0]?.r ?? null;
-  const r2 = recipes[1]?.r ?? null;
+  // Duel : si ce commandant a ses propres decks de tournoi (≥ 4), LEUR forme
+  // passe devant celle des familles — c'est la mesure la plus directe de ce
+  // qu'un deck de ce commandant doit contenir.
+  const own = mode === "duel" ? ownShape(commanders.map((c) => c.name)) : null;
+  const families = own ? recipes.filter((x) => x.r.label !== own.label.split(" — ")[0]) : recipes;
+  const r1 = own ?? recipes[0]?.r ?? null;
+  const r2 = (own ? families[0]?.r : recipes[1]?.r) ?? null;
 
   const plans: BuildPlan[] = [];
   const axisNames = (list: PlanAxis[]) => list.map((a) => AXES[a.axis].label).join(" + ");
@@ -334,8 +414,8 @@ export function proposePlans(
       commanderPlanAxes,
       r1,
       commanderPlanAxes.length
-        ? `Axes que le commandant récompense${companionNote}. Forme « ${r1?.label ?? "libre"} » : la famille de decks de tournoi la plus proche de ce commandant et de ta collection.`
-        : `Le commandant ne récompense aucun axe précis : seule la forme « ${r1?.label ?? "libre"} » guide le choix.`
+        ? `Axes que le commandant récompense${companionNote}. Forme « ${r1?.label ?? "libre"} » : ${own ? "mesurée sur les decks de tournoi de ce commandant" : "la famille de decks de tournoi la plus proche de ce commandant et de ta collection"}.`
+        : `Le commandant ne récompense aucun axe précis : ${own ? `la forme de ses ${own.decks} decks de tournoi` : `seule la forme « ${r1?.label ?? "libre"} »`} guide le choix.`
     );
   }
   if (found >= 0) {

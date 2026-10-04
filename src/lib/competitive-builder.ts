@@ -28,9 +28,10 @@ import { getDisplayOracleText } from "./scryfall";
 import { duelMetaPresence, duelMetaPresenceInColors } from "./duel-meta";
 import { DUEL_PROFILES_AVAILABLE, duelPresenceForIdentity, duelStatsForIdentity } from "./duel-profiles";
 import { AXES, cardMechanics, cardRoles, type CardMechanics, type RoleId } from "./mechanics";
-import { axisTargets } from "./deck-trends";
-import { unmetDependencies } from "./dependencies";
-import { addToPlanCounts, emptyPlanCounts, planLandTarget, planScore, type BuildPlan, type PlanCounts } from "./game-plan";
+import { axisTargets, ROLE_LABELS } from "./deck-trends";
+import { addToPlanCounts, emptyPlanCounts, planLandTarget, planScore, proposePlans, type BuildPlan, type PlanCounts } from "./game-plan";
+import { cardQuality, textQuality, type CardQuality } from "./card-quality";
+import { auditDeck, commanderRating, isRecentCard, multiplayerOnly, structureNeed, type AuditItem, type DeckAudit } from "./deck-audit";
 
 /**
  * Constructeur de decks COMPÉTITIF (25/09/2026, demande de Ben) :
@@ -241,6 +242,8 @@ export interface CardFeatures {
   mech: CardMechanics;
   /** Rôles fonctionnels (créature, contresort, interaction à bas coût, tranche de coût...). */
   roles: RoleId[];
+  /** Qualité intrinsèque dans ce format (card-quality.ts, 04/10/2026). En Duel, recalculée par deck avec la présence dans SES couleurs. */
+  quality: CardQuality;
 }
 
 const CURATED_PIECES = comboPieceSet(CURATED_COMBOS);
@@ -256,6 +259,7 @@ const BASIC_TYPE_FETCH = /search your library for an? [^.]*(plains|island|swamp|
  */
 export function buildFeatureIndex(cards: Iterable<ScryfallCard>, format: FormatConfig): Map<string, CardFeatures> {
   const index = new Map<string, CardFeatures>();
+  const mode = modeForFormat(format);
   for (const card of cards) {
     const key = card.name.toLowerCase();
     if (index.has(key)) continue;
@@ -266,6 +270,7 @@ export function buildFeatureIndex(cards: Iterable<ScryfallCard>, format: FormatC
     // (Sink into Stupor // Soporific Springs…) prenait une place de terrain ;
     // les decks de tournoi la comptent comme un sort (qui peut dépanner en terrain).
     const isLand = Boolean(card.type_line?.split(" // ")[0].includes("Land"));
+    const presenceInColors = duelMetaPresenceInColors(card.name);
     index.set(key, {
       card,
       key,
@@ -276,10 +281,11 @@ export function buildFeatureIndex(cards: Iterable<ScryfallCard>, format: FormatC
       isBasic: Boolean(card.type_line?.includes("Basic Land")),
       comboPiece: CURATED_PIECES.has(key),
       fetchesBasicType: isLand && BASIC_TYPE_FETCH.test(getDisplayOracleText(card)),
-      duelMetaChoice: duelMetaPresenceInColors(card.name),
+      duelMetaChoice: presenceInColors,
       duelMetaGlobal: duelMetaPresence(card.name),
       mech: cardMechanics(card),
       roles: cardRoles(card, categories),
+      quality: cardQuality(card, categories, { mode, duelPresence: presenceInColors, recent: isRecentCard(card.name) }, isLand ? 0 : textQuality(card, categories)),
     });
   }
   return index;
@@ -303,6 +309,8 @@ interface PickState {
   reference: CommanderReference | null;
   /** Producteurs / récompenses par axe et rôles déjà choisis (plans de jeu, 03/10/2026). */
   plan: PlanCounts;
+  /** Terrains « toujours engagés » déjà retenus (Duel : plafonnés, voir duelLandScore). */
+  tappedLands: number;
 }
 
 interface PickedEntry {
@@ -314,8 +322,10 @@ interface PickedEntry {
   reasons: string[];
 }
 
-function addToTierCounts(counts: TierCounts, f: CardFeatures, count: number): TierCounts {
+function addToTierCounts(counts: TierCounts, f: CardFeatures, count: number, duel = false): TierCounts {
   const t = f.tier;
+  // Duel : un contresort compte comme interaction (même règle que computeDeckTier).
+  const counter = duel && !f.isLand && f.roles.includes("counterspell") && !f.categories.includes("removal") && !f.categories.includes("disruption");
   return {
     gameChangers: counts.gameChangers + (t.gameChanger ? count : 0),
     fastMana: counts.fastMana + (t.fastMana ? count : 0),
@@ -323,7 +333,8 @@ function addToTierCounts(counts: TierCounts, f: CardFeatures, count: number): Ti
     interaction:
       counts.interaction +
       (f.categories.includes("removal") ? count : 0) +
-      (f.categories.includes("disruption") ? count : 0),
+      (f.categories.includes("disruption") ? count : 0) +
+      (counter ? count : 0),
     extraTurns: counts.extraTurns + (t.extraTurn ? count : 0),
     massLandDenial: counts.massLandDenial + (t.massLandDenial ? count : 0),
     combos: counts.combos,
@@ -398,6 +409,8 @@ export interface BuiltDeck {
   dropped: { name: string; reason: string }[];
   /** Cartes gardées malgré une dépendance mal servie (phrases prêtes à afficher). */
   weakDependencies: string[];
+  /** Lecture du deck final carte par carte (deck-audit.ts, 04/10/2026) : ligne directrice, verdicts, cohérence. */
+  audit: DeckAudit;
 }
 
 /**
@@ -440,6 +453,166 @@ function isCheapInteraction(f: CardFeatures): boolean {
   return f.categories.includes("protection") && /counter target/i.test(getDisplayOracleText(f.card));
 }
 
+// ---------------------------------------------------------------------------
+// Note d'une carte en DUEL (04/10/2026)
+// ---------------------------------------------------------------------------
+
+/** Rôles qui constituent un « métier » dans un deck (hors tranches de coût). */
+const JOB_ROLES = new Set<RoleId>(["creature", "threat", "counterspell", "cheapInteraction", "removal", "wipe", "draw", "ramp", "tutor", "protection", "recursion"]);
+/** Poids du gain de tier en Duel : il départage des cartes de valeur proche, il ne décide plus seul. */
+const DUEL_TIER_WEIGHT = 0.35;
+/** Poids linéaire de la présence dans les decks de tournoi de ces couleurs (s'ajoute à la qualité). */
+const DUEL_PRESENCE_WEIGHT = 6;
+/** Malus d'une mécanique pensée pour le multijoueur, × sa gravité (0-1). */
+const DUEL_MISFIT_PENALTY = 6;
+
+const RESTRICTED_MANA = /spend this mana only/i;
+const UPKEEP_COST_LAND = /sacrifice (it|this land) unless you|when (this land|[^.]{2,30}) enters, (sacrifice|return a land)/i;
+
+/**
+ * Couleurs de l'identité qu'un terrain donne GRATUITEMENT (« {T}: Add ... »
+ * sans autre coût que l'engagement, ou avec un paiement de points de vie).
+ * Un terrain qui demande du mana pour filtrer (« {1}, {T}: Add one mana of
+ * any color ») ne compte pas : il ne corrige les couleurs qu'en ralentissant.
+ */
+function freeColors(card: ScryfallCard, identity: string[]): number {
+  const text = getDisplayOracleText(card).split("\n//\n")[0].replace(/\([^)]*\)/g, " ");
+  const found = new Set<string>();
+  for (const line of text.split("\n")) {
+    const m = line.match(/^\{T\}(?:, pay \d+ life)?: add ([^.]*)/i);
+    if (!m) continue;
+    const what = m[1];
+    if (/any color|in your commander's color identity/i.test(what)) return identity.length;
+    for (const c of what.matchAll(/\{([WUBRG])\}/g)) if (identity.includes(c[1])) found.add(c[1]);
+  }
+  return found.size;
+}
+
+/**
+ * Valeur d'un terrain NON-BASE en Duel, par rapport à un terrain de base (0).
+ * Seuls les terrains au-dessus de 0 sont retenus (voir `minScore`).
+ * - joué par au moins 5 % des decks de tournoi de ces couleurs : sa présence
+ *   décide ;
+ * - sinon : un terrain qui donne gratuitement deux couleurs du deck sans
+ *   arriver engagé vaut mieux qu'une base ; un terrain incolore, toujours
+ *   engagé, à mana restreint ou à coût d'entretien vaut moins (Rupture Spire,
+ *   Gateway Plaza, Temple of the False God ne valent pas une Île).
+ */
+function duelLandScore(f: CardFeatures, identity: string[], tappedSoFar = 0): number {
+  const text = getDisplayOracleText(f.card).split("\n//\n")[0];
+  if (f.duelMetaChoice >= 0.05) return 1 + 8 * f.duelMetaChoice + (f.fetchesBasicType && !fetchFindsIdentity(f.card, identity) ? -4 : 0);
+  const colors = freeColors(f.card, identity);
+  let s = identity.length <= 1 ? -0.5 : colors >= 2 ? 1.5 : colors === 1 ? -0.3 : -1.5;
+  if (f.duelMetaChoice > 0) s += 0.3;
+  if (f.fetchesBasicType) s += fetchFindsIdentity(f.card, identity) ? 2 : -3;
+  if (RESTRICTED_MANA.test(text)) s -= 1;
+  if (UPKEEP_COST_LAND.test(text)) s -= 1.5;
+  if (entersTappedAlways(f.card)) {
+    // Tricolore : quelques terrains engagés sont le prix du mana ; au-delà de
+    // trois, chaque terrain engagé de plus coûte un tour de retard de trop.
+    s -= identity.length >= 3 ? 1.2 : 2;
+    if (tappedSoFar >= 3) s -= 1.5;
+  }
+  return s;
+}
+
+interface DuelScoreInput {
+  tierGain: number;
+  completes: number;
+  ctx: BuildContext;
+  profile: CommanderProfile;
+  state: PickState;
+  identity: string[];
+  pieces: string[][];
+  reasons: string[];
+}
+
+/**
+ * Note d'une carte candidate en Duel. Remplace l'addition de cases cochées
+ * (piliers, « pilier le plus faible », thèmes du commandant) par :
+ *   qualité de la carte (0-10, card-quality.ts)
+ * + part des decks de tournoi de CE commandant qui la jouent
+ * + ce que la forme de référence demande encore (structureScore)
+ * + sa place dans le plan : axes de mécanique du deck, tribu
+ * + cartes souvent jouées ensemble en tournoi, pièces de combo
+ * + gain de tier, à poids réduit et pondéré par la qualité
+ * − mécanique multijoueur, coût élevé.
+ * Les raisons affichées à Ben sont ajoutées à `reasons`.
+ */
+function duelCardScore(f: CardFeatures, x: DuelScoreInput): number {
+  const { ctx, state, identity, reasons } = x;
+  const p = MODE_PROFILES.duel;
+  if (f.isLand) return duelLandScore(f, identity, state.tappedLands) + x.tierGain * DUEL_TIER_WEIGHT;
+
+  const q = f.quality.score;
+  // La présence dans les decks de tournoi de CES couleurs compte deux fois :
+  // dans la qualité (échelle resserrée, 5,5 à 10) et ici, en ligne droite —
+  // sinon une carte jouée par 90 % des decks ne pèse guère plus qu'une carte
+  // jouée par 50 %, et le moteur retrouve moins bien le cœur des decks réels
+  // (mesuré : 72 % du cœur sans ce terme, voir README du 04/10/2026).
+  let score = q + f.duelMetaChoice * DUEL_PRESENCE_WEIGHT;
+  if (f.duelMetaChoice >= 0.1) reasons.push(`Jouée par ${Math.round(f.duelMetaChoice * 100)} % des decks de tournoi de ces couleurs`);
+
+  if (state.reference) {
+    const share = referenceShare(state.reference, f.card.name);
+    if (share > 0) {
+      score += share * p.referenceWeight;
+      if (share >= 0.3) reasons.unshift(`Dans ${Math.round(share * 100)} % des decks de tournoi de ce commandant`);
+    }
+  }
+
+  const plan = ctx.plan;
+  if (plan?.recipe) {
+    const st = structureNeed(f.roles, plan.recipe, state.plan.roleCounts);
+    score += st.score;
+    if (st.fills) reasons.push(`Comble un manque : ${ROLE_LABELS[st.fills] ?? st.fills}`);
+  }
+  // Chaque carte doit avoir un métier. Une carte sans rôle reconnu (ni
+  // créature, ni réponse, ni pioche, ni mana...) que les decks de tournoi de
+  // ces couleurs ne jouent pas non plus n'est justifiée par rien : −1,5. Sans
+  // ce malus, les derniers créneaux revenaient à des sorts sans rôle plutôt
+  // qu'à une bonne créature « au-dessus du quota ».
+  if (!f.roles.some((r) => JOB_ROLES.has(r)) && f.duelMetaChoice < 0.1 && referenceShare(state.reference, f.card.name) < 0.2) score -= 1.5;
+  if (plan) {
+    const ps = planScore(f, plan, state.plan, false);
+    if (ps.score !== 0) {
+      score += ps.score;
+      reasons.push(...ps.reasons);
+    }
+  }
+  if (x.profile.tribes.length > 0 && f.synergy.creatureTypes.some((t) => x.profile.tribes.includes(t))) {
+    score += 1.5;
+    reasons.push(`Tribu du commandant (${x.profile.tribes.join(", ")})`);
+  }
+
+  let learned = 0;
+  let bestMate: string | null = null;
+  for (const mate of learnedPartners(f.card.name)) {
+    if (!state.pickedCoKeys.has(mate.key)) continue;
+    learned += (Math.min(mate.lift, 6) / 6) * p.learnedSynergyWeight;
+    bestMate ??= mate.name;
+  }
+  if (learned > 0) {
+    score += Math.min(2.5, learned);
+    reasons.push(`Souvent jouée avec ${bestMate} en tournoi`);
+  }
+
+  if (state.pieceSet.has(f.key) && x.pieces.some((pieces) => pieces.includes(f.key))) {
+    score += COMBO_PIECE_BONUS;
+    reasons.push(x.completes > 0 ? "Complète une combo" : "Pièce de combo");
+  }
+
+  // Le gain de tier ne compte qu'à proportion de la qualité : une carte faible
+  // qui coche « tutor » ou « mana rapide » ne tient pas ce que la case promet.
+  const qf = Math.max(0.25, Math.min(1, (q - 2) / 4));
+  score += x.tierGain * DUEL_TIER_WEIGHT * qf;
+
+  if (f.card.cmc > p.curveSoftCap && !f.tier.fastMana) score -= (f.card.cmc - p.curveSoftCap) * 0.5;
+  const misfit = multiplayerOnly(f.card);
+  if (misfit) score -= misfit.severity * DUEL_MISFIT_PENALTY;
+  return score;
+}
+
 /**
  * Sélection gloutonne « meilleur gain d'abord » (généralise pickBestCards
  * de collection-builder.ts, voir la doc en tête de fichier pour ce qui
@@ -467,6 +640,7 @@ function greedyPick(
   const { format, mode } = ctx;
   const { weights, targets } = format.categories;
   const p = MODE_PROFILES[mode];
+  const duel = mode === "duel";
   const picked: PickedEntry[] = [];
   const remaining = new Map(candidates.map((f) => [f.key, f] as const));
   let slotsLeft = slots;
@@ -507,7 +681,7 @@ function greedyPick(
       if (acquired && acquiredCount >= ctx.maxAcquisitions) continue;
 
       const reasons: string[] = [];
-      const nextCounts = addToTierCounts(state.tierCounts, f, 1);
+      const nextCounts = addToTierCounts(state.tierCounts, f, 1, duel);
 
       // Combo complétée par cette carte ?
       let completes = 0;
@@ -525,107 +699,113 @@ function greedyPick(
       const tierGain =
         powerIndexFromComponents(tierComponentsFromCounts(withPrior(nextCounts), format.categories, format.key)) -
         baseIndex;
-      let score = tierGain * TIER_WEIGHT;
-      if (f.tier.gameChanger && p.gameChangerWeight > 0) reasons.push("Game Changer");
-      if (f.tier.fastMana) reasons.push("Mana rapide");
-      if (f.tier.tutor) reasons.push("Tutor");
-      if (f.tier.extraTurn) reasons.push("Tour supplémentaire");
-      if (completes > 0) reasons.push("Complète une combo");
+      let score = 0;
+      if (duel) {
+        // Duel (04/10/2026) : la note part de la QUALITÉ de la carte, puis de
+        // sa place dans la forme et le plan du deck — voir duelCardScore.
+        score = duelCardScore(f, { tierGain, completes, ctx, profile, state, identity, pieces: comboPiecesLower, reasons });
+      } else {
+        score = tierGain * TIER_WEIGHT;
+        if (f.tier.gameChanger && p.gameChangerWeight > 0) reasons.push("Game Changer");
+        if (f.tier.fastMana) reasons.push("Mana rapide");
+        if (f.tier.tutor) reasons.push("Tutor");
+        if (f.tier.extraTurn) reasons.push("Tour supplémentaire");
+        if (completes > 0) reasons.push("Complète une combo");
 
-      // Piliers : valeur pleine sous la cible, réduite au-delà (un 14e
-      // removal n'apporte presque plus rien au score de complétude).
-      for (const cat of f.categories) {
-        const base = weights[cat] / targets[cat];
-        score += state.categoryCounts[cat] < targets[cat] ? base : base * 0.3;
-      }
-      if (weakest && f.categories.includes(weakest)) score += WEAKEST_CATEGORY_BONUS;
-
-      const syn = synergyScore(f.synergy, profile);
-      if (syn > 0) {
-        score += syn;
-        const labels = sharedThemeLabels(f.synergy, profile);
-        if (labels.length) reasons.push(`Synergie : ${labels.join(", ")}`);
-      }
-
-      // Plan de jeu : axes à servir + recette de forme (game-plan.ts). Sans
-      // plan, rien ne change par rapport au moteur d'avant.
-      if (ctx.plan) {
-        const ps = planScore(f, ctx.plan, state.plan);
-        if (ps.score !== 0) {
-          score += ps.score;
-          reasons.push(...ps.reasons);
+        // Piliers : valeur pleine sous la cible, réduite au-delà (un 14e
+        // removal n'apporte presque plus rien au score de complétude).
+        for (const cat of f.categories) {
+          const base = weights[cat] / targets[cat];
+          score += state.categoryCounts[cat] < targets[cat] ? base : base * 0.3;
         }
-      }
+        if (weakest && f.categories.includes(weakest)) score += WEAKEST_CATEGORY_BONUS;
 
-      if (state.pieceSet.has(f.key) && comboPiecesLower.some((pieces) => pieces.includes(f.key))) {
-        score += COMBO_PIECE_BONUS;
-        if (completes === 0) reasons.push("Pièce de combo");
-      }
-
-      if (p.metaWeight > 0 && f.duelMetaChoice > 0) {
-        score += f.duelMetaChoice * p.metaWeight;
-        if (f.duelMetaChoice >= 0.1) {
-          reasons.push(
-            f.duelMetaChoice !== f.duelMetaGlobal
-              ? p.useColorProfiles && DUEL_PROFILES_AVAILABLE
-                ? `Jouée dans ${Math.round(f.duelMetaChoice * 100)}% des decks de tournoi Duel de ces couleurs`
-                : `Jouée dans ${Math.round(f.duelMetaChoice * 100)}% des decks de tournoi Duel de ses couleurs`
-              : `Jouée dans ${Math.round(f.duelMetaChoice * 100)}% des decks de tournoi Duel`
-          );
+        const syn = synergyScore(f.synergy, profile);
+        if (syn > 0) {
+          score += syn;
+          const labels = sharedThemeLabels(f.synergy, profile);
+          if (labels.length) reasons.push(`Synergie : ${labels.join(", ")}`);
         }
-      }
 
-      if (p.referenceWeight > 0 && state.reference) {
-        const share = referenceShare(state.reference, f.card.name);
-        if (share > 0) {
-          score += share * p.referenceWeight;
-          if (share >= 0.4) {
+        // Plan de jeu : axes à servir + recette de forme (game-plan.ts). Sans
+        // plan, rien ne change par rapport au moteur d'avant.
+        if (ctx.plan) {
+          const ps = planScore(f, ctx.plan, state.plan);
+          if (ps.score !== 0) {
+            score += ps.score;
+            reasons.push(...ps.reasons);
+          }
+        }
+
+        if (state.pieceSet.has(f.key) && comboPiecesLower.some((pieces) => pieces.includes(f.key))) {
+          score += COMBO_PIECE_BONUS;
+          if (completes === 0) reasons.push("Pièce de combo");
+        }
+
+        if (p.metaWeight > 0 && f.duelMetaChoice > 0) {
+          score += f.duelMetaChoice * p.metaWeight;
+          if (f.duelMetaChoice >= 0.1) {
             reasons.push(
-              `Dans ${Math.round(share * 100)}% des decks de tournoi de ce commandant (${state.reference.deckCount} decks)`
+              f.duelMetaChoice !== f.duelMetaGlobal
+                ? p.useColorProfiles && DUEL_PROFILES_AVAILABLE
+                  ? `Jouée dans ${Math.round(f.duelMetaChoice * 100)}% des decks de tournoi Duel de ces couleurs`
+                  : `Jouée dans ${Math.round(f.duelMetaChoice * 100)}% des decks de tournoi Duel de ses couleurs`
+                : `Jouée dans ${Math.round(f.duelMetaChoice * 100)}% des decks de tournoi Duel`
             );
           }
         }
-      }
 
-      if (p.learnedSynergyWeight > 0) {
-        let learned = 0;
-        let bestMate: string | null = null;
-        for (const mate of learnedPartners(f.card.name)) {
-          if (!state.pickedCoKeys.has(mate.key)) continue;
-          learned += (Math.min(mate.lift, 6) / 6) * p.learnedSynergyWeight;
-          bestMate ??= mate.name;
+        if (p.referenceWeight > 0 && state.reference) {
+          const share = referenceShare(state.reference, f.card.name);
+          if (share > 0) {
+            score += share * p.referenceWeight;
+            if (share >= 0.4) {
+              reasons.push(
+                `Dans ${Math.round(share * 100)}% des decks de tournoi de ce commandant (${state.reference.deckCount} decks)`
+              );
+            }
+          }
         }
-        if (learned > 0) {
-          score += Math.min(2.5, learned);
-          reasons.push(`Souvent jouée avec ${bestMate} en tournoi`);
-        }
-      }
 
-      if (f.isLand) {
-        const produced = (f.card.produced_mana ?? []).filter((m) => identity.includes(m));
-        if (f.fetchesBasicType) score += fetchFindsIdentity(f.card, identity) ? 1 : -1;
-        if (identity.length >= 2 && produced.length === 0 && !f.fetchesBasicType) score -= 1;
-        // Deck monocolore : un terrain « bicolore » ne corrige rien, son
-        // crédit « fixing » est annulé (un terrain de base fait aussi bien).
-        if (identity.length <= 1 && f.categories.includes("landfix")) {
-          const base = weights.landfix / targets.landfix;
-          score -= state.categoryCounts.landfix < targets.landfix ? base : base * 0.3;
-          if (weakest === "landfix") score -= WEAKEST_CATEGORY_BONUS;
+        if (p.learnedSynergyWeight > 0) {
+          let learned = 0;
+          let bestMate: string | null = null;
+          for (const mate of learnedPartners(f.card.name)) {
+            if (!state.pickedCoKeys.has(mate.key)) continue;
+            learned += (Math.min(mate.lift, 6) / 6) * p.learnedSynergyWeight;
+            bestMate ??= mate.name;
+          }
+          if (learned > 0) {
+            score += Math.min(2.5, learned);
+            reasons.push(`Souvent jouée avec ${bestMate} en tournoi`);
+          }
         }
-        if (entersTappedAlways(f.card)) {
-          score -= p.tappedLandPenalty;
-        }
-      } else {
-        if (f.card.cmc > p.curveSoftCap && !f.tier.fastMana) score -= (f.card.cmc - p.curveSoftCap) * p.curvePenalty;
-        if (isCheapInteraction(f)) {
-          score += p.cheapInteractionBonus;
-          if (mode === "duel") reasons.push("Interaction à bas coût");
-        }
-      }
 
-      if (typeof f.card.edhrec_rank === "number" && f.card.edhrec_rank > 0) {
-        if (f.card.edhrec_rank <= 300) score += 0.4;
-        else if (f.card.edhrec_rank <= 1500) score += 0.15;
+        if (f.isLand) {
+          const produced = (f.card.produced_mana ?? []).filter((m) => identity.includes(m));
+          if (f.fetchesBasicType) score += fetchFindsIdentity(f.card, identity) ? 1 : -1;
+          if (identity.length >= 2 && produced.length === 0 && !f.fetchesBasicType) score -= 1;
+          // Deck monocolore : un terrain « bicolore » ne corrige rien, son
+          // crédit « fixing » est annulé (un terrain de base fait aussi bien).
+          if (identity.length <= 1 && f.categories.includes("landfix")) {
+            const base = weights.landfix / targets.landfix;
+            score -= state.categoryCounts.landfix < targets.landfix ? base : base * 0.3;
+            if (weakest === "landfix") score -= WEAKEST_CATEGORY_BONUS;
+          }
+          if (entersTappedAlways(f.card)) {
+            score -= p.tappedLandPenalty;
+          }
+        } else {
+          if (f.card.cmc > p.curveSoftCap && !f.tier.fastMana) score -= (f.card.cmc - p.curveSoftCap) * p.curvePenalty;
+          if (isCheapInteraction(f)) {
+            score += p.cheapInteractionBonus;
+          }
+        }
+
+        if (typeof f.card.edhrec_rank === "number" && f.card.edhrec_rank > 0) {
+          if (f.card.edhrec_rank <= 300) score += 0.4;
+          else if (f.card.edhrec_rank <= 1500) score += 0.15;
+        }
       }
 
       if (acquired) score -= ACQUISITION_PENALTY;
@@ -647,13 +827,14 @@ function greedyPick(
 
     // Mise à jour de l'état partagé (piliers, compteurs de tier, combos).
     for (const cat of f.categories) state.categoryCounts[cat] += count;
-    const next = addToTierCounts(state.tierCounts, f, count);
+    const next = addToTierCounts(state.tierCounts, f, count, duel);
     if (state.pieceSet.has(f.key)) state.comboPiecesPicked.add(f.key);
     next.combos = findCompleteCombos([...state.comboPiecesPicked], state.combos).filter((c) => !c.minor).length;
     state.tierCounts = next;
     state.pickedKeys.add(f.key);
     state.pickedCoKeys.add(cooccurrenceKey(f.card.name));
     addToPlanCounts(state.plan, f, count);
+    if (f.isLand && entersTappedAlways(f.card)) state.tappedLands += count;
 
     picked.push({ f, count, acquired, score: best.score, tierGain: best.tierGain, reasons: best.reasons });
     if (acquired) acquiredCount++;
@@ -745,38 +926,73 @@ export function mainDeckSize(format: FormatConfig, commanderCount: number): numb
  */
 /** Malus d'une carte dont la dépendance est mal servie (même échelle que ACQUISITION_PENALTY). */
 const WEAK_DEPENDENCY_PENALTY = 2.5;
+/** Malus d'une carte que la lecture du deck juge mal placée (deck-audit.ts) : assez pour qu'une carte saine de qualité voisine passe devant. */
+const MISPLACED_PENALTY = 4;
 const MAX_DEPENDENCY_REBUILDS = 3;
 
-export function buildDeckForCommander(ctx: BuildContext): BuiltDeck {
-  // Dépendances (03/10/2026, dependencies.ts) : une carte qui cherche un
-  // type absent du deck (« The Eleventh Hour » sans Docteurs) est écartée,
-  // puis le deck est reconstruit ; retirer une carte peut en priver une
-  // autre de ses cibles, d'où la boucle (bornée).
+export function buildDeckForCommander(input: BuildContext): BuiltDeck {
+  // Duel (04/10/2026) : un deck a TOUJOURS une ligne directrice — une forme à
+  // viser et, si le commandant en récompense, des axes de mécanique. Sans
+  // plan fourni, on prend le premier que propose game-plan.ts (la forme des
+  // decks de tournoi de ce commandant s'il en a, sinon la famille la plus
+  // proche).
+  let ctx = input;
+  if (ctx.mode === "duel" && !ctx.plan) {
+    const plan = defaultPlan(ctx);
+    if (plan) ctx = { ...ctx, plan };
+  }
+  // Relecture du deck construit (deck-audit.ts), puis reconstruction sans les
+  // cartes qui n'y ont pas leur place : une recherche sans cible (03/10/2026,
+  // « The Eleventh Hour » sans Docteurs), et depuis le 04/10/2026 une
+  // mécanique multijoueur en Duel, un effet qui frappe le plan du deck, une
+  // récompense que le deck n'alimente pas, un équipement sans porteurs.
+  // Retirer une carte peut en priver une autre de ses cibles, d'où la boucle
+  // (bornée). Les pièces de combo verrouillées ne sont pas touchées.
   const excluded = new Set(ctx.excluded ?? []);
   const penalized = new Map(ctx.penalized ?? []);
   const dropped: { name: string; reason: string }[] = [];
-  const cardsOf = (d: BuiltDeck) =>
-    d.cards.map((c) => ctx.features.get(c.name.toLowerCase())).filter((f): f is CardFeatures => !!f && !f.isBasic).map((f) => f.card);
   let deck = buildWithinBudget({ ...ctx, excluded, penalized });
   for (let pass = 0; pass < MAX_DEPENDENCY_REBUILDS; pass++) {
-    // Une pièce de combo vaut par son combo, pas par sa ligne de recherche : on n'y touche pas.
     const locked = new Set(deck.picks.filter((p) => p.locked).map((p) => p.key));
     let changed = false;
-    for (const u of unmetDependencies(cardsOf(deck), deck.commanders)) {
-      const key = u.name.toLowerCase();
+    for (const flag of deck.audit.flagged) {
+      const key = flag.name.toLowerCase();
+      const code = deck.audit.verdicts[key]?.code;
       if (locked.has(key) || excluded.has(key) || penalized.has(key)) continue;
-      // Créature ou planeswalker : écartée seulement si sa recherche n'a AUCUNE cible (« Myr Kinsmith » sans Myr).
-      if (u.dependency.hard || (u.dependency.kind !== "tribe" && u.have === 0)) {
+      if (flag.level === "contre-productif") {
         excluded.add(key);
-        dropped.push({ name: u.name, reason: u.reason });
-      } else penalized.set(key, WEAK_DEPENDENCY_PENALTY);
-      changed = true;
+        dropped.push({ name: flag.name, reason: flag.note });
+        changed = true;
+      } else if (flag.level === "discutable" && code !== "remplissage") {
+        // Le remplissage n'est pas pénalisé : la carte suivante serait du remplissage aussi.
+        // Dépendance mal servie : malus d'origine ; autre réserve de la lecture (récompense sans moteur, équipement sans porteurs...) : malus plus lourd.
+        penalized.set(key, code === "dependance" ? WEAK_DEPENDENCY_PENALTY : MISPLACED_PENALTY);
+        changed = true;
+      }
     }
     if (!changed) break;
     deck = buildWithinBudget({ ...ctx, excluded, penalized });
   }
-  const weak = unmetDependencies(cardsOf(deck), deck.commanders).map((u) => u.reason);
+  const weak = deck.audit.flagged.filter((f) => f.level === "discutable" && deck.audit.verdicts[f.name.toLowerCase()]?.code !== "remplissage").map((f) => f.note);
   return { ...deck, dropped, weakDependencies: Array.from(new Set(weak)) };
+}
+
+/** Cartes non-terrain jouables pour ce contexte (identité, possédées ou acquérables). */
+function availableNonLands(ctx: BuildContext): CardFeatures[] {
+  const identity = unionIdentity(ctx.commanders);
+  const commanderKeys = new Set(ctx.commanders.map((c) => c.name.toLowerCase()));
+  const out: CardFeatures[] = [];
+  for (const f of ctx.features.values()) {
+    if (f.isLand || f.isBasic || commanderKeys.has(f.key)) continue;
+    if (!inIdentity(f.card, identity)) continue;
+    if ((ctx.owned.get(f.key) ?? 0) <= 0 && !ctx.acquirable.has(f.key)) continue;
+    out.push(f);
+  }
+  return out;
+}
+
+function defaultPlan(ctx: BuildContext): BuildPlan | null {
+  return proposePlans(ctx.commanders, availableNonLands(ctx), ctx.mode, 1)[0] ?? null;
 }
 
 function buildWithinBudget(ctx: BuildContext): BuiltDeck {
@@ -816,7 +1032,14 @@ function buildOnce(ctx: BuildContext): BuiltDeck {
   if (p.useColorProfiles && DUEL_PROFILES_AVAILABLE) {
     for (let i = 0; i < available.length; i++) {
       const f = available[i];
-      available[i] = { ...f, duelMetaChoice: duelPresenceForIdentity(f.card.name, f.card.color_identity, identity) };
+      const presence = duelPresenceForIdentity(f.card.name, f.card.color_identity, identity);
+      available[i] = {
+        ...f,
+        duelMetaChoice: presence,
+        // La note « texte » ne dépend pas du deck : seule la partie « présence » est refaite.
+        // Jamais vue dans les decks de CES couleurs mais jouée ailleurs : demi-crédit.
+        quality: cardQuality(f.card, f.categories, { mode, duelPresence: presence || f.duelMetaChoice * 0.5, recent: isRecentCard(f.card.name) }, f.quality.textScore),
+      };
     }
   }
 
@@ -830,12 +1053,21 @@ function buildOnce(ctx: BuildContext): BuiltDeck {
   ).filter((c) => !c.templates?.length && !c.minor);
   const pieceSet = comboPieceSet(combosAvailable);
 
+  // Duel : présélection par la qualité et la référence du commandant (même
+  // base que duelCardScore), plus les cartes qui servent un axe du plan.
+  const planAxes = new Set((ctx.plan?.axes ?? []).map((a) => a.axis));
+  const duelStatic = (f: CardFeatures) =>
+    (f.isLand ? duelLandScore(f, identity) : f.quality.score + f.duelMetaChoice * DUEL_PRESENCE_WEIGHT) +
+    referenceShare(reference, f.card.name) * p.referenceWeight +
+    (f.mech.produces.some((i) => planAxes.has(i)) || f.mech.rewards.some((i) => planAxes.has(i)) ? 1.5 : 0) +
+    (pieceSet.has(f.key) ? 1 : 0) -
+    (multiplayerOnly(f.card)?.severity ?? 0) * DUEL_MISFIT_PENALTY;
   const byStatic = (list: CardFeatures[], limit: number) =>
     list
       .map((f) => ({
         f,
         s:
-          staticScore(f, profile, format, mode, pieceSet, reference) -
+          (mode === "duel" ? duelStatic(f) : staticScore(f, profile, format, mode, pieceSet, reference)) -
           ((owned.get(f.key) ?? 0) > 0 ? 0 : ACQUISITION_PENALTY),
       }))
       .sort((a, b) => b.s - a.s || a.f.card.name.localeCompare(b.f.card.name))
@@ -872,6 +1104,7 @@ function buildOnce(ctx: BuildContext): BuiltDeck {
     pickedCoKeys: new Set(commanders.map((c) => cooccurrenceKey(c.name))),
     reference,
     plan: emptyPlanCounts(),
+    tappedLands: 0,
   };
   // Les commandants comptent pour les combos et les Game Changers — pas pour
   // les piliers/la courbe (même convention que computeDeckStats).
@@ -888,7 +1121,12 @@ function buildOnce(ctx: BuildContext): BuiltDeck {
   // (minScore 0), et jamais au-delà de ce que laisse le plancher de terrains
   // de base (minBasicsFor).
   const poolLandSlots = Math.max(0, landTarget - basicsTarget);
-  const landPicks = greedyPick(lands, poolLandSlots, ctx, profile, state, combosAvailable, identity, 0);
+  // Duel (04/10/2026) : au plus un tiers des achats en terrains. Les terrains
+  // de tournoi (fetchlands, bi-terrains d'origine) sont joués par presque tous
+  // les decks, donc très bien notés — sans plafond, les 15 achats proposés
+  // étaient 15 terrains, souvent les cartes les plus chères du format.
+  const landBudget = mode === "duel" ? Math.ceil(ctx.maxAcquisitions / 3) : ctx.maxAcquisitions;
+  const landPicks = greedyPick(lands, poolLandSlots, { ...ctx, maxAcquisitions: landBudget }, profile, state, combosAvailable, identity, 0);
   const landAcq = landPicks.filter((x) => x.acquired).length;
   const nonLandPicks = greedyPick(
     nonLands,
@@ -955,7 +1193,8 @@ function buildOnce(ctx: BuildContext): BuiltDeck {
   const allPicks = [...finalLandPicks, ...finalNonLands];
   const acquisitions = allPicks
     .filter((x) => x.acquired)
-    .sort((a, b) => b.tierGain - a.tierGain || b.score - a.score)
+    // Duel : de la carte la mieux notée par le moteur à la moins bien notée ; multijoueur : gain de tier d'abord.
+    .sort((a, b) => (mode === "duel" ? b.score - a.score : b.tierGain - a.tierGain || b.score - a.score))
     .map((x) => ({ name: x.f.card.name, card: x.f.card, reasons: x.reasons, tierGain: Math.round(x.tierGain * 10) / 10, score: x.score }));
 
   const reasonsByName: Record<string, string[]> = {};
@@ -977,7 +1216,60 @@ function buildOnce(ctx: BuildContext): BuiltDeck {
     .filter((x) => !x.acquired)
     .map(info);
 
-  return { commanders, commandersOwned, cards: deckList, acquisitions, reasonsByName, stats, tier, profile, reference, plan: ctx.plan ?? null, picks, bench, dropped: [], weakDependencies: [] };
+  const built: BuiltDeck = { commanders, commandersOwned, cards: deckList, acquisitions, reasonsByName, stats, tier, profile, reference, plan: ctx.plan ?? null, picks, bench, dropped: [], weakDependencies: [], audit: EMPTY_AUDIT };
+  return { ...built, audit: auditBuiltDeck(built, ctx) };
+}
+
+const EMPTY_AUDIT: DeckAudit = {
+  line: { style: "", ownShape: false, axes: [], text: "" },
+  verdicts: {},
+  coherence: 100,
+  structure: 100,
+  avgQuality: 0,
+  flagged: [],
+  counts: { nonLand: 0, creatures: 0, roles: emptyPlanCounts().roleCounts },
+};
+
+/**
+ * Relit un deck construit (deck-audit.ts) avec les faits déjà calculés par
+ * le constructeur. `features` : l'index du build ; les terrains de base sont
+ * lus dans `basics`. Appelée aussi après un ajustement (deck-optimizer.ts).
+ */
+export function auditBuiltDeck(
+  deck: Pick<BuiltDeck, "cards" | "commanders" | "plan" | "reference" | "tier">,
+  ctx: Pick<BuildContext, "features" | "basics" | "mode">
+): DeckAudit {
+  const comboPieces = new Set(deck.tier.signals.combos.filter((c) => !c.minor).flatMap((c) => c.pieces.map((x) => x.toLowerCase())));
+  const identity = unionIdentity(deck.commanders);
+  const items: AuditItem[] = [];
+  for (const e of deck.cards) {
+    const key = e.name.toLowerCase();
+    const f = ctx.features.get(key);
+    if (f) {
+      const presence = ctx.mode === "duel" ? duelPresenceForIdentity(f.card.name, f.card.color_identity, identity) : 0;
+      items.push({
+        card: f.card,
+        count: e.count,
+        isLand: f.isLand,
+        categories: f.categories,
+        mech: f.mech,
+        roles: f.roles,
+        quality: ctx.mode === "duel" ? cardQuality(f.card, f.categories, { mode: "duel", duelPresence: presence || duelMetaPresenceInColors(f.card.name) * 0.5, recent: isRecentCard(f.card.name) }, f.quality.textScore) : f.quality,
+        presence,
+        refShare: referenceShare(deck.reference, f.card.name),
+        comboPiece: comboPieces.has(key),
+      });
+      continue;
+    }
+    const basic = ctx.basics.get(key);
+    if (basic) items.push({ card: basic, count: e.count, isLand: true, categories: [], mech: { produces: [], rewards: [] }, roles: [], quality: { score: 5, basis: "texte", textScore: 5 }, presence: 0, refShare: 0 });
+  }
+  return auditDeck({
+    items,
+    commanders: deck.commanders,
+    mode: ctx.mode,
+    plan: deck.plan ? { axes: deck.plan.axes.map((a) => a.axis), recipe: deck.plan.recipe } : null,
+  });
 }
 
 /** Score + tier d'une liste, avec les mêmes fonctions que le tableau de bord (computeDeckStats/computeDeckTier). */
@@ -1045,6 +1337,12 @@ export interface DeckProposal {
   /** Deck avec le pool recommandé autorisé (jusqu'à maxAcquisitions cartes). */
   upgradedDeck: BuiltDeck;
   affinity: number;
+  /**
+   * Score de classement (04/10/2026) : solidité du deck possédé + note du
+   * commandant, fourni par `RankParams.evaluate` (deck-optimizer.ts). Absent :
+   * classement d'avant, au tier.
+   */
+  rankScore?: number;
 }
 
 /**
@@ -1075,6 +1373,19 @@ export function commanderAffinity(
     scores.push(staticScore(f, profile, format, mode, CURATED_PIECES, reference));
   }
   scores.sort((a, b) => b - a);
+  // Duel (04/10/2026) : qualité des 55 meilleures cartes possédées jouables,
+  // plus la note du commandant lui-même (deck-audit.ts) — 8 points de
+  // présélection par point de note, pour qu'un commandant qui a fait ses
+  // preuves en tournoi soit toujours essayé.
+  if (mode === "duel") {
+    const quality: number[] = [];
+    for (const f of features.values()) {
+      if (f.isBasic || f.isLand || keys.has(f.key) || (owned.get(f.key) ?? 0) <= 0 || !inIdentity(f.card, identity)) continue;
+      quality.push(f.quality.score + referenceShare(reference, f.card.name) * 4);
+    }
+    quality.sort((a, b) => b - a);
+    return quality.slice(0, 55).reduce((s, x) => s + x, 0) + (commanderRating(commanders, mode).score - 5) * 8;
+  }
   const top = scores.slice(0, 55).reduce((s, x) => s + Math.max(0, x), 0);
   const self = commanders.reduce(
     (s, c) => s + (c.game_changer ? 8 : 0) + (CURATED_PIECES.has(c.name.toLowerCase()) ? 2 : 0),
@@ -1150,6 +1461,8 @@ export interface RankParams {
   /** Couleurs max du deck (commandant·s compris) — MAX_DECK_COLORS par défaut. */
   maxColors?: number;
   combos?: readonly ComboDef[];
+  /** Score de classement d'un deck construit (plus haut = mieux). Voir DeckProposal.rankScore. */
+  evaluate?: (deck: BuiltDeck) => number;
 }
 
 /**
@@ -1280,13 +1593,14 @@ function buildProposal({ c, affinity }: Trial, params: RankParams): DeckProposal
   const ownedDeck = buildDeckForCommander({ ...base, acquirable: new Set(), maxAcquisitions: 0 });
   const upgradedDeck =
     acquirable.size > 0 && maxAcquisitions > 0 ? buildDeckForCommander({ ...base, acquirable, maxAcquisitions }) : ownedDeck;
-  return { candidate: c, ownedDeck, upgradedDeck, affinity };
+  return { candidate: c, ownedDeck, upgradedDeck, affinity, rankScore: params.evaluate?.(ownedDeck) };
 }
 
 /** Tri « tier d'abord » (partagé avec competitive-actions.ts après enrichissement Commander Spellbook). */
 export function sortProposals(proposals: DeckProposal[]): void {
   proposals.sort(
     (a, b) =>
+      (b.rankScore ?? 0) - (a.rankScore ?? 0) ||
       b.ownedDeck.tier.powerIndex - a.ownedDeck.tier.powerIndex ||
       b.upgradedDeck.tier.powerIndex - a.upgradedDeck.tier.powerIndex ||
       b.ownedDeck.stats.score - a.ownedDeck.stats.score ||

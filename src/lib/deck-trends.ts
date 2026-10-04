@@ -45,6 +45,8 @@ interface TrendsFile {
   axes: Record<string, { duel: AxisTrend | null; multi: AxisTrend | null }>;
   axisPairs: { duel: { a: string; b: string; lift: number; support: number }[]; multi: { a: string; b: string; lift: number; support: number }[] };
   recipes: Recipe[];
+  /** Forme des decks de chaque commandant assez joué (04/10/2026) — clé : noms mtgtop8 joints par « + ». */
+  shapes?: Record<string, { decks: number; recipe: string | null; roles: Record<RoleId, Range>; lands: Range; avgCmc: number }>;
   roleLabels: Record<string, string>;
 }
 
@@ -110,4 +112,43 @@ export function pairLift(a: string, b: string, mode: TrendMode): number {
 
 export function recipeById(id: string): Recipe | null {
   return RECIPES.find((r) => r.id === id) ?? null;
+}
+
+/** Même normalisation que duel-reference.ts : faces séparées, minuscules, triées. */
+function shapeKey(names: readonly string[]): string {
+  return Array.from(new Set(names.flatMap((n) => n.toLowerCase().split(/\s*\/\/?\s*/).map((x) => x.trim()).filter(Boolean)))).sort().join(" + ");
+}
+
+const SHAPES = new Map<string, Recipe>();
+for (const [label, sh] of Object.entries(FILE.shapes ?? {})) {
+  const family = sh.recipe ? recipeById(sh.recipe) : null;
+  SHAPES.set(shapeKey(label.split(" + ")), {
+    id: `own:${label}`,
+    label: family ? `${family.label} — forme des ${sh.decks} decks de tournoi de ce commandant` : `Forme des ${sh.decks} decks de tournoi de ce commandant`,
+    summary: family?.summary ?? "",
+    share: 0,
+    commanders: 1,
+    decks: sh.decks,
+    examples: [label],
+    roles: sh.roles,
+    lands: sh.lands,
+    avgCmc: sh.avgCmc,
+    colors: family?.colors ?? {},
+    z: family?.z ?? {},
+  });
+}
+
+/**
+ * Forme PROPRE à un commandant (ou duo) : les fourchettes de chaque rôle
+ * mesurées sur ses decks de tournoi, quand il en a au moins 4
+ * (scripts/learn-deck-trends.mts). Plus précise que la recette de sa famille,
+ * qui mélange une trentaine de commandants. null sinon.
+ */
+export function ownShape(commanderNames: readonly string[]): Recipe | null {
+  return SHAPES.get(shapeKey(commanderNames)) ?? null;
+}
+
+/** Famille de base d'une recette (« own:... » → la famille du commandant, sinon elle-même). */
+export function familyLabel(recipe: Recipe): string {
+  return recipe.label.split(" — ")[0];
 }

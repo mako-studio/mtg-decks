@@ -9,6 +9,20 @@ import { useLanguage } from "./LanguageProvider";
 import { fetchLocalizedText, type LocalizedText } from "@/lib/actions";
 import { getCachedTranslation, hasCachedTranslation, setCachedTranslation } from "@/lib/translation-cache";
 import { CardImageHover } from "./CardImageHover";
+import type { CardVerdict } from "@/lib/deck-audit";
+
+/** Pastille du verdict (deck-audit.ts) : rien pour « ok ». */
+const VERDICT_BADGE: Record<CardVerdict["level"], { label: string; className: string } | null> = {
+  ok: null,
+  "contre-intuitif": { label: "Choix surprenant", className: "bg-synergy-soft text-synergy" },
+  discutable: { label: "À revoir", className: "bg-warning-soft text-warning" },
+  "contre-productif": { label: "Contre-productive", className: "bg-warning text-accent-foreground" },
+};
+const BASIS_LABEL: Record<CardVerdict["basis"], string> = {
+  tournoi: "présence dans les decks de tournoi",
+  popularité: "popularité en Commander (rang EDHREC)",
+  texte: "estimation d'après le texte de la carte",
+};
 
 export function CardTile({
   entry,
@@ -18,6 +32,7 @@ export function CardTile({
   removeDisabled = false,
   expanded,
   onToggle,
+  verdict,
 }: {
   entry: EnrichedCard;
   /** Marque visuellement une carte ajoutée via une suggestion pendant la session. */
@@ -30,6 +45,12 @@ export function CardTile({
   /** Contrôlé par le parent pour un comportement accordéon (un seul déplié à la fois). */
   expanded: boolean;
   onToggle: () => void;
+  /**
+   * Lecture de la carte dans CE deck (04/10/2026, demande de Ben : la
+   * justification de chaque carte sur la page de deck) : rôle, raison de sa
+   * présence, et réserve éventuelle. Absent pour le commandant et les terrains.
+   */
+  verdict?: CardVerdict;
 }) {
   const card = entry.card;
   // Rôle(s) de la carte dans le deck, affiché·s en ligne plutôt que
@@ -68,10 +89,14 @@ export function CardTile({
   const displayText =
     lang === "fr" && translation ? translation.text : card ? getDisplayOracleText(card) : "";
   const noTranslationFound = lang === "fr" && expanded && card && !loadingTranslation && translation === null;
+  const badge = verdict ? VERDICT_BADGE[verdict.level] : null;
+  const flagged = verdict && verdict.level !== "ok";
 
   return (
     <div
-      className={`rounded-lg border bg-surface ${added ? "border-accent/50" : "border-border"}`}
+      className={`rounded-lg border bg-surface ${
+        verdict?.level === "contre-productif" || verdict?.level === "discutable" ? "border-warning/60" : added ? "border-accent/50" : "border-border"
+      }`}
     >
       <div className="flex items-center gap-1 pr-2">
         <button
@@ -80,8 +105,9 @@ export function CardTile({
           disabled={!card}
           className="flex w-full min-w-0 flex-1 items-center gap-3 px-3 py-2 text-left text-sm disabled:cursor-default"
         >
-          <span className="w-5 shrink-0 text-right text-muted tabular-nums">{entry.count}×</span>
-          <span className="min-w-0 flex-1 truncate font-medium">
+          <span className="w-5 shrink-0 self-start text-right text-muted tabular-nums">{entry.count}×</span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate font-medium">
             {entry.name}
             {entry.isCommander && (
               <span className="ml-2 rounded-full bg-accent-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent">
@@ -98,11 +124,27 @@ export function CardTile({
                 À retirer
               </span>
             )}
+            {badge && (
+              <span className={`ml-2 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${badge.className}`}>
+                {badge.label}
+              </span>
+            )}
+            </span>
+            {/* Justification de la carte dans ce deck : toujours visible, sous le nom. */}
+            {verdict && verdict.group !== "terrain" && (
+              <span className="mt-0.5 block text-xs font-normal leading-snug text-muted">{verdict.why}</span>
+            )}
+            {flagged && verdict.note && (
+              <span className={`mt-0.5 block text-xs font-normal leading-snug ${verdict.level === "contre-intuitif" ? "text-synergy" : "text-warning"}`}>
+                {verdict.note}
+              </span>
+            )}
           </span>
           {card && !entry.isCommander && (
-            <span className="flex shrink-0 items-center gap-1">
+            <span className="flex shrink-0 items-center gap-1 self-start">
               {categories.length === 0 ? (
-                <span className="text-[10px] italic text-muted">non identifiée</span>
+                // Avec la lecture du deck, la phrase sous le nom dit le rôle : pas de « non identifiée ».
+                verdict ? null : <span className="text-[10px] italic text-muted">non identifiée</span>
               ) : (
                 <>
                   {shownCategories.map((cat) => (
@@ -123,7 +165,9 @@ export function CardTile({
             </span>
           )}
           {card ? (
-            <ManaCost cost={getDisplayManaCost(card)} />
+            <span className="shrink-0 self-start">
+              <ManaCost cost={getDisplayManaCost(card)} />
+            </span>
           ) : (
             <span className="text-xs text-muted italic">non trouvée</span>
           )}
@@ -169,6 +213,11 @@ export function CardTile({
             {(card.power || card.toughness) && (
               <p className="mt-2 text-xs text-muted">
                 Force/Endurance : {card.power}/{card.toughness}
+              </p>
+            )}
+            {verdict && verdict.group !== "terrain" && (
+              <p className="mt-2 text-xs text-muted">
+                Qualité estimée : {verdict.quality.toLocaleString("fr-FR")}/10 — {BASIS_LABEL[verdict.basis]}.
               </p>
             )}
           </div>

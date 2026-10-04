@@ -123,6 +123,9 @@ const CATEGORY_PATTERNS: Record<DeckCategory, RegExp[]> = {
     // target creature an opponent controls.") — un removal conditionné à
     // avoir une créature suffisamment forte, comme "fights?" ci-dessous,
     // mais formulé explicitement plutôt que via le mot-clé.
+    // 04/10/2026 : blessures réparties (« deals 2 damage divided as you choose
+    // among one or two targets » — Forked Bolt, Fire // Ice).
+    /deals? (?:\d+|x) damage divided as you choose among/i,
     /deals? damage equal to its power to (?:target creature|that permanent)/i,
     /return target (creature|permanent|nonland permanent).* to (its|their) owner's hand/i,
     /fights? (?:up to one )?target creature/i,

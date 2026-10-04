@@ -21,6 +21,11 @@ import { computeDeckTier, tierWithSpellbook, type DeckTierResult } from "./deck-
 import { estimateBracket } from "./spellbook";
 import { detectArchetypes } from "./archetype";
 import { getFormat } from "./formats";
+import { auditDeck, auditItem, type DeckAudit } from "./deck-audit";
+import { duelAuditIndex } from "./duel-suggest";
+import { axisIndex } from "./mechanics";
+import { ownShape, recipeById } from "./deck-trends";
+import { referenceFor } from "./duel-reference";
 import {
   autocompleteCardNamesForLang,
   getCardByLocalizedName,
@@ -55,6 +60,18 @@ export interface DeckAnalysisResult {
    * l'analyse n'a pas encore réussi.
    */
   tier: DeckTierResult | null;
+  /**
+   * Lecture du deck carte par carte (deck-audit.ts, 04/10/2026) : ligne
+   * directrice, rôle et justification de chaque carte, cartes à revoir.
+   * `null` si l'analyse a échoué.
+   */
+  audit: DeckAudit | null;
+  /**
+   * Plan suivi par le constructeur quand le deck en vient (axes de mécanique,
+   * forme) : repassé à chaque recalcul pour que la lecture du deck garde la
+   * même ligne directrice. Absent : la ligne est déduite de la liste.
+   */
+  planHint?: { axes: string[]; recipeId: string | null } | null;
   exportText: string;
   /**
    * Renseignés uniquement par `analyzeCsvImport` : cartes à remettre dans
@@ -96,8 +113,25 @@ function emptyResult(formatKey: FormatKey, deckName: string, error: string): Dec
     suggestions: [],
     archetypes: [],
     tier: null,
+    audit: null,
     exportText: "",
   };
+}
+
+/** Lecture du deck (deck-audit.ts) pour la page de deck. `hint` : plan transmis par le constructeur. */
+function readDeck(
+  cards: EnrichedCard[],
+  commanders: ScryfallCard[],
+  format: FormatConfig,
+  hint: { axes: string[]; recipeId: string | null } | null | undefined
+): DeckAudit {
+  const mode = format.key === "duelcommander" ? "duel" : "multi";
+  const identity = Array.from(new Set(commanders.flatMap((c) => c.color_identity ?? [])));
+  const reference = mode === "duel" ? referenceFor(commanders.map((c) => c.name)) : null;
+  const items = cards.filter((c) => c.card).map((c) => auditItem(c.card!, c.count, mode, identity, reference));
+  const axes = (hint?.axes ?? []).map(axisIndex).filter((i) => i >= 0);
+  const recipe = hint?.recipeId ? (hint.recipeId.startsWith("own:") ? ownShape(commanders.map((c) => c.name)) : recipeById(hint.recipeId)) : null;
+  return auditDeck({ items, commanders, mode, plan: hint ? { axes, recipe } : null });
 }
 
 /**
@@ -115,6 +149,8 @@ export async function analyzeDeck(input: {
   /** Un ou plusieurs commandants (partenaires) — vide pour un deck sans commandant. */
   commanders: string[];
   cards: { name: string; count: number }[];
+  /** Plan du constructeur à conserver pour la lecture du deck (voir DeckAnalysisResult.planHint). */
+  planHint?: { axes: string[]; recipeId: string | null } | null;
 }): Promise<DeckAnalysisResult> {
   const format = getFormat(input.formatKey);
   const deck: PreconDeck = {
@@ -191,6 +227,8 @@ export async function analyzeDeck(input: {
       suggestions,
       archetypes,
       tier,
+      audit: readDeck(nonCommanderCards, commanderCards, format, input.planHint),
+      planHint: input.planHint ?? null,
       exportText,
     };
   } catch {
@@ -450,6 +488,8 @@ function sessionDeckFrom(
 interface WorkingMeasure {
   score: number;
   tier: DeckTierResult | null;
+  /** Duel (04/10/2026) : indice de lecture du deck (qualité, forme, cohérence — duel-suggest.ts). C'est lui qui décide en Duel. */
+  duelIndex?: number;
 }
 
 async function measureWorking(
@@ -465,7 +505,8 @@ async function measureWorking(
     const tier = format.hasCommander
       ? computeDeckTier(nonCommanderCards, commanderCards, stats, format.categories, format.key)
       : null;
-    return { score: stats.score, tier };
+    const duelIndex = format.key === "duelcommander" ? duelAuditIndex(readDeck(nonCommanderCards, commanderCards, format, null)) : undefined;
+    return { score: stats.score, tier, duelIndex };
   } catch {
     return null;
   }
@@ -484,6 +525,9 @@ async function measureWorking(
  * seule : la notion de tier n'existe pas hors Commander.
  */
 function isBetterState(candidate: WorkingMeasure, best: WorkingMeasure): boolean {
+  // Duel : la lecture du deck décide (une carte qui coche une case de tier
+  // sans avoir sa place dans le deck ne doit plus compter comme un progrès).
+  if (candidate.duelIndex !== undefined) return best.duelIndex === undefined || candidate.duelIndex > best.duelIndex;
   if (candidate.tier && best.tier) {
     if (candidate.tier.powerIndex !== best.tier.powerIndex) {
       return candidate.tier.powerIndex > best.tier.powerIndex;
@@ -760,6 +804,10 @@ export async function superOptimizeDeck(input: {
   let bestWorking = originalWorking;
   let bestScore = -Infinity;
   let bestTier: DeckTierResult | null = null;
+  // Duel (04/10/2026) : indice de lecture du deck (voir isBetterState).
+  const isDuel = format.key === "duelcommander";
+  let bestDuel: number | undefined;
+  let startingDuel: number | undefined;
   let bestRoundsApplied = 0;
   let bestLandAdjustments = 0;
 
@@ -786,13 +834,16 @@ export async function superOptimizeDeck(input: {
       const tierNow = format.hasCommander
         ? computeDeckTier(nonCommanderCards, commanderCards, currentStats, format.categories, format.key)
         : null;
+      const duelNow = isDuel ? duelAuditIndex(readDeck(nonCommanderCards, commanderCards, format, null)) : undefined;
       if (startingScore === null) {
         startingScore = currentStats.score;
         startingTier = tierNow;
+        startingDuel = duelNow;
       }
-      if (isBetterState({ score: currentStats.score, tier: tierNow }, { score: bestScore, tier: bestTier })) {
+      if (isBetterState({ score: currentStats.score, tier: tierNow, duelIndex: duelNow }, { score: bestScore, tier: bestTier, duelIndex: bestDuel })) {
         bestScore = currentStats.score;
         bestTier = tierNow;
+        bestDuel = duelNow;
         bestWorking = working;
         bestRoundsApplied = roundsApplied;
         bestLandAdjustments = 0;
@@ -809,9 +860,10 @@ export async function superOptimizeDeck(input: {
     // encore jamais été mesuré, contrairement aux tours précédents — voir
     // la mesure en tête de boucle ci-dessus).
     const afterRounds = await measureWorking(working, format, input.deckName, input.commanders);
-    if (afterRounds && isBetterState(afterRounds, { score: bestScore, tier: bestTier })) {
+    if (afterRounds && isBetterState(afterRounds, { score: bestScore, tier: bestTier, duelIndex: bestDuel })) {
       bestScore = afterRounds.score;
       bestTier = afterRounds.tier;
+      bestDuel = afterRounds.duelIndex;
       bestWorking = working;
       bestRoundsApplied = roundsApplied;
       bestLandAdjustments = 0;
@@ -827,9 +879,10 @@ export async function superOptimizeDeck(input: {
 
     if (landTopup.stepsApplied > 0) {
       const afterLandTopup = await measureWorking(working, format, input.deckName, input.commanders);
-      if (afterLandTopup && isBetterState(afterLandTopup, { score: bestScore, tier: bestTier })) {
+      if (afterLandTopup && isBetterState(afterLandTopup, { score: bestScore, tier: bestTier, duelIndex: bestDuel })) {
         bestScore = afterLandTopup.score;
         bestTier = afterLandTopup.tier;
+        bestDuel = afterLandTopup.duelIndex;
         bestWorking = working;
         bestRoundsApplied = roundsApplied;
         bestLandAdjustments = landTopup.stepsApplied;
@@ -900,8 +953,11 @@ export async function superOptimizeDeck(input: {
   // sans commandant (tier toujours `null`), la comparaison de score seule
   // reste inchangée.
   const finalTier = finalAnalysis.tier;
+  const finalDuel = isDuel && finalAnalysis.audit ? duelAuditIndex(finalAnalysis.audit) : undefined;
   const regressed =
-    startingScore !== null &&
+    isDuel && startingDuel !== undefined && finalDuel !== undefined
+      ? finalDuel < startingDuel
+      : startingScore !== null &&
     (format.hasCommander && startingTier && finalTier
       ? finalTier.powerIndex < startingTier.powerIndex ||
         (finalTier.powerIndex === startingTier.powerIndex && (finalAnalysis.currentStats?.score ?? 0) < startingScore)
@@ -920,7 +976,9 @@ export async function superOptimizeDeck(input: {
       removedNames: [],
       roundsApplied: 0,
       landAdjustments: 0,
-      optimizationNote: format.hasCommander
+      optimizationNote: isDuel
+        ? "Aucun échange n'améliore la lecture du deck (qualité des cartes, forme, cohérence) — le deck n'a pas été modifié."
+        : format.hasCommander
         ? "Aucune amélioration nette du tier de puissance (ni, à tier égal, du score) n'a été trouvée après optimisation — le deck n'a pas été modifié."
         : "Aucune amélioration nette du score n'a été trouvée après optimisation — le deck n'a pas été modifié.",
     };
@@ -932,6 +990,10 @@ export async function superOptimizeDeck(input: {
     removedNames,
     roundsApplied: bestRoundsApplied,
     landAdjustments: bestLandAdjustments,
-    optimizationNote: null,
+    // Duel : dire ce qui a progressé (la lecture du deck) et d'où viennent les cartes ajoutées.
+    optimizationNote:
+      isDuel && startingDuel !== undefined && finalDuel !== undefined
+        ? `${addedNames.length} carte${addedNames.length > 1 ? "s" : ""} remplacée${addedNames.length > 1 ? "s" : ""} par des cartes des decks de tournoi (sans tenir compte de ce que tu possèdes) : lecture du deck ${startingDuel} → ${finalDuel}/100 (qualité des cartes, forme, cohérence).`
+        : null,
   };
 }

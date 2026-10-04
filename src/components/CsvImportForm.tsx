@@ -17,6 +17,7 @@ const INITIAL_STATE: DeckAnalysisResult = {
   suggestions: [],
   archetypes: [],
   tier: null,
+  audit: null,
   exportText: "",
 };
 

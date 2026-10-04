@@ -1,3 +1,4 @@
+import { suggestDuelImprovements } from "./duel-suggest";
 import type {
   Archetype,
   ArchetypeSignal,
@@ -174,6 +175,17 @@ export async function suggestImprovements(
 }> {
   const currentStats = computeDeckStats(currentCards, format.categories);
   const archetypes = detectArchetypes(currentCards, commanders);
+
+  // Duel Commander (04/10/2026) : suggestions tirées des decks de tournoi et
+  // de la lecture du deck (duel-suggest.ts), plus par pilier.
+  if (format.key === "duelcommander") {
+    const { suggestions } = await suggestDuelImprovements(currentCards, colorIdentity, format, commanders, maxSuggestions);
+    // Pas de score « projeté » en Duel : ces suggestions ne visent pas les
+    // piliers du score de complétude, l'afficher en baisse serait trompeur.
+    const projectedStats = currentStats;
+    const improvementPct = 0;
+    return { currentStats, projectedStats, improvementPct, suggestions, archetypes };
+  }
 
   const currentCounts = new Map<string, number>();
   for (const c of currentCards) {

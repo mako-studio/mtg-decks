@@ -1,13 +1,16 @@
 import type { ScryfallCard } from "./types";
 import {
+  auditBuiltDeck,
   buildDeckForCommander,
   evaluateDeck,
   unionIdentity,
   type BuildContext,
+  type BuildMode,
   type BuiltDeck,
   type CardFeatures,
   type PickInfo,
 } from "./competitive-builder";
+import { commanderRating, type CommanderRating } from "./deck-audit";
 import { BASIC_LAND_BY_COLOR } from "./collection-builder";
 import { classifyCard } from "./deck-score";
 import { proposePlans, synergyReport, type BuildPlan, type SynergyReport } from "./game-plan";
@@ -61,6 +64,8 @@ export interface VariantSummary {
   synergy: number;
   /** 0,6 × parties simulées + 0,4 × synergies. */
   overall: number;
+  /** Indice de solidité (Duel) : c'est lui qui départage les variantes. */
+  solidity: number;
   chosen: boolean;
   /** Écartée : plus de 3 points d'indice de puissance perdus sans gain de palier. */
   rejected: boolean;
@@ -76,6 +81,10 @@ export interface OptimizedDeck {
   adjustments: string[];
   /** Parties simulées au total pour ce deck (transparence). */
   gamesPlayed: number;
+  /** Indice de solidité du deck final et ses cinq composantes (deckSolidity). */
+  solidity: Solidity;
+  /** Note du commandant pour ce format (commanderRating). */
+  commander: CommanderRating;
 }
 
 const simCache = new Map<string, SimCard>();
@@ -147,6 +156,59 @@ function synergyOf(deck: BuiltDeck, ctx: OptimizeContext): SynergyReport {
 }
 
 const overallOf = (playtest: number, synergy: number) => Math.round((0.6 * playtest + 0.4 * synergy) * 10) / 10;
+
+// ---------------------------------------------------------------------------
+// Indice de solidité d'un deck et note d'un commandant (Duel, 04/10/2026)
+// ---------------------------------------------------------------------------
+
+/**
+ * INDICE DE SOLIDITÉ (0-100) d'un deck Duel. Il remplace, pour CHOISIR entre
+ * deux decks, la règle « palier de tier d'abord » : l'indice de tier compte
+ * des cases (mana rapide, tutors, interaction...) et, à cases égales, ne
+ * distingue pas un deck cohérent d'une pile de cartes. Mesuré sur la
+ * collection de Ben : classés au tier, les cinq premiers commandants
+ * possédés étaient simplement ceux dont les COULEURS donnent accès au plus
+ * de cartes, avec des listes presque identiques.
+ *
+ * Cinq mesures, toutes sur 0-100 :
+ * - 30 % qualité moyenne des cartes (card-quality.ts : présence en tournoi,
+ *   sinon modèle de texte) — 3,5/10 → 0, 8,5/10 → 100 ;
+ * - 20 % forme : écart aux fourchettes des decks de tournoi (deck-audit.ts) ;
+ * - 15 % cohérence : part des cartes qui ont un rôle clair, moins les cartes
+ *   à revoir (deck-audit.ts) ;
+ * - 20 % parties simulées en solitaire (playtest.ts) ;
+ * - 15 % indice de puissance du tier (deck-tier.ts).
+ * Les poids sont des choix de conception, pas des valeurs mesurées. Le tier
+ * AFFICHÉ ne change pas : il reste calculé comme partout sur le site.
+ */
+export const SOLIDITY_WEIGHTS = { quality: 0.3, structure: 0.2, coherence: 0.15, playtest: 0.2, tier: 0.15 } as const;
+
+export interface Solidity {
+  score: number;
+  parts: { quality: number; structure: number; coherence: number; playtest: number; tier: number };
+}
+
+export function deckSolidity(deck: BuiltDeck, playtestScore: number): Solidity {
+  const quality = Math.max(0, Math.min(100, ((deck.audit.avgQuality - 3.5) / 5) * 100));
+  const parts = { quality: Math.round(quality), structure: deck.audit.structure, coherence: deck.audit.coherence, playtest: Math.round(playtestScore), tier: Math.round(deck.tier.powerIndex) };
+  const w = SOLIDITY_WEIGHTS;
+  const score = w.quality * quality + w.structure * parts.structure + w.coherence * parts.coherence + w.playtest * playtestScore + w.tier * deck.tier.powerIndex;
+  return { score: Math.round(score * 10) / 10, parts };
+}
+
+/** Poids de la note du commandant dans le classement : (note − 5) × 3, soit de −15 à +15 points. */
+const COMMANDER_WEIGHT = 3;
+
+/** Score de classement d'un deck proposé : solidité du deck + ce que vaut son commandant. */
+export function rankScore(deck: BuiltDeck, playtestScore: number, mode: BuildMode): number {
+  return Math.round((deckSolidity(deck, playtestScore).score + (commanderRating(deck.commanders, mode).score - 5) * COMMANDER_WEIGHT) * 10) / 10;
+}
+
+/** Parties simulées rapides pour classer un deck (120 parties, graine fixe). */
+export function quickPlaytest(deck: BuiltDeck, ctx: Pick<BuildContext, "features" | "basics" | "mode">): number {
+  const pd = toPlaytestDeck(deck.cards, deck.commanders, ctx.features, ctx.basics, deck.tier.signals.combos);
+  return runPlaytest(pd, { mode: ctx.mode, games: 120, seed: SEARCH_SEED }).score;
+}
 const pct = (x: number) => `${Math.round(x * 100)} %`;
 
 /** Remplace une carte par une autre dans une liste (quantités), sans muter l'originale. */
@@ -166,7 +228,8 @@ function swapCards(list: readonly { name: string; count: number }[], remove: str
 function withList(deck: BuiltDeck, list: { name: string; count: number }[], ctx: OptimizeContext, picks: PickInfo[], bench: PickInfo[]): BuiltDeck {
   const { stats, tier } = evaluateDeck(list, deck.commanders, ctx.features, ctx.basics, ctx.format, ctx.combos);
   const names = new Set(list.map((c) => c.name.toLowerCase()));
-  return { ...deck, cards: list, stats, tier, picks, bench, acquisitions: deck.acquisitions.filter((a) => names.has(a.name.toLowerCase())) };
+  const next = { ...deck, cards: list, stats, tier, picks, bench, acquisitions: deck.acquisitions.filter((a) => names.has(a.name.toLowerCase())) };
+  return { ...next, audit: auditBuiltDeck(next, ctx) };
 }
 
 /** Couleur dont le deck manque le plus : symboles demandés par source disponible. */
@@ -218,10 +281,15 @@ function repair(start: Trial, ctx: OptimizeContext, counter: { games: number }):
     if (!remove || !add || remove.toLowerCase() === add.toLowerCase()) return false;
     const list = swapCards(cur.deck.cards, remove, add);
     const deck = withList(cur.deck, list, ctx, picks, bench);
-    if (palier(deck) < palier(cur.deck) || deck.tier.powerIndex < cur.deck.tier.powerIndex - 1.5) return false;
+    if (!duel && (palier(deck) < palier(cur.deck) || deck.tier.powerIndex < cur.deck.tier.powerIndex - 1.5)) return false;
     const report = playtestOf(deck, ctx, SEARCH_GAMES, SEARCH_SEED);
     counter.games += SEARCH_GAMES;
     if (report.score < cur.report.score + 1) return false;
+    // Duel : un ajustement ne doit pas dégrader le deck dans son ensemble (qualité, forme, cohérence).
+    if (duel && deckSolidity(deck, report.score).score < deckSolidity(cur.deck, cur.report.score).score) return false;
+    // ... ni y faire entrer une carte que la lecture du deck juge à revoir.
+    const review = (d: BuiltDeck) => d.audit.flagged.filter((f) => f.level === "discutable" || f.level === "contre-productif").length;
+    if (duel && review(deck) > review(cur.deck)) return false;
     notes.push(describe(cur.report, report));
     cur = { deck, report };
     return true;
@@ -318,7 +386,9 @@ export function optimizeDeck(ctx: OptimizeContext, base: BuiltDeck, maxPlans = 4
     if ((ctx.owned.get(f.key) ?? 0) <= 0 && !ctx.acquirable.has(f.key)) continue;
     available.push(f);
   }
-  const plans = proposePlans(ctx.commanders, available, ctx.mode, maxPlans);
+  const duel = ctx.mode === "duel";
+  // Duel : le deck de base suit déjà un plan (buildDeckForCommander) ; on n'essaie que les autres.
+  const plans = proposePlans(ctx.commanders, available, ctx.mode, maxPlans).filter((p) => p.id !== base.plan?.id);
   const counter = { games: 0 };
 
   interface Variant {
@@ -327,23 +397,28 @@ export function optimizeDeck(ctx: OptimizeContext, base: BuiltDeck, maxPlans = 4
     report: PlaytestReport;
     synergy: SynergyReport;
     overall: number;
+    solidity: number;
     rejected: boolean;
   }
   const measure = (plan: BuildPlan | null, deck: BuiltDeck): Variant => {
     const report = playtestOf(deck, ctx, SEARCH_GAMES, SEARCH_SEED);
     counter.games += SEARCH_GAMES;
     const synergy = synergyOf(deck, ctx);
-    return { plan, deck, report, synergy, overall: overallOf(report.score, synergy.index), rejected: false };
+    return { plan, deck, report, synergy, overall: overallOf(report.score, synergy.index), solidity: deckSolidity(deck, report.score).score, rejected: false };
   };
-  const variants: Variant[] = [measure(null, base)];
+  const variants: Variant[] = [measure(base.plan, base)];
   for (const plan of plans) {
     const deck = buildDeckForCommander({ ...ctx, plan });
     const v = measure(plan, deck);
-    v.rejected = palier(deck) <= palier(base) && deck.tier.powerIndex < base.tier.powerIndex - 3;
+    v.rejected = !duel && palier(deck) <= palier(base) && deck.tier.powerIndex < base.tier.powerIndex - 3;
     variants.push(v);
   }
   const eligible = variants.filter((v) => !v.rejected);
-  eligible.sort((a, b) => palier(b.deck) - palier(a.deck) || b.overall - a.overall || b.deck.tier.powerIndex - a.deck.tier.powerIndex);
+  // Duel (04/10/2026) : l'indice de solidité départage les variantes — qualité
+  // des cartes, forme, cohérence, parties simulées, tier. Multijoueur : règle
+  // d'avant (palier de tier, puis parties simulées et synergies).
+  if (duel) eligible.sort((a, b) => b.solidity - a.solidity || b.deck.tier.powerIndex - a.deck.tier.powerIndex);
+  else eligible.sort((a, b) => palier(b.deck) - palier(a.deck) || b.overall - a.overall || b.deck.tier.powerIndex - a.deck.tier.powerIndex);
   const chosen = eligible[0];
 
   const repaired = repair({ deck: chosen.deck, report: chosen.report }, ctx, counter);
@@ -352,7 +427,7 @@ export function optimizeDeck(ctx: OptimizeContext, base: BuiltDeck, maxPlans = 4
   counter.games += FINAL_GAMES;
 
   return {
-    deck: final,
+    deck: { ...final, plan: chosen.plan },
     playtest,
     synergy: synergyOf(final, ctx),
     plan: chosen.plan,
@@ -360,6 +435,7 @@ export function optimizeDeck(ctx: OptimizeContext, base: BuiltDeck, maxPlans = 4
       label: v.plan ? v.plan.label : "Moteur de base (tier, piliers, synergie avec le commandant)",
       origin: v.plan ? v.plan.origin : "base",
       why: v.plan ? v.plan.why : "La sélection d'avant les plans de jeu : sert de point de comparaison.",
+      solidity: v.solidity,
       tierLabel: v.deck.tier.label,
       powerIndex: v.deck.tier.powerIndex,
       playtest: v.report.score,
@@ -370,5 +446,7 @@ export function optimizeDeck(ctx: OptimizeContext, base: BuiltDeck, maxPlans = 4
     })),
     adjustments: repaired.notes,
     gamesPlayed: counter.games,
+    solidity: deckSolidity(final, playtest.score),
+    commander: commanderRating(final.commanders, ctx.mode),
   };
 }

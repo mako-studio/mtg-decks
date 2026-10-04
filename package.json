@@ -10,7 +10,8 @@
     "fetch-decks": "node scripts/fetch-precon-decks.mjs",
     "fetch-duel-meta": "node scripts/fetch-duel-meta.mjs",
     "fetch-set-cards": "node scripts/fetch-set-cards.mjs",
-    "learn-trends": "npx tsx scripts/learn-deck-trends.mts"
+    "learn-trends": "npx tsx scripts/learn-deck-trends.mts",
+    "learn-quality": "npx tsx scripts/learn-card-quality.mts"
   },
   "dependencies": {
     "next": "16.3.3",

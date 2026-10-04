@@ -2,9 +2,9 @@
 
 Document de passation pour reprendre ce projet dans une **nouvelle
 conversation Claude**, sans l'historique des conversations précédentes.
-Réécrit et consolidé le 25/09/2026 (constructeur de decks compétitif) : les
-versions précédentes s'étaient désynchronisées entre le repo et le projet
-claude.ai — cette version est la même aux deux endroits.
+Réécrit et consolidé le 25/09/2026 (constructeur de decks compétitif), mis à
+jour le 04/10/2026 (moteur Duel refondu) : même version dans le repo et dans
+le projet claude.ai.
 
 **Si tu es un Claude qui reprend ce projet : lis ce fichier en entier, puis
 le README.md, avant de toucher au code.** Le README est la doc
@@ -110,6 +110,18 @@ Voir la section « Structure » du README pour l'arbre complet.
   `game-plan-summary.ts`, `staples.ts`, `build-steps.ts`,
   `components/BuildPanels.tsx`. Règle de choix : palier de tier d'abord,
   puis 0,6 × parties simulées + 0,4 × synergies.
+- **Moteur DUEL du 04/10/2026** (section README « Moteur Duel refondu ») —
+  à lire avant de toucher au constructeur en Duel :
+  `card-quality.ts` (qualité 0-10 d'une carte : présence en tournoi, sinon
+  modèle de texte `src/data/card-quality-model.json`, appris par
+  `scripts/learn-card-quality.mts`), `deck-audit.ts` (lecture d'un deck :
+  ligne directrice, rôle/justification/verdict par carte, cohérence, forme ;
+  `multiplayerOnly`, `commanderRating`, `structureNeed`), `deck-reading.ts`
+  (libellés, sans dépendance, pour le client), `duel-suggest.ts`
+  (suggestions de la page de deck), `duelCardScore`/`duelLandScore` dans
+  `competitive-builder.ts`, `deckSolidity`/`rankScore` dans
+  `deck-optimizer.ts`, formes par commandant (`shapes`) dans
+  `deck-trends.json`. Le multijoueur garde le moteur du 03/10.
 - **`src/lib/partners.ts`** (25/09/2026, 2e passage) — règles des duos ;
   le constructeur gère 1 ou 2 commandants (`commanders[]` partout).
 - **`src/lib/spellbook.ts`** (25/09/2026, 2e passage) — Commander Spellbook
@@ -188,8 +200,21 @@ Voir la section « Structure » du README pour l'arbre complet.
   officiel ; ne détecte ni stax ni combos hors de la base curatée. Un score
   élevé et un tier modeste sur le même deck ne sont PAS une incohérence
   (deux axes, déjà investigué le 24/09/2026).
-- **Le tier est le critère prioritaire partout** (demande de Ben) : un
-  état à tier plus haut mais score plus bas est le résultat voulu.
+- **Le tier est le critère prioritaire en MULTIJOUEUR** (demande de Ben du
+  24/09) : un état à tier plus haut mais score plus bas est le résultat
+  voulu. **En DUEL, ce n'est plus le cas depuis le 04/10/2026** (retours de
+  Ben : cartes contre-productives, toujours le même commandant, decks sans
+  cohérence) : cartes, variantes et commandants sont choisis par la qualité
+  des cartes, la forme, la cohérence et la note du commandant ; le tier
+  affiché reste calculé comme avant et pèse 15 % de l'indice de solidité.
+- **Un composant client ne doit pas importer `deck-audit.ts`** (ni
+  `deck-optimizer.ts`, `competitive-run.ts`) autrement qu'en `import type` :
+  ces modules chargent les données de tournoi (plusieurs centaines de Ko).
+  Les libellés dont le client a besoin sont dans `deck-reading.ts`.
+- **Spider-Man 2099 est banni comme commandant** depuis le 27/07/2026 :
+  ses 61 decks de l'archive sont tous antérieurs. Ne pas s'étonner qu'un
+  commandant très présent dans l'archive ne soit pas proposé — vérifier la
+  banlist (`src/data/duel-banlist.ts`) d'abord.
 - **Constructeur compétitif, non vérifié en réel** : requêtes Scryfall
   (`is:commander`, recherches de synergie), temps total en production,
   limite `maxDuration` du plan Vercel, orthographe exacte de chaque nom
@@ -240,6 +265,25 @@ mémoire (approximations) + cartes de remplissage synthétiques.
 **Comparer à l'ancien code** : `git show HEAD:src/lib/x.ts > src/lib/zz-old.ts`,
 l'importer depuis le script, puis le supprimer DANS LA MÊME commande.
 
+**Toutes les cartes, sans Scryfall** (04/10/2026) : la collection de Ben
+compte ~850 cartes absentes de `cards-scryfall.json`. Cloner Forge
+(`git clone --depth 1 --filter=blob:none --sparse
+https://github.com/Card-Forge/forge.git`, puis `git sparse-checkout set
+forge-gui/res/editions forge-gui/res/cardsfolder`) et lancer
+`python3 scripts/dump-forge-cards.py <clone> <sortie.json>` : 34 694 cartes
+au format réduit de Scryfall, avec rareté. Un harnais qui fusionne
+`cards-scryfall.json`, `cards-forge.json`, `recent-set-cards.json` et cet
+index couvre 1 471 des 1 480 cartes (les 9 restantes sont des jetons). Le
+même index sert à l'apprentissage (`npm run learn-quality`) et au faux
+Scryfall des essais Playwright.
+
+**Comparer deux moteurs** : `git worktree add <dossier> HEAD` puis lien
+symbolique vers `node_modules` ; faire construire les decks par chaque
+version et les RELIRE avec un seul et même code (sinon on compare deux
+formules). Mesures de référence du 04/10/2026 dans le README : cœur des decks
+de tournoi retrouvé (16 commandants), et moyennes sur les 5 premiers decks
+de la collection de Ben.
+
 **Performance** : toujours rebenchmarker avant/après (`performance.now()`)
 — une première hypothèse « évidente » s'est déjà révélée sans effet
 (24/09/2026). Repère du 25/09/2026 : 30 commandants × 2 decks sur 1 100
@@ -277,6 +321,13 @@ se lit dans `01-app/03-api-reference/03-file-conventions/02-route-segment-config
 
 Se fier à `git status`/`git log` réels plutôt qu'à ce paragraphe.
 
+Au 04/10/2026 : moteur Duel refondu (qualité des cartes, forme, cohérence,
+commandants notés, justification par carte sur la page de deck, suggestions
+Duel) — livré sur le Mac, non commité par Ben au moment de l'écriture. En
+attente : retour de Ben sur le site déployé (les commandants proposés lui
+paraissent-ils justes ? les justifications par carte sont-elles lisibles ?
+durée réelle, passée de ~43 s à ~65 s sur le faux Scryfall).
+
 Au 03/10/2026 (soir) : moteur de construction refondu (tendances apprises
 des decks connus, plans de jeu, parties simulées, staples manquants,
 chargeur à étapes) — livré sur le Mac, non commité par Ben au moment de
@@ -310,6 +361,11 @@ constructeur compétitif.
 
 - Confirmer en réel Commander Spellbook et le script mtgtop8 (retour de Ben).
 - Recalibrer les seuils de tier sur des decks réels de Ben.
+- Duel : un adversaire simplifié dans les parties simulées ; une note de
+  commandant apprise sur les commandants de tournoi ; recalibrer les poids de
+  l'indice de solidité quand Ben aura joué quelques decks proposés.
+- Appliquer au multijoueur les principes du moteur Duel (qualité, forme,
+  lecture du deck) : possible dès qu'une source de decks forts existe.
 - Vérifier en réel les requêtes Scryfall du constructeur.
 - Données équivalentes au méta Duel pour le multijoueur (cEDH), si une
   source accessible existe.
@@ -329,8 +385,9 @@ constructeur compétitif.
 - **Une seule formule, réutilisée** : pas de logique de score/tier
   parallèle. Exemple : le constructeur calcule le gain de tier avec
   `tierComponentsFromCounts`, la même fonction que le badge.
-- **Tier d'abord, score en départage** pour toute sélection/tout
-  classement de cartes ou de commandants (formats à commandant). Depuis le
+- **Multijoueur : tier d'abord, score en départage** pour toute
+  sélection/tout classement de cartes ou de commandants. **Duel : indice de
+  solidité et note du commandant** (04/10/2026, voir §5 et le README). Depuis le
   03/10/2026, entre VARIANTES d'un même deck : palier de tier d'abord, puis
   parties simulées et synergies (voir deck-optimizer.ts).
 - **Parties simulées ≠ taux de victoire** : ne jamais présenter l'indice de
