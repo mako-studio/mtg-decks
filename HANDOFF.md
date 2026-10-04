@@ -328,6 +328,22 @@ attente : retour de Ben sur le site déployé (les commandants proposés lui
 paraissent-ils justes ? les justifications par carte sont-elles lisibles ?
 durée réelle, passée de ~43 s à ~65 s sur le faux Scryfall).
 
+Même jour, seconde livraison (non commitée non plus) : contresorts étroits
+séparés des vrais (`counterspellKind`), plafond des cartes « sans métier »
+jamais vues en tournoi (`hasNoJob`), freins de quota non cumulés et bonus de
+quota proportionnel à la qualité (`structureNeed`). Détail et mesures :
+README, « Suite du 04/10/2026 ». Après tout changement de `cardRoles` ou de
+`qualityFeatures` : relancer `npm run learn-trends` et
+`npm run learn-quality -- forge-cards.json` (~3 min).
+
+Même jour, troisième livraison : budget strict en euros pour le Duel
+(`src/lib/budget.ts`, `buildWithEuroBudget` dans `competitive-builder.ts`,
+champ `budgetEur` de `runCompetitiveBuildCore`, étape 3 du formulaire et
+section « Pour quelques euros de plus » dans `CompetitiveBuilder.tsx`).
+ATTENTION : testé avec des prix FICTIFS (les données locales n'en ont pas) —
+à vérifier par Ben avec les vrais prix Scryfall. Détail : README, « Budget
+en euros pour le Duel ».
+
 Au 03/10/2026 (soir) : moteur de construction refondu (tendances apprises
 des decks connus, plans de jeu, parties simulées, staples manquants,
 chargeur à étapes) — livré sur le Mac, non commité par Ben au moment de

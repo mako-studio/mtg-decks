@@ -118,7 +118,7 @@ export async function suggestDuelImprovements(
     .filter((card) => !unmetDependencies([...deckCards, card], commanders).some((u) => u.name === card.name && u.dependency.kind !== "tribe"))
     .map((card) => {
       const it = auditItem(card, 1, "duel", colorIdentity, reference);
-      const need = !it.isLand && recipe ? structureNeed(it.roles, recipe, roles) : { score: 0, fills: null };
+      const need = !it.isLand && recipe ? structureNeed(it.roles, recipe, roles, it.quality.score) : { score: 0, fills: null };
       return { card, it, need, value: it.quality.score + it.refShare * REFERENCE_WEIGHT + need.score };
     })
     .sort((a, b) => b.value - a.value);

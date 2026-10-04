@@ -30,7 +30,8 @@ import { DUEL_PROFILES_AVAILABLE, duelPresenceForIdentity, duelStatsForIdentity 
 import { AXES, cardMechanics, cardRoles, type CardMechanics, type RoleId } from "./mechanics";
 import { axisTargets, ROLE_LABELS } from "./deck-trends";
 import { addToPlanCounts, emptyPlanCounts, planLandTarget, planScore, proposePlans, type BuildPlan, type PlanCounts } from "./game-plan";
-import { cardQuality, textQuality, type CardQuality } from "./card-quality";
+import { cardQuality, type CardQuality } from "./card-quality";
+import { cardPriceEur, selectWithinBudget } from "./budget";
 import { auditDeck, commanderRating, isRecentCard, multiplayerOnly, structureNeed, type AuditItem, type DeckAudit } from "./deck-audit";
 
 /**
@@ -285,7 +286,7 @@ export function buildFeatureIndex(cards: Iterable<ScryfallCard>, format: FormatC
       duelMetaGlobal: duelMetaPresence(card.name),
       mech: cardMechanics(card),
       roles: cardRoles(card, categories),
-      quality: cardQuality(card, categories, { mode, duelPresence: presenceInColors, recent: isRecentCard(card.name) }, isLand ? 0 : textQuality(card, categories)),
+      quality: cardQuality(card, categories, { mode, duelPresence: presenceInColors, recent: isRecentCard(card.name) }, isLand ? { textScore: 0, noJob: false } : undefined),
     });
   }
   return index;
@@ -374,6 +375,13 @@ export interface BuildContext {
   excluded?: Set<string>;
   /** Malus de score par carte (clé minuscule) : dépendance mal satisfaite. */
   penalized?: Map<string, number>;
+  /**
+   * Achats bornés par un budget en euros (buildWithEuroBudget) : `acquirable`
+   * est alors déjà la liste des achats possibles, choisie par leur prix. Le
+   * plafond « un tiers des achats en terrains » du Duel ne s'applique plus —
+   * il servait à écarter les terrains chers, ce que le prix fait désormais.
+   */
+  euroBudget?: boolean;
 }
 
 /** Une carte non-terrain du deck ou du banc, dans l'ordre où le moteur l'a choisie. */
@@ -450,7 +458,7 @@ function staticScore(
 function isCheapInteraction(f: CardFeatures): boolean {
   if (f.isLand || f.card.cmc > 2) return false;
   if (f.categories.includes("removal") || f.categories.includes("disruption")) return true;
-  return f.categories.includes("protection") && /counter target/i.test(getDisplayOracleText(f.card));
+  return f.roles.includes("counterspell");
 }
 
 // ---------------------------------------------------------------------------
@@ -563,7 +571,7 @@ function duelCardScore(f: CardFeatures, x: DuelScoreInput): number {
 
   const plan = ctx.plan;
   if (plan?.recipe) {
-    const st = structureNeed(f.roles, plan.recipe, state.plan.roleCounts);
+    const st = structureNeed(f.roles, plan.recipe, state.plan.roleCounts, q);
     score += st.score;
     if (st.fills) reasons.push(`Comble un manque : ${ROLE_LABELS[st.fills] ?? st.fills}`);
   }
@@ -1038,7 +1046,7 @@ function buildOnce(ctx: BuildContext): BuiltDeck {
         duelMetaChoice: presence,
         // La note « texte » ne dépend pas du deck : seule la partie « présence » est refaite.
         // Jamais vue dans les decks de CES couleurs mais jouée ailleurs : demi-crédit.
-        quality: cardQuality(f.card, f.categories, { mode, duelPresence: presence || f.duelMetaChoice * 0.5, recent: isRecentCard(f.card.name) }, f.quality.textScore),
+        quality: cardQuality(f.card, f.categories, { mode, duelPresence: presence || f.duelMetaChoice * 0.5, recent: isRecentCard(f.card.name) }, f.quality),
       };
     }
   }
@@ -1125,7 +1133,7 @@ function buildOnce(ctx: BuildContext): BuiltDeck {
   // de tournoi (fetchlands, bi-terrains d'origine) sont joués par presque tous
   // les decks, donc très bien notés — sans plafond, les 15 achats proposés
   // étaient 15 terrains, souvent les cartes les plus chères du format.
-  const landBudget = mode === "duel" ? Math.ceil(ctx.maxAcquisitions / 3) : ctx.maxAcquisitions;
+  const landBudget = mode === "duel" && !ctx.euroBudget ? Math.ceil(ctx.maxAcquisitions / 3) : ctx.maxAcquisitions;
   const landPicks = greedyPick(lands, poolLandSlots, { ...ctx, maxAcquisitions: landBudget }, profile, state, combosAvailable, identity, 0);
   const landAcq = landPicks.filter((x) => x.acquired).length;
   const nonLandPicks = greedyPick(
@@ -1254,7 +1262,7 @@ export function auditBuiltDeck(
         categories: f.categories,
         mech: f.mech,
         roles: f.roles,
-        quality: ctx.mode === "duel" ? cardQuality(f.card, f.categories, { mode: "duel", duelPresence: presence || duelMetaPresenceInColors(f.card.name) * 0.5, recent: isRecentCard(f.card.name) }, f.quality.textScore) : f.quality,
+        quality: ctx.mode === "duel" ? cardQuality(f.card, f.categories, { mode: "duel", duelPresence: presence || duelMetaPresenceInColors(f.card.name) * 0.5, recent: isRecentCard(f.card.name) }, f.quality) : f.quality,
         presence,
         refShare: referenceShare(deck.reference, f.card.name),
         comboPiece: comboPieces.has(key),
@@ -1343,6 +1351,161 @@ export interface DeckProposal {
    * classement d'avant, au tier.
    */
   rankScore?: number;
+  /** Budget en euros : achats possibles et pistes « pour quelques euros de plus ». Absent hors mode budget. */
+  budget?: BudgetOutcome;
+}
+
+// ---------------------------------------------------------------------------
+// Budget en euros (04/10/2026)
+// ---------------------------------------------------------------------------
+
+/** Une carte hors budget qui améliorerait le deck, pour la section « pour quelques euros de plus ». */
+export interface BudgetExtra {
+  name: string;
+  card: ScryfallCard;
+  priceEur: number;
+  /** Apport estimé : note du moteur pour cette carte moins celle de la carte possédée qu'elle remplacerait. */
+  gain: number;
+  reasons: string[];
+}
+
+export interface BudgetOutcome {
+  /** Budget total saisi, commandant compris. */
+  budgetEur: number;
+  /** Prix du ou des commandants non possédés, déjà retiré du budget des cartes. */
+  commanderCostEur: number;
+  /** Achats autorisés pour ce deck (clés minuscules) : leur somme tient dans le budget. */
+  purchasable: Set<string>;
+  /** Cartes non achetées, de la plus rentable (apport par euro) à la moins rentable. */
+  more: BudgetExtra[];
+  /** Cartes du pool jouables dans ces couleurs mais sans prix en euros : jamais proposées à l'achat. */
+  unpriced: number;
+}
+
+/** Achats candidats examinés par passe (le deck « sans limite de prix » en retient au plus autant). */
+const BUDGET_CANDIDATES = 45;
+
+/** Prix du ou des commandants NON possédés ; null si l'un d'eux n'a pas de prix connu. */
+export function commanderCostEur(candidate: CommanderCandidate): number | null {
+  let sum = 0;
+  for (const [i, c] of candidate.cards.entries()) {
+    if (candidate.owned[i]) continue;
+    const price = cardPriceEur(c);
+    if (price === null) return null;
+    sum += price;
+  }
+  return sum;
+}
+
+/**
+ * Meilleur deck sous un budget STRICT en euros (demande de Ben, 04/10/2026).
+ *
+ * Méthode :
+ * 1. deux decks « idéaux » sont construits sans compter : l'un avec toutes
+ *    les cartes achetables jusqu'à un peu au-dessus du budget, l'autre avec
+ *    les seules cartes bon marché (sinon les 45 candidats seraient tous des
+ *    cartes chères et un petit budget ne trouverait rien à acheter). Leurs
+ *    achats forment la liste des candidats ;
+ * 2. l'apport de chaque candidat = sa note dans ce deck moins celle de la
+ *    carte possédée qu'il remplacerait (le meilleur achat remplace la plus
+ *    faible carte du deck « avec mes cartes », et ainsi de suite). Un
+ *    terrain est déjà noté par rapport à un terrain de base ;
+ * 3. choix des achats qui maximise la somme des apports sous le budget
+ *    (selectWithinBudget : exact, au pas de 5 centimes) ;
+ * 4. reconstruction du deck avec ces seuls achats, puis une seconde passe
+ *    pour dépenser ce qui reste si le moteur n'a pas retenu tous les achats.
+ *
+ * Garantie : les achats du deck rendu sont inclus dans `purchasable`, dont
+ * la somme des prix est ≤ `budgetLeft`. L'« apport » est une note du moteur,
+ * pas un gain de taux de victoire.
+ */
+export function buildWithEuroBudget(
+  base: Omit<BuildContext, "acquirable" | "maxAcquisitions" | "euroBudget">,
+  acquirable: Set<string>,
+  ownedDeck: BuiltDeck,
+  budgetEur: number,
+  commanderCost: number,
+  /** false : une seule passe (classement de dizaines de commandants) ; true : cartes bon marché et seconde passe en plus. */
+  thorough = true
+): { deck: BuiltDeck; outcome: BudgetOutcome } {
+  const budgetLeft = Math.max(0, budgetEur - commanderCost);
+  const identity = unionIdentity(base.commanders);
+  // « Quelques euros de plus » : on regarde jusqu'à 50 % au-dessus du budget (10 € au moins).
+  const reach = budgetLeft + Math.max(10, budgetEur * 0.5);
+  const priced = new Map<string, number>();
+  let unpriced = 0;
+  for (const key of acquirable) {
+    const f = base.features.get(key);
+    if (!f || !inIdentity(f.card, identity)) continue;
+    const price = cardPriceEur(f.card);
+    if (price === null) unpriced++;
+    else if (price <= reach) priced.set(key, price);
+  }
+  const outcome: BudgetOutcome = { budgetEur, commanderCostEur: commanderCost, purchasable: new Set(), more: [], unpriced };
+  if (priced.size === 0) return { deck: ownedDeck, outcome };
+
+  const build = (allowed: Set<string>, max: number) => buildDeckForCommander({ ...base, acquirable: allowed, maxAcquisitions: max, euroBudget: true });
+  const cheapLimit = Math.max(0.5, budgetLeft / 20);
+  const pools = [new Set(priced.keys())];
+  if (thorough) pools.push(new Set([...priced].filter(([, price]) => price <= cheapLimit).map(([key]) => key)));
+  const candidates = new Map<string, BuiltDeck["acquisitions"][number]>();
+  for (const pool of pools) {
+    if (pool.size === 0) continue;
+    for (const a of build(pool, BUDGET_CANDIDATES).acquisitions) {
+      const key = a.name.toLowerCase();
+      const known = candidates.get(key);
+      if (!known || a.score > known.score) candidates.set(key, a);
+    }
+  }
+  // Notes des cartes non-terrain du deck « avec mes cartes », de la plus faible à la plus forte.
+  const weakest = ownedDeck.picks.map((x) => x.score).sort((a, b) => a - b);
+  const nonLands = [...candidates.values()].filter((a) => !base.features.get(a.name.toLowerCase())?.isLand).sort((a, b) => b.score - a.score);
+  const gains = new Map<string, number>();
+  nonLands.forEach((a, i) => gains.set(a.name.toLowerCase(), a.score - (weakest[i] ?? weakest[weakest.length - 1] ?? 0)));
+  for (const a of candidates.values()) if (!gains.has(a.name.toLowerCase())) gains.set(a.name.toLowerCase(), a.score);
+  const items = [...candidates.keys()]
+    .map((key) => ({ key, price: priced.get(key) ?? Infinity, gain: gains.get(key) ?? 0 }))
+    .filter((it) => it.gain > 0 && Number.isFinite(it.price));
+
+  const cost = (deck: BuiltDeck) => deck.acquisitions.reduce((s, a) => s + (priced.get(a.name.toLowerCase()) ?? 0), 0);
+  let purchasable = selectWithinBudget(items, budgetLeft);
+  let deck = purchasable.size > 0 ? build(purchasable, purchasable.size) : ownedDeck;
+  // Seconde passe : le moteur peut ne pas retenir tous les achats choisis ; ce qui reste du budget est redépensé.
+  if (purchasable.size > 0 && !thorough) purchasable = new Set(deck.acquisitions.map((a) => a.name.toLowerCase()));
+  else if (purchasable.size > 0) {
+    const used = new Set(deck.acquisitions.map((a) => a.name.toLowerCase()));
+    const left = budgetLeft - cost(deck);
+    const extra = selectWithinBudget(items.filter((it) => !purchasable.has(it.key)), left);
+    if (extra.size > 0) {
+      const wider = new Set([...used, ...extra]);
+      const second = build(wider, wider.size);
+      if (cost(second) <= budgetLeft + 1e-9 && second.acquisitions.length >= deck.acquisitions.length) {
+        deck = second;
+        purchasable = wider;
+      } else purchasable = used;
+    } else purchasable = used;
+  }
+  outcome.purchasable = purchasable;
+  outcome.more = budgetExtras(candidates, gains, priced, deck);
+  return { deck, outcome };
+}
+
+/** Candidats non retenus dans `deck`, du meilleur apport par euro au moins bon. */
+function budgetExtras(
+  candidates: Map<string, BuiltDeck["acquisitions"][number]>,
+  gains: Map<string, number>,
+  priced: Map<string, number>,
+  deck: BuiltDeck
+): BudgetExtra[] {
+  const inDeck = new Set(deck.acquisitions.map((a) => a.name.toLowerCase()));
+  const out: BudgetExtra[] = [];
+  for (const [key, a] of candidates) {
+    const price = priced.get(key);
+    const gain = gains.get(key) ?? 0;
+    if (inDeck.has(key) || price === undefined || gain <= 0) continue;
+    out.push({ name: a.name, card: a.card, priceEur: price, gain: Math.round(gain * 10) / 10, reasons: a.reasons });
+  }
+  return out.sort((x, y) => y.gain / y.priceEur - x.gain / x.priceEur || y.gain - x.gain);
 }
 
 /**
@@ -1463,6 +1626,12 @@ export interface RankParams {
   combos?: readonly ComboDef[];
   /** Score de classement d'un deck construit (plus haut = mieux). Voir DeckProposal.rankScore. */
   evaluate?: (deck: BuiltDeck) => number;
+  /**
+   * Budget en euros, commandant compris (buildWithEuroBudget). Défini : le
+   * deck « amélioré » est le meilleur deck sous ce budget, `maxAcquisitions`
+   * est ignoré, et le classement porte sur CE deck (pas sur le deck possédé).
+   */
+  budgetEur?: number;
 }
 
 /**
@@ -1591,6 +1760,11 @@ function buildProposal({ c, affinity }: Trial, params: RankParams): DeckProposal
   const profile = mergeProfiles(c.cards.map(commanderProfile));
   const base = { commanders: c.cards, format, mode, features, owned, basics, profile, combos: params.combos };
   const ownedDeck = buildDeckForCommander({ ...base, acquirable: new Set(), maxAcquisitions: 0 });
+  if (params.budgetEur !== undefined) {
+    // Les commandants trop chers ou sans prix sont écartés en amont (competitive-run.ts) ; par sûreté, coût inconnu = tout le budget.
+    const { deck, outcome } = buildWithEuroBudget(base, acquirable, ownedDeck, params.budgetEur, commanderCostEur(c) ?? params.budgetEur, false);
+    return { candidate: c, ownedDeck, upgradedDeck: deck, affinity, rankScore: params.evaluate?.(deck), budget: outcome };
+  }
   const upgradedDeck =
     acquirable.size > 0 && maxAcquisitions > 0 ? buildDeckForCommander({ ...base, acquirable, maxAcquisitions }) : ownedDeck;
   return { candidate: c, ownedDeck, upgradedDeck, affinity, rankScore: params.evaluate?.(ownedDeck) };

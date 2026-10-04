@@ -1,5 +1,6 @@
 import type { DeckCategory, ScryfallCard } from "./types";
 import { getDisplayOracleText } from "./scryfall";
+import { counterspellKind } from "./mechanics";
 
 /**
  * PLAYTEST : parties simulées en solitaire (03/10/2026, demande de Ben :
@@ -134,7 +135,7 @@ export function toSimCard(card: ScryfallCard, categories: readonly DeckCategory[
   const power = Number.parseInt(card.power ?? card.card_faces?.[0]?.power ?? "", 10);
   base.power = isCreature && Number.isFinite(power) ? Math.max(0, power) : 0;
   base.haste = (card.keywords ?? []).some((k) => k.toLowerCase() === "haste");
-  const counter = /counter target [^.]*spell/i.test(front);
+  const counter = counterspellKind(front) === "large";
   base.interaction = categories.includes("removal") || categories.includes("disruption") || categories.includes("wipe") || counter;
 
   // Pioche : nombre de cartes à la résolution, moteur si l'effet se répète.

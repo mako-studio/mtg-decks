@@ -18,6 +18,7 @@ export async function runCompetitiveBuild(input: {
   formatKey: string;
   collectionCards: { name: string; count: number }[];
   maxAcquisitions: AcquisitionOption;
+  budgetEur?: number | null;
 }): Promise<CompetitiveBuildResult> {
   return runCompetitiveBuildCore(input);
 }

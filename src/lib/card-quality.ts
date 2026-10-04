@@ -1,5 +1,6 @@
 import type { DeckCategory, ScryfallCard } from "./types";
 import { getDisplayOracleText } from "./scryfall";
+import { counterspellKind } from "./mechanics";
 import model from "@/data/card-quality-model.json";
 
 /**
@@ -48,6 +49,8 @@ export interface CardQuality {
   basis: QualityBasis;
   /** Estimation du seul modèle « texte » (0-10), toujours calculée : sert de repli et de garde-fou. */
   textScore: number;
+  /** Carte sans métier reconnu (voir hasNoJob). Absent = non calculé (terrains, cartes notées à la main). */
+  noJob?: boolean;
 }
 
 const EVERGREEN = ["flying", "haste", "deathtouch", "lifelink", "trample", "menace", "first strike", "double strike", "vigilance", "reach", "hexproof", "ward", "indestructible", "flash", "prowess"] as const;
@@ -135,8 +138,12 @@ export function qualityFeatures(card: ScryfallCard, categories: readonly DeckCat
   set("instantSpeed", flash);
 
   // --- Rôles, croisés avec le coût ---
-  const counter = /counter target [^.]*(spell|ability)/i.test(text);
+  // Contresort « large » seulement ; l'étroit (Avoid Fate : ne contre que ce
+  // qui cible vos permanents) a son propre descripteur (04/10/2026).
+  const counterKind = counterspellKind(text);
+  const counter = counterKind === "large";
   set("counter", counter);
+  set("counterNarrow", counterKind === "étroit");
   set("counterCheap", counter && cmc <= 2);
   set("counterSoft", counter && /unless (its|that spell's|that player|they)/i.test(text));
   const removal = has("removal");
@@ -198,6 +205,9 @@ export function qualityFeatures(card: ScryfallCard, categories: readonly DeckCat
   set("equipPump", isEquipment && noRole);
   set("downside", /enters tapped|can't block|sacrifice (it|this creature|this permanent) unless|\becho\b|cumulative upkeep|\bdefender\b|skip your|at the beginning of your upkeep, sacrifice/i.test(text));
   set("spellNoRole", (isInstant || isSorcery) && noRole && !has("protection"));
+  // Permanent non-créature sans métier reconnu (Library of Leng : 1 mana, ne
+  // fait rien d'utile seule) — le coût bas ne doit pas suffire à bien la noter.
+  set("permanentNoRole", !isCreature && !isInstant && !isSorcery && !type.includes("Planeswalker") && noRole && !has("protection") && !has("ramp") && !has("finisher"));
 
   // --- Créatures ---
   if (isCreature) {
@@ -273,6 +283,27 @@ export function textQuality(card: ScryfallCard, categories: readonly DeckCategor
   return probabilityToScore(textProbability(qualityFeatures(card, categories)));
 }
 
+/**
+ * Carte SANS MÉTIER reconnu (04/10/2026, retour de Ben : Library of Leng
+ * entrait dans ses decks) : ni créature, ni arpenteur, ni réponse, ni
+ * contresort, ni pioche, ni accélération, ni tuteur, ni balayage, ni
+ * protection, ni finisseur. Le modèle « texte » note surtout le coût et la
+ * rareté : il donnait 9,2/10 à un artefact à 1 mana qui ne fait rien seul.
+ * Une telle carte, si les tournois ne la jouent pas, est plafonnée
+ * (NO_JOB_CAP) : elle ne peut entrer que portée par le plan de jeu.
+ */
+export function hasNoJob(features: Record<string, number>): boolean {
+  return Boolean(features.permanentNoRole || features.spellNoRole);
+}
+
+/**
+ * Plafond d'une carte sans métier jamais vue en tournoi. Plus haut pour une
+ * carte d'extension récente : les tournois n'ont pas encore eu le temps de la
+ * juger, son absence ne prouve rien. Choix de conception, pas une mesure.
+ */
+const NO_JOB_CAP = 3.5;
+const NO_JOB_CAP_RECENT = 4.5;
+
 /** Présence en tournoi (0-1) → note. 2 % ≈ 6,1 ; 10 % ≈ 7,3 ; 40 % ≈ 9 ; 80 %+ ≈ 10. */
 function presenceScore(p: number): number {
   return Math.min(10, 5.5 + 4.5 * Math.pow(Math.min(1, p / 0.8), 0.45));
@@ -304,23 +335,30 @@ function unseenScore(textScore: number): number {
 }
 
 /**
- * `knownTextScore` : note « texte » déjà calculée pour cette carte (elle ne
- * dépend ni du deck ni des couleurs) — le constructeur la calcule une fois
- * par carte, puis ne refait que la partie « présence en tournoi », qui
- * dépend des couleurs du deck.
+ * `known` : note « texte » et marqueur « sans métier » déjà calculés pour
+ * cette carte (ils ne dépendent ni du deck ni des couleurs) — le constructeur
+ * les calcule une fois par carte, puis ne refait que la partie « présence
+ * en tournoi », qui dépend des couleurs du deck.
  */
-export function cardQuality(card: ScryfallCard, categories: readonly DeckCategory[], ctx: QualityContext, knownTextScore?: number): CardQuality {
-  const textScore = knownTextScore ?? textQuality(card, categories);
+export function cardQuality(card: ScryfallCard, categories: readonly DeckCategory[], ctx: QualityContext, known?: Pick<CardQuality, "textScore" | "noJob">): CardQuality {
+  let textScore = known?.textScore;
+  let noJob = known?.noJob;
+  if (textScore === undefined || noJob === undefined) {
+    const features = qualityFeatures(card, categories);
+    textScore ??= probabilityToScore(textProbability(features));
+    noJob ??= hasNoJob(features);
+  }
   const rank = typeof card.edhrec_rank === "number" && card.edhrec_rank > 0 ? card.edhrec_rank : null;
+  const cap = (score: number) => (noJob ? Math.min(score, ctx.recent ? NO_JOB_CAP_RECENT : NO_JOB_CAP) : score);
   if (ctx.mode === "duel") {
     if (ctx.duelPresence > 0) {
-      return { score: Math.max(presenceScore(ctx.duelPresence), unseenScore(textScore)), basis: "tournoi", textScore };
+      return { score: Math.max(presenceScore(ctx.duelPresence), unseenScore(cap(textScore))), basis: "tournoi", textScore, noJob };
     }
     // Extension trop récente pour figurer dans les données : le texte décide, sans le plafond des cartes anciennes.
-    if (ctx.recent) return { score: Math.min(7, 1.5 + textScore * 0.6), basis: "texte", textScore };
-    return { score: unseenScore(textScore), basis: "texte", textScore };
+    if (ctx.recent) return { score: cap(Math.min(7, 1.5 + textScore * 0.6)), basis: "texte", textScore, noJob };
+    return { score: cap(unseenScore(textScore)), basis: "texte", textScore, noJob };
   }
-  if (card.game_changer === true) return { score: 10, basis: "popularité", textScore };
-  if (rank) return { score: 0.75 * rankScore(rank) + 0.25 * textScore, basis: "popularité", textScore };
-  return { score: Math.min(textScore, ctx.recent ? 7.5 : 6.5), basis: "texte", textScore };
+  if (card.game_changer === true) return { score: 10, basis: "popularité", textScore, noJob };
+  if (rank) return { score: 0.75 * rankScore(rank) + 0.25 * textScore, basis: "popularité", textScore, noJob };
+  return { score: cap(Math.min(textScore, ctx.recent ? 7.5 : 6.5)), basis: "texte", textScore, noJob };
 }

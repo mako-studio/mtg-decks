@@ -1,5 +1,6 @@
 import { runCompetitiveBuildCore, type AcquisitionOption, type CompetitiveBuildResult } from "@/lib/competitive-run";
 import type { BuildProgress } from "@/lib/build-steps";
+import { normalizeBudget } from "@/lib/budget";
 
 /**
  * Constructeur compétitif AVEC progression en direct (03/10/2026, demande de
@@ -34,7 +35,7 @@ export async function POST(request: Request): Promise<Response> {
   } catch {
     return Response.json({ error: "Requête illisible." }, { status: 400 });
   }
-  const input = body as { formatKey?: unknown; collectionCards?: unknown; maxAcquisitions?: unknown };
+  const input = body as { formatKey?: unknown; collectionCards?: unknown; maxAcquisitions?: unknown; budgetEur?: unknown };
   // Point d'entrée public : on ne fait confiance à rien de ce qui arrive
   // (runCompetitiveBuildCore revalide aussi le contenu de la liste).
   if (!Array.isArray(input.collectionCards)) {
@@ -42,6 +43,8 @@ export async function POST(request: Request): Promise<Response> {
   }
   const formatKey = input.formatKey === "duelcommander" ? "duelcommander" : "commander";
   const maxAcquisitions = ALLOWED.includes(input.maxAcquisitions as AcquisitionOption) ? (input.maxAcquisitions as AcquisitionOption) : 15;
+  // Budget en euros (Duel) : null = limite en nombre de cartes. Revalidé et borné par normalizeBudget.
+  const budgetEur = input.budgetEur === null || input.budgetEur === undefined ? null : normalizeBudget(input.budgetEur);
   const collectionCards = (input.collectionCards as { name?: unknown; count?: unknown }[])
     .filter((c) => c && typeof c.name === "string" && typeof c.count === "number")
     .slice(0, 5000)
@@ -61,7 +64,7 @@ export async function POST(request: Request): Promise<Response> {
         }
       };
       try {
-        const result = await runCompetitiveBuildCore({ formatKey, collectionCards, maxAcquisitions }, (p) => send({ type: "progress", ...p }));
+        const result = await runCompetitiveBuildCore({ formatKey, collectionCards, maxAcquisitions, budgetEur }, (p) => send({ type: "progress", ...p }));
         send({ type: "result", result });
       } catch (err) {
         console.error("[competitive-build] échec :", err);

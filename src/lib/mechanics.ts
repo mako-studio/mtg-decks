@@ -417,7 +417,44 @@ export const ROLE_IDS = [
 ] as const;
 export type RoleId = (typeof ROLE_IDS)[number];
 
-const COUNTERSPELL = /counter target [^.]*(spell|ability)/i;
+const COUNTER_CLAUSE = /counter target ([^.]*?)\b(spells?|abilit(?:y|ies))\b([^.]*)/gi;
+const BROAD_COUNTER_TARGET = /\b(creature|noncreature|instant|sorcery|permanent|nonland)\b/i;
+const NARROW_COUNTER_TARGET = /\b(white|blue|black|red|green|multicolored|colorless|aura|artifact|enchantment|planeswalker|legendary|kindred|tribal)\b/i;
+
+/**
+ * Nature d'un « contrecarrez » (04/10/2026, retour de Ben : les contresorts
+ * étroits gonflaient le compte « 19 contresorts » de ses decks).
+ * - "large"  : contre un sort quelconque, ou un grand type de sorts (créature,
+ *   non-créature, éphémère, rituel) — Counterspell, Negate, Essence Scatter,
+ *   Force Spike, Dispel ;
+ * - "étroit" : ne contre que ce qui cible vos permanents (Avoid Fate), une
+ *   seule couleur (Red Elemental Blast), un type rare (Aura, artefact,
+ *   enchantement), vos propres sorts, ou seulement des capacités (Stifle) ;
+ * - "aucun"  : la carte ne contrecarre rien.
+ * Une carte à plusieurs clauses est « large » dès que l'une l'est. Un
+ * contresort étroit n'est PAS compté dans le rôle « contresort » ni dans
+ * l'interaction à bas coût : il garde son rôle « protection » s'il en a un.
+ * Lecture du texte anglais par motifs : une tournure inhabituelle peut
+ * échapper au classement (elle reste alors « large », comme avant).
+ */
+export function counterspellKind(text: string): "aucun" | "large" | "étroit" {
+  let kind: "aucun" | "large" | "étroit" = "aucun";
+  for (const m of text.matchAll(COUNTER_CLAUSE)) {
+    const before = m[1] ?? "";
+    const noun = (m[2] ?? "").toLowerCase();
+    const after = m[3] ?? "";
+    // « activated or triggered ability » seul ; « spell or ability » reste un vrai contresort.
+    const abilityOnly = noun.startsWith("abilit") && !/\bspell\b/i.test(before);
+    const narrow =
+      abilityOnly ||
+      (NARROW_COUNTER_TARGET.test(before) && !BROAD_COUNTER_TARGET.test(before)) ||
+      /^\s*(or ability )?(that targets|you control|that's|with the chosen)/i.test(after) ||
+      /\bthat targets\b/i.test(after);
+    if (!narrow) return "large";
+    kind = "étroit";
+  }
+  return kind;
+}
 const RECURSION = /return [^.]*cards? from your graveyard to (your hand|the battlefield)/i;
 
 /** `categories` : résultat de classifyCard (passé par l'appelant pour ne pas le recalculer). */
@@ -429,7 +466,7 @@ export function cardRoles(card: ScryfallCard, categories: readonly string[]): Ro
   const cmc = card.cmc ?? 0;
   const isCreature = typeLine.includes("Creature");
   const power = Number.parseInt(card.power ?? card.card_faces?.[0]?.power ?? "", 10);
-  const counter = COUNTERSPELL.test(text);
+  const counter = counterspellKind(text) === "large";
   const interaction = categories.includes("removal") || categories.includes("disruption") || counter;
   if (isCreature) roles.push("creature");
   if (isCreature && cmc <= 2) roles.push("cheapCreature");

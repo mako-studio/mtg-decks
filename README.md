@@ -2958,3 +2958,104 @@ les decks rapides à vide) ; note de commandant apprise sur les commandants
 de tournoi plutôt que sur les cartes ; mêmes principes pour le multijoueur
 quand une source de decks forts sera disponible ; rejouer l'apprentissage du
 modèle de texte après chaque mise à jour de l'archive.
+
+### Suite du 04/10/2026 — cartes faibles qui entraient, contresorts étroits
+
+Retour de Ben : « des cartes puissantes de ma collection n'apparaissent pas
+(Ophidian Eye, staple en bleu) — bug ou justifié ? ». Vérification, puis
+correction des faiblesses trouvées en chemin.
+
+**Constat.** Pas de carte de tournoi oubliée : pour chaque deck proposé, les
+cartes possédées que jouent ≥ 8 % des decks de tournoi des mêmes couleurs
+sont toutes retenues (16 à 21 par deck), à 3 exceptions près. Ophidian Eye
+figure dans 2 decks sur 2 126 de l'archive : ce n'est pas un staple en Duel
+d'après ces données. Le reste du deck (34 à 40 places) est choisi par le
+modèle « texte », et c'est là qu'étaient les défauts.
+
+**Corrections.**
+
+- `counterspellKind` (`mechanics.ts`) : un « contrecarrez » est *large* ou
+  *étroit* (ne contre que ce qui cible vos permanents, une couleur, un type
+  rare, ou des capacités). Seul le large porte le rôle « contresort » et
+  compte dans l'interaction à bas coût, le tier et les parties simulées.
+  Avoid Fate devient une « protection ». Les formes apprises
+  (`deck-trends.json`) ont été réapprises avec cette définition.
+- Carte **sans métier** (`hasNoJob`, `card-quality.ts`) : permanent
+  non-créature ou sort sans aucun rôle reconnu. Jamais vue en tournoi, elle
+  est plafonnée à 3,5 (4,5 pour une extension récente). Library of Leng
+  passait à 5,6 par son seul coût et sa rareté. Deux descripteurs ajoutés au
+  modèle (`permanentNoRole`, `counterNarrow`), modèle réappris (AUC 0,791,
+  inchangée).
+- `structureNeed` (`deck-audit.ts`) : les freins de quota ne se cumulent
+  plus (seul le plus fort compte) et le bonus « comble un manque » est
+  proportionnel à la qualité (nul à 3,5, entier à 5,5).
+
+**Mesures** (7 decks de Ben communs avant/après, même code de lecture) :
+cartes notées < 5 par deck 5,1 → 3,4 ; < 4 : 0,9 → 0,1 ; contresorts
+comptés 16,3 → 15,0 ; qualité moyenne 6,74 → 6,75 ; forme 94 → 89 ;
+cohérence 93 → 90 ; parties simulées 70,9 → 70,9 ; solidité 71,2 → 70,3.
+Cœur des decks de tournoi retrouvé : 92,0 % avec référence, 78,3 % sans
+(92,0 / 78,7 avant). La baisse de « forme » est le prix attendu : on ne
+remplit plus un quota avec une carte de remplissage.
+
+**Limites.** La rareté pèse lourd dans le modèle « texte » et dépend de
+l'impression renvoyée par Scryfall (essai sans rareté : AUC 0,749, écarté).
+Il reste des cartes notées 4 à 5 dans les decks mono-bleus : la collection
+manque de cartes à 4 manas de niveau tournoi. `duel-meta.json` (2 072 decks)
+est en retard sur l'archive (2 126) : Opposition y est encore « jamais vue ».
+Seuils et plafonds sont des choix de conception. Non vérifié sur le vrai
+Scryfall ni sur Vercel.
+
+### Budget en euros pour le Duel (04/10/2026)
+
+Demande de Ben : « une interface où on rentre les cartes de sa collection et
+un budget, et le site retourne les decks Commander Duel les plus optimisés
+avec ce budget + les cartes possédées ». Arbitrages de Ben : prix Scryfall,
+budget **strict**, plus une section « pour quelques euros de plus » classée
+au meilleur apport par euro.
+
+**Où.** Page « Construire un deck », étape 3, en Duel : « Budget en euros »
+(choix par défaut) ou « Nombre de cartes » (l'ancien réglage, inchangé). Le
+multijoueur garde le nombre de cartes : le budget n'y a pas été essayé.
+
+**Comment** (`buildWithEuroBudget`, `competitive-builder.ts` ; calcul pur
+dans `budget.ts`) :
+
+1. deux decks « sans compter » donnent les achats candidats (45 par passe) :
+   l'un avec toutes les cartes jusqu'à 50 % au-dessus du budget, l'autre
+   avec les seules cartes bon marché ;
+2. apport d'un candidat = sa note dans ce deck moins celle de la carte
+   possédée qu'il remplacerait (le meilleur achat remplace la plus faible
+   carte du deck « avec mes cartes ») ; un terrain est noté par rapport à un
+   terrain de base ;
+3. `selectWithinBudget` choisit les achats qui maximisent la somme des
+   apports sous le budget (sac à dos exact, pas de 5 centimes, prix
+   arrondis au-dessus) ;
+4. le deck est reconstruit avec ces seuls achats, puis une seconde passe
+   redépense ce qui reste. Les ajustements de `optimizeDeck` ne puisent que
+   dans les achats retenus.
+
+Le commandant à acquérir compte dans le budget ; trop cher ou sans prix, il
+est écarté. En mode budget, le classement porte sur le deck que le budget
+permet (plus sur le deck « avec mes cartes »). Si aucun achat ne rend le
+deck plus solide, le deck « optimisé » reste celui des cartes possédées.
+
+**Affichage.** Sur chaque proposition : dépensé / budget / reste, la liste
+des achats, puis « Pour quelques euros de plus » (8 cartes au plus : prix,
+apport, dépassement cumulé du budget). Relance avec un autre montant depuis
+l'en-tête des résultats.
+
+**Vérifié** (build de production, faux Scryfall, collection de Ben) :
+budgets 0, 25 € et mode « nombre de cartes » ; dans les 10 propositions à
+25 €, commandant + achats ≤ 25 € et 99 cartes ; aucune carte sans prix
+achetée ; ~45 à 75 s.
+
+**Non vérifié, limites.** Les données locales n'ont AUCUN prix : les essais
+ont tourné avec des prix fictifs (script du scratchpad). Le comportement
+avec les vrais prix Scryfall n'a pas été observé. Le prix est celui de
+l'impression renvoyée par Scryfall, pas de la moins chère ; ni frais de
+port, ni état, ni disponibilité. L'« apport » est une note du moteur, pas
+un gain de taux de victoire ; un budget plus élevé ne garantit pas un
+indice de solidité plus haut (observé : non monotone à quelques dixièmes
+près). Seuils (45 candidats, +50 %, 8 cartes affichées, plafond 1 000 €) :
+choix de conception.

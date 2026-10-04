@@ -1088,26 +1088,26 @@
    "id": "control",
    "label": "Contrôle",
    "summary": "contresorts au-dessus de la moyenne, créatures en dessous de la moyenne, pioche au-dessus de la moyenne",
-   "share": 0.29,
-   "commanders": 37,
-   "decks": 652,
+   "share": 0.3,
+   "commanders": 38,
+   "decks": 704,
    "examples": [
     "Aragorn, King of Gondor",
     "Atraxa, Grand Unifier",
     "Spider-Man 2099",
     "Tasigur, the Golden Fang",
-    "Quintorius, History Chaser",
-    "Aang, Swift Savior"
+    "Emry, Lurker of the Loch",
+    "Quintorius, History Chaser"
    ],
    "roles": {
     "creature": {
      "p25": 6,
      "median": 12,
-     "p75": 20
+     "p75": 19
     },
     "cheapCreature": {
-     "p25": 2,
-     "median": 4,
+     "p25": 3,
+     "median": 5,
      "p75": 7
     },
     "threat": {
@@ -1116,18 +1116,18 @@
      "p75": 2
     },
     "counterspell": {
-     "p25": 14,
-     "median": 17,
-     "p75": 19
+     "p25": 12,
+     "median": 15,
+     "p75": 17
     },
     "cheapInteraction": {
-     "p25": 20,
-     "median": 22,
-     "p75": 24
+     "p25": 18,
+     "median": 20,
+     "p75": 22
     },
     "removal": {
      "p25": 10,
-     "median": 13,
+     "median": 12,
      "p75": 15
     },
     "wipe": {
@@ -1137,21 +1137,21 @@
     },
     "draw": {
      "p25": 11,
-     "median": 13,
+     "median": 14,
      "p75": 16
     },
     "ramp": {
      "p25": 2,
-     "median": 2,
-     "p75": 5
+     "median": 3,
+     "p75": 6
     },
     "tutor": {
-     "p25": 0,
+     "p25": 1,
      "median": 2,
      "p75": 3
     },
     "protection": {
-     "p25": 1,
+     "p25": 2,
      "median": 2,
      "p75": 3
     },
@@ -1161,9 +1161,9 @@
      "p75": 1
     },
     "cmc01": {
-     "p25": 16,
+     "p25": 17,
      "median": 19,
-     "p75": 22
+     "p75": 23
     },
     "cmc2": {
      "p25": 18,
@@ -1176,7 +1176,7 @@
      "p75": 14
     },
     "cmc4": {
-     "p25": 4,
+     "p25": 3,
      "median": 5,
      "p75": 7
     },
@@ -1188,13 +1188,13 @@
    },
    "lands": {
     "p25": 36,
-    "median": 38,
+    "median": 37,
     "p75": 39
    },
-   "avgCmc": 2.35,
+   "avgCmc": 2.31,
    "colors": {
-    "1": 0.22,
-    "2": 0.38,
+    "1": 0.24,
+    "2": 0.37,
     "3": 0.24,
     "4": 0.08,
     "5": 0.08
@@ -1202,22 +1202,22 @@
    "z": {
     "creature": -1.08,
     "cheapCreature": -0.97,
-    "threat": -0.47,
+    "threat": -0.46,
     "counterspell": 1.26,
-    "cheapInteraction": 1.04,
-    "removal": 0.06,
-    "wipe": 0.57,
-    "draw": 1.07,
-    "ramp": -0.34,
-    "tutor": -0.27,
+    "cheapInteraction": 0.97,
+    "removal": 0.01,
+    "wipe": 0.56,
+    "draw": 1.08,
+    "ramp": -0.31,
+    "tutor": -0.26,
     "protection": -0.71,
-    "recursion": -0.34,
-    "cmc01": -0.19,
-    "cmc2": 0.13,
+    "recursion": -0.35,
+    "cmc01": -0.13,
+    "cmc2": 0.1,
     "cmc3": 0,
-    "cmc4": 0.17,
-    "cmc5plus": 0.03,
-    "lands": -0.07
+    "cmc4": 0.12,
+    "cmc5plus": 0.02,
+    "lands": -0.08
    }
   },
   {
@@ -1259,7 +1259,7 @@
     "cheapInteraction": {
      "p25": 12,
      "median": 15,
-     "p75": 18
+     "p75": 17
     },
     "removal": {
      "p25": 12,
@@ -1339,7 +1339,7 @@
     "cheapCreature": 0.56,
     "threat": 0.25,
     "counterspell": -0.37,
-    "cheapInteraction": 0.15,
+    "cheapInteraction": 0.2,
     "removal": 0.65,
     "wipe": -0.34,
     "draw": -0.5,
@@ -1358,48 +1358,48 @@
   {
    "id": "engine",
    "label": "Accélération et moteur",
-   "summary": "rampe au-dessus de la moyenne, tutors au-dessus de la moyenne, interaction à 1-2 manas en dessous de la moyenne",
-   "share": 0.2,
-   "commanders": 25,
-   "decks": 374,
+   "summary": "tutors au-dessus de la moyenne, rampe au-dessus de la moyenne, interaction à 1-2 manas en dessous de la moyenne",
+   "share": 0.17,
+   "commanders": 22,
+   "decks": 231,
    "examples": [
     "Brigid, Clachan's Heart",
-    "Tifa Lockhart",
-    "Emry, Lurker of the Loch",
     "Toph, Greatest Earthbender",
     "Raph & Mikey, Troublemakers",
-    "The Fantasticar"
+    "Grist, the Hunger Tide",
+    "Prossh, Skyraider of Kher",
+    "Dargo, the Shipwrecker + Silas Renn, Seeker Adept"
    ],
    "roles": {
     "creature": {
-     "p25": 13,
-     "median": 25,
-     "p75": 38
+     "p25": 30,
+     "median": 37,
+     "p75": 41
     },
     "cheapCreature": {
-     "p25": 7,
-     "median": 17,
-     "p75": 27
+     "p25": 18,
+     "median": 21,
+     "p75": 28
     },
     "threat": {
      "p25": 0,
      "median": 1,
-     "p75": 2
+     "p75": 3
     },
     "counterspell": {
      "p25": 0,
      "median": 0,
-     "p75": 2
+     "p75": 0
     },
     "cheapInteraction": {
-     "p25": 5,
+     "p25": 7,
      "median": 8,
      "p75": 9
     },
     "removal": {
-     "p25": 3,
-     "median": 7,
-     "p75": 10
+     "p25": 7,
+     "median": 8,
+     "p75": 12
     },
     "wipe": {
      "p25": 0,
@@ -1409,37 +1409,37 @@
     "draw": {
      "p25": 2,
      "median": 4,
-     "p75": 7
+     "p75": 6
     },
     "ramp": {
      "p25": 11,
-     "median": 13,
-     "p75": 18
+     "median": 11,
+     "p75": 22
     },
     "tutor": {
-     "p25": 1,
-     "median": 4,
-     "p75": 12
+     "p25": 3,
+     "median": 8,
+     "p75": 14
     },
     "protection": {
-     "p25": 4,
+     "p25": 5,
      "median": 6,
-     "p75": 9
+     "p75": 8
     },
     "recursion": {
      "p25": 0,
      "median": 0,
-     "p75": 1
+     "p75": 2
     },
     "cmc01": {
-     "p25": 23,
-     "median": 29,
-     "p75": 35
+     "p25": 21,
+     "median": 26,
+     "p75": 28
     },
     "cmc2": {
-     "p25": 10,
-     "median": 15,
-     "p75": 16
+     "p25": 15,
+     "median": 16,
+     "p75": 18
     },
     "cmc3": {
      "p25": 9,
@@ -1447,48 +1447,48 @@
      "p75": 12
     },
     "cmc4": {
-     "p25": 2,
-     "median": 5,
+     "p25": 5,
+     "median": 6,
      "p75": 6
     },
     "cmc5plus": {
      "p25": 2,
      "median": 2,
-     "p75": 4
+     "p75": 5
     }
    },
    "lands": {
     "p25": 37,
     "median": 38,
-    "p75": 40
+    "p75": 39
    },
-   "avgCmc": 1.95,
+   "avgCmc": 2.16,
    "colors": {
-    "0": 0.08,
-    "1": 0.24,
-    "2": 0.36,
-    "3": 0.24,
-    "4": 0.08
+    "0": 0.05,
+    "1": 0.18,
+    "2": 0.41,
+    "3": 0.27,
+    "4": 0.09
    },
    "z": {
-    "creature": 0.17,
-    "cheapCreature": 0.34,
-    "threat": -0.38,
-    "counterspell": -0.58,
-    "cheapInteraction": -0.87,
-    "removal": -0.82,
-    "wipe": -0.45,
-    "draw": -0.4,
+    "creature": 0.34,
+    "cheapCreature": 0.49,
+    "threat": -0.37,
+    "counterspell": -0.63,
+    "cheapInteraction": -0.84,
+    "removal": -0.69,
+    "wipe": -0.49,
+    "draw": -0.45,
     "ramp": 1.04,
-    "tutor": 1.04,
-    "protection": 0.68,
-    "recursion": -0.27,
-    "cmc01": 0.82,
-    "cmc2": -0.35,
-    "cmc3": -0.23,
-    "cmc4": -0.31,
-    "cmc5plus": -0.25,
-    "lands": -0.17
+    "tutor": 1.24,
+    "protection": 0.69,
+    "recursion": -0.22,
+    "cmc01": 0.6,
+    "cmc2": -0.14,
+    "cmc3": -0.13,
+    "cmc4": -0.17,
+    "cmc5plus": -0.21,
+    "lands": -0.26
    }
   },
   {
@@ -1609,7 +1609,7 @@
     "cheapCreature": 1.41,
     "threat": 1.04,
     "counterspell": -0.56,
-    "cheapInteraction": -0.2,
+    "cheapInteraction": -0.17,
     "removal": 0.15,
     "wipe": -0.39,
     "draw": -0.07,
@@ -1664,7 +1664,7 @@
     "cheapInteraction": {
      "p25": 3,
      "median": 8,
-     "p75": 11
+     "p75": 10
     },
     "removal": {
      "p25": 10,
@@ -1743,14 +1743,14 @@
     "creature": 0.31,
     "cheapCreature": -0.79,
     "threat": 0.53,
-    "counterspell": -0.64,
-    "cheapInteraction": -0.76,
+    "counterspell": -0.65,
+    "cheapInteraction": -0.77,
     "removal": 0.25,
     "wipe": 0.93,
     "draw": -0.43,
     "ramp": 0.31,
     "tutor": -0.16,
-    "protection": -0.13,
+    "protection": -0.15,
     "recursion": 1.39,
     "cmc01": -1.47,
     "cmc2": -0.84,
@@ -1764,32 +1764,32 @@
    "id": "lands",
    "label": "Deck de terrains",
    "summary": "terrains au-dessus de la moyenne, rampe au-dessus de la moyenne, interaction à 1-2 manas en dessous de la moyenne",
-   "share": 0.06,
-   "commanders": 7,
-   "decks": 63,
+   "share": 0.07,
+   "commanders": 9,
+   "decks": 154,
    "examples": [
+    "Tifa Lockhart",
+    "The Fantasticar",
     "Azusa, Lost but Seeking",
     "Nissa, Resurgent Animist",
     "Lumra, Bellow of the Woods",
-    "The Gitrog Monster",
-    "Golos, Tireless Pilgrim",
-    "Mole Man, Moloid Master"
+    "The Gitrog Monster"
    ],
    "roles": {
     "creature": {
      "p25": 18,
-     "median": 19,
-     "p75": 20
+     "median": 20,
+     "p75": 23
     },
     "cheapCreature": {
      "p25": 3,
-     "median": 8,
-     "p75": 9
+     "median": 11,
+     "p75": 15
     },
     "threat": {
      "p25": 1,
-     "median": 2,
-     "p75": 3
+     "median": 1,
+     "p75": 2
     },
     "counterspell": {
      "p25": 0,
@@ -1802,9 +1802,9 @@
      "p75": 4
     },
     "removal": {
-     "p25": 5,
-     "median": 7,
-     "p75": 7
+     "p25": 3,
+     "median": 4,
+     "p75": 6
     },
     "wipe": {
      "p25": 0,
@@ -1817,82 +1817,83 @@
      "p75": 4
     },
     "ramp": {
-     "p25": 19,
-     "median": 20,
-     "p75": 22
+     "p25": 15,
+     "median": 18,
+     "p75": 20
     },
     "tutor": {
-     "p25": 6,
-     "median": 7,
-     "p75": 7
+     "p25": 1,
+     "median": 1,
+     "p75": 6
     },
     "protection": {
      "p25": 3,
-     "median": 4,
-     "p75": 4
+     "median": 5,
+     "p75": 16
     },
     "recursion": {
-     "p25": 1,
-     "median": 2,
-     "p75": 3
+     "p25": 0,
+     "median": 1,
+     "p75": 2
     },
     "cmc01": {
-     "p25": 13,
-     "median": 16,
-     "p75": 18
+     "p25": 16,
+     "median": 36,
+     "p75": 39
     },
     "cmc2": {
-     "p25": 10,
-     "median": 11,
-     "p75": 15
+     "p25": 7,
+     "median": 9,
+     "p75": 11
     },
     "cmc3": {
-     "p25": 9,
-     "median": 10,
+     "p25": 8,
+     "median": 9,
      "p75": 11
     },
     "cmc4": {
      "p25": 2,
      "median": 3,
-     "p75": 5
+     "p75": 4
     },
     "cmc5plus": {
-     "p25": 4,
-     "median": 4,
-     "p75": 9
+     "p25": 1,
+     "median": 2,
+     "p75": 4
     }
    },
    "lands": {
-    "p25": 48,
-    "median": 53,
-    "p75": 54
+    "p25": 41,
+    "median": 42,
+    "p75": 52
    },
-   "avgCmc": 2.77,
+   "avgCmc": 2.03,
    "colors": {
-    "1": 0.57,
-    "2": 0.14,
-    "3": 0.14,
-    "5": 0.14
+    "0": 0.11,
+    "1": 0.56,
+    "2": 0.11,
+    "3": 0.11,
+    "5": 0.11
    },
    "z": {
-    "creature": -0.37,
+    "creature": -0.52,
     "cheapCreature": -0.62,
-    "threat": -0.33,
+    "threat": -0.38,
     "counterspell": -0.75,
-    "cheapInteraction": -1.61,
-    "removal": -1.14,
-    "wipe": -0.32,
-    "draw": -1.1,
-    "ramp": 2.07,
-    "tutor": 0.86,
-    "protection": -0.23,
-    "recursion": 1.28,
-    "cmc01": -0.62,
-    "cmc2": -1.29,
-    "cmc3": -0.48,
-    "cmc4": -0.85,
-    "cmc5plus": 0.27,
-    "lands": 3.47
+    "cheapInteraction": -1.65,
+    "removal": -1.28,
+    "wipe": -0.3,
+    "draw": -1.02,
+    "ramp": 1.9,
+    "tutor": 0.5,
+    "protection": 0.09,
+    "recursion": 0.87,
+    "cmc01": 0.12,
+    "cmc2": -1.48,
+    "cmc3": -0.69,
+    "cmc4": -0.92,
+    "cmc5plus": 0.06,
+    "lands": 2.92
    }
   }
  ],
@@ -1996,7 +1997,7 @@
   },
   "Tifa Lockhart": {
    "decks": 70,
-   "recipe": "engine",
+   "recipe": "lands",
    "roles": {
     "creature": {
      "p25": 21,
@@ -2016,7 +2017,7 @@
     "counterspell": {
      "p25": 0,
      "median": 0,
-     "p75": 1
+     "p75": 0
     },
     "cheapInteraction": {
      "p25": 1,
@@ -2051,7 +2052,7 @@
     "protection": {
      "p25": 15,
      "median": 16,
-     "p75": 18
+     "p75": 19
     },
     "recursion": {
      "p25": 0,
@@ -2305,14 +2306,14 @@
      "p75": 3
     },
     "counterspell": {
-     "p25": 13,
-     "median": 13,
-     "p75": 15
+     "p25": 12,
+     "median": 12,
+     "p75": 13
     },
     "cheapInteraction": {
-     "p25": 22,
-     "median": 23,
-     "p75": 24
+     "p25": 21,
+     "median": 22,
+     "p75": 23
     },
     "removal": {
      "p25": 13,
@@ -2499,14 +2500,14 @@
      "p75": 2
     },
     "counterspell": {
-     "p25": 18,
-     "median": 18,
-     "p75": 20
+     "p25": 17,
+     "median": 17,
+     "p75": 19
     },
     "cheapInteraction": {
-     "p25": 23,
-     "median": 24,
-     "p75": 25
+     "p25": 22,
+     "median": 23,
+     "p75": 24
     },
     "removal": {
      "p25": 11,
@@ -2598,11 +2599,11 @@
     "counterspell": {
      "p25": 14,
      "median": 15,
-     "p75": 16
+     "p75": 15
     },
     "cheapInteraction": {
-     "p25": 22,
-     "median": 23,
+     "p25": 21,
+     "median": 22,
      "p75": 24
     },
     "removal": {
@@ -2790,14 +2791,14 @@
      "p75": 4
     },
     "counterspell": {
-     "p25": 12,
-     "median": 13,
-     "p75": 14
+     "p25": 11,
+     "median": 12,
+     "p75": 13
     },
     "cheapInteraction": {
-     "p25": 19,
-     "median": 20,
-     "p75": 21
+     "p25": 18,
+     "median": 19,
+     "p75": 20
     },
     "removal": {
      "p25": 11,
@@ -2887,14 +2888,14 @@
      "p75": 1
     },
     "counterspell": {
-     "p25": 17,
-     "median": 17,
-     "p75": 17
+     "p25": 15,
+     "median": 15,
+     "p75": 15
     },
     "cheapInteraction": {
-     "p25": 20,
-     "median": 21,
-     "p75": 22
+     "p25": 18,
+     "median": 19,
+     "p75": 20
     },
     "removal": {
      "p25": 12,
@@ -3160,7 +3161,7 @@
   },
   "Emry, Lurker of the Loch": {
    "decks": 52,
-   "recipe": "engine",
+   "recipe": "control",
    "roles": {
     "creature": {
      "p25": 10,
@@ -3214,7 +3215,7 @@
     },
     "protection": {
      "p25": 2,
-     "median": 2,
+     "median": 3,
      "p75": 3
     },
     "recursion": {
@@ -3275,14 +3276,14 @@
      "p75": 0
     },
     "counterspell": {
-     "p25": 19,
-     "median": 20,
-     "p75": 20
+     "p25": 18,
+     "median": 19,
+     "p75": 19
     },
     "cheapInteraction": {
-     "p25": 22,
-     "median": 23,
-     "p75": 24
+     "p25": 21,
+     "median": 22,
+     "p75": 23
     },
     "removal": {
      "p25": 12,
@@ -3372,14 +3373,14 @@
      "p75": 2
     },
     "counterspell": {
-     "p25": 17,
-     "median": 18,
-     "p75": 19
+     "p25": 16,
+     "median": 16,
+     "p75": 17
     },
     "cheapInteraction": {
-     "p25": 25,
-     "median": 25,
-     "p75": 26
+     "p25": 24,
+     "median": 24,
+     "p75": 24
     },
     "removal": {
      "p25": 13,
@@ -3568,12 +3569,12 @@
     "counterspell": {
      "p25": 9,
      "median": 10,
-     "p75": 13
+     "p75": 12
     },
     "cheapInteraction": {
      "p25": 18,
      "median": 19,
-     "p75": 22
+     "p75": 20
     },
     "removal": {
      "p25": 9,
@@ -3760,9 +3761,9 @@
      "p75": 1
     },
     "counterspell": {
-     "p25": 3,
-     "median": 3,
-     "p75": 3
+     "p25": 2,
+     "median": 2,
+     "p75": 2
     },
     "cheapInteraction": {
      "p25": 19,
@@ -3795,9 +3796,9 @@
      "p75": 3
     },
     "protection": {
-     "p25": 1,
-     "median": 1,
-     "p75": 2
+     "p25": 2,
+     "median": 2,
+     "p75": 3
     },
     "recursion": {
      "p25": 1,
@@ -3954,14 +3955,14 @@
      "p75": 4
     },
     "counterspell": {
-     "p25": 15,
-     "median": 16,
-     "p75": 17
+     "p25": 14,
+     "median": 15,
+     "p75": 16
     },
     "cheapInteraction": {
-     "p25": 17,
-     "median": 19,
-     "p75": 20
+     "p25": 16,
+     "median": 18,
+     "p75": 19
     },
     "removal": {
      "p25": 9,
@@ -4245,14 +4246,14 @@
      "p75": 2
     },
     "counterspell": {
-     "p25": 15,
-     "median": 16,
-     "p75": 17
+     "p25": 14,
+     "median": 14,
+     "p75": 15
     },
     "cheapInteraction": {
-     "p25": 23,
-     "median": 24,
-     "p75": 25
+     "p25": 21,
+     "median": 22,
+     "p75": 23
     },
     "removal": {
      "p25": 13,
@@ -4342,7 +4343,7 @@
      "p75": 1
     },
     "counterspell": {
-     "p25": 1,
+     "p25": 0,
      "median": 1,
      "p75": 1
     },
@@ -4439,14 +4440,14 @@
      "p75": 2
     },
     "counterspell": {
-     "p25": 16,
-     "median": 17,
-     "p75": 19
+     "p25": 15,
+     "median": 15,
+     "p75": 17
     },
     "cheapInteraction": {
-     "p25": 22,
-     "median": 23,
-     "p75": 25
+     "p25": 20,
+     "median": 21,
+     "p75": 23
     },
     "removal": {
      "p25": 10,
@@ -4730,14 +4731,14 @@
      "p75": 1
     },
     "counterspell": {
-     "p25": 11,
-     "median": 13,
-     "p75": 14
+     "p25": 9,
+     "median": 11,
+     "p75": 12
     },
     "cheapInteraction": {
-     "p25": 22,
-     "median": 23,
-     "p75": 23
+     "p25": 20,
+     "median": 21,
+     "p75": 21
     },
     "removal": {
      "p25": 14,
@@ -4827,14 +4828,14 @@
      "p75": 3
     },
     "counterspell": {
-     "p25": 5,
-     "median": 5,
-     "p75": 6
+     "p25": 4,
+     "median": 4,
+     "p75": 4
     },
     "cheapInteraction": {
-     "p25": 11,
-     "median": 12,
-     "p75": 14
+     "p25": 10,
+     "median": 10,
+     "p75": 13
     },
     "removal": {
      "p25": 7,
@@ -5215,14 +5216,14 @@
      "p75": 5
     },
     "counterspell": {
-     "p25": 13,
-     "median": 14,
-     "p75": 15
+     "p25": 11,
+     "median": 13,
+     "p75": 14
     },
     "cheapInteraction": {
-     "p25": 22,
-     "median": 23,
-     "p75": 23
+     "p25": 21,
+     "median": 21,
+     "p75": 21
     },
     "removal": {
      "p25": 16,
@@ -5797,14 +5798,14 @@
      "p75": 0
     },
     "counterspell": {
-     "p25": 22,
-     "median": 26,
-     "p75": 27
+     "p25": 19,
+     "median": 23,
+     "p75": 23
     },
     "cheapInteraction": {
-     "p25": 22,
-     "median": 22,
-     "p75": 23
+     "p25": 20,
+     "median": 20,
+     "p75": 21
     },
     "removal": {
      "p25": 7,
@@ -5833,7 +5834,7 @@
     },
     "protection": {
      "p25": 3,
-     "median": 3,
+     "median": 4,
      "p75": 6
     },
     "recursion": {
@@ -6090,12 +6091,12 @@
     "counterspell": {
      "p25": 1,
      "median": 1,
-     "p75": 16
+     "p75": 14
     },
     "cheapInteraction": {
      "p25": 9,
      "median": 11,
-     "p75": 17
+     "p75": 16
     },
     "removal": {
      "p25": 9,
@@ -6186,13 +6187,13 @@
     },
     "counterspell": {
      "p25": 0,
-     "median": 1,
+     "median": 0,
      "p75": 6
     },
     "cheapInteraction": {
      "p25": 6,
      "median": 6,
-     "p75": 11
+     "p75": 10
     },
     "removal": {
      "p25": 3,
@@ -6222,7 +6223,7 @@
     "protection": {
      "p25": 0,
      "median": 3,
-     "p75": 5
+     "p75": 6
     },
     "recursion": {
      "p25": 1,
@@ -6284,7 +6285,7 @@
     "counterspell": {
      "p25": 0,
      "median": 0,
-     "p75": 1
+     "p75": 0
     },
     "cheapInteraction": {
      "p25": 19,
@@ -6318,8 +6319,8 @@
     },
     "protection": {
      "p25": 2,
-     "median": 2,
-     "p75": 2
+     "median": 3,
+     "p75": 3
     },
     "recursion": {
      "p25": 0,
@@ -6380,13 +6381,13 @@
     },
     "counterspell": {
      "p25": 4,
-     "median": 12,
-     "p75": 18
+     "median": 11,
+     "p75": 17
     },
     "cheapInteraction": {
      "p25": 13,
-     "median": 19,
-     "p75": 23
+     "median": 18,
+     "p75": 22
     },
     "removal": {
      "p25": 11,
@@ -6478,7 +6479,7 @@
     "counterspell": {
      "p25": 0,
      "median": 0,
-     "p75": 2
+     "p75": 1
     },
     "cheapInteraction": {
      "p25": 13,
@@ -6513,7 +6514,7 @@
     "protection": {
      "p25": 2,
      "median": 2,
-     "p75": 2
+     "p75": 3
     },
     "recursion": {
      "p25": 0,
@@ -6767,13 +6768,13 @@
      "p75": 2
     },
     "counterspell": {
-     "p25": 2,
-     "median": 3,
-     "p75": 3
+     "p25": 1,
+     "median": 1,
+     "p75": 1
     },
     "cheapInteraction": {
      "p25": 7,
-     "median": 8,
+     "median": 7,
      "p75": 8
     },
     "removal": {
@@ -6802,9 +6803,9 @@
      "p75": 1
     },
     "protection": {
-     "p25": 6,
-     "median": 7,
-     "p75": 8
+     "p25": 8,
+     "median": 9,
+     "p75": 10
     },
     "recursion": {
      "p25": 0,
@@ -6998,7 +6999,7 @@
     "protection": {
      "p25": 4,
      "median": 4,
-     "p75": 4
+     "p75": 5
     },
     "recursion": {
      "p25": 1,
@@ -7155,14 +7156,14 @@
      "p75": 1
     },
     "counterspell": {
-     "p25": 18,
-     "median": 19,
-     "p75": 19
+     "p25": 16,
+     "median": 17,
+     "p75": 17
     },
     "cheapInteraction": {
-     "p25": 21,
-     "median": 21,
-     "p75": 24
+     "p25": 19,
+     "median": 19,
+     "p75": 22
     },
     "removal": {
      "p25": 10,
@@ -7349,14 +7350,14 @@
      "p75": 5
     },
     "counterspell": {
-     "p25": 19,
-     "median": 20,
-     "p75": 20
+     "p25": 18,
+     "median": 18,
+     "p75": 19
     },
     "cheapInteraction": {
-     "p25": 21,
-     "median": 22,
-     "p75": 22
+     "p25": 20,
+     "median": 20,
+     "p75": 20
     },
     "removal": {
      "p25": 11,
@@ -7834,14 +7835,14 @@
      "p75": 0
     },
     "counterspell": {
-     "p25": 19,
-     "median": 19,
-     "p75": 19
+     "p25": 17,
+     "median": 17,
+     "p75": 17
     },
     "cheapInteraction": {
-     "p25": 19,
-     "median": 20,
-     "p75": 20
+     "p25": 17,
+     "median": 18,
+     "p75": 18
     },
     "removal": {
      "p25": 6,
@@ -7933,12 +7934,12 @@
     "counterspell": {
      "p25": 7,
      "median": 10,
-     "p75": 13
+     "p75": 12
     },
     "cheapInteraction": {
      "p25": 12,
      "median": 25,
-     "p75": 27
+     "p75": 26
     },
     "removal": {
      "p25": 15,
@@ -8028,14 +8029,14 @@
      "p75": 2
     },
     "counterspell": {
-     "p25": 16,
-     "median": 17,
-     "p75": 17
+     "p25": 14,
+     "median": 15,
+     "p75": 15
     },
     "cheapInteraction": {
-     "p25": 21,
-     "median": 21,
-     "p75": 22
+     "p25": 19,
+     "median": 19,
+     "p75": 20
     },
     "removal": {
      "p25": 15,
@@ -8321,7 +8322,7 @@
     "counterspell": {
      "p25": 7,
      "median": 7,
-     "p75": 10
+     "p75": 9
     },
     "cheapInteraction": {
      "p25": 13,
@@ -8513,14 +8514,14 @@
      "p75": 2
     },
     "counterspell": {
-     "p25": 14,
-     "median": 14,
-     "p75": 16
+     "p25": 13,
+     "median": 13,
+     "p75": 14
     },
     "cheapInteraction": {
-     "p25": 22,
-     "median": 23,
-     "p75": 23
+     "p25": 20,
+     "median": 21,
+     "p75": 22
     },
     "removal": {
      "p25": 11,
@@ -8610,14 +8611,14 @@
      "p75": 1
     },
     "counterspell": {
-     "p25": 20,
-     "median": 21,
-     "p75": 21
+     "p25": 18,
+     "median": 18,
+     "p75": 19
     },
     "cheapInteraction": {
-     "p25": 22,
-     "median": 23,
-     "p75": 25
+     "p25": 21,
+     "median": 21,
+     "p75": 22
     },
     "removal": {
      "p25": 10,
@@ -8709,7 +8710,7 @@
     "counterspell": {
      "p25": 0,
      "median": 1,
-     "p75": 2
+     "p75": 1
     },
     "cheapInteraction": {
      "p25": 4,
@@ -8744,7 +8745,7 @@
     "protection": {
      "p25": 2,
      "median": 3,
-     "p75": 3
+     "p75": 4
     },
     "recursion": {
      "p25": 0,
@@ -8804,14 +8805,14 @@
      "p75": 1
     },
     "counterspell": {
-     "p25": 17,
-     "median": 18,
-     "p75": 18
+     "p25": 16,
+     "median": 17,
+     "p75": 17
     },
     "cheapInteraction": {
      "p25": 23,
-     "median": 24,
-     "p75": 24
+     "median": 23,
+     "p75": 23
     },
     "removal": {
      "p25": 9,
@@ -8901,14 +8902,14 @@
      "p75": 3
     },
     "counterspell": {
-     "p25": 20,
-     "median": 21,
-     "p75": 21
+     "p25": 19,
+     "median": 19,
+     "p75": 20
     },
     "cheapInteraction": {
-     "p25": 22,
-     "median": 25,
-     "p75": 25
+     "p25": 21,
+     "median": 24,
+     "p75": 24
     },
     "removal": {
      "p25": 12,
@@ -9095,14 +9096,14 @@
      "p75": 2
     },
     "counterspell": {
-     "p25": 11,
-     "median": 16,
-     "p75": 19
+     "p25": 10,
+     "median": 15,
+     "p75": 18
     },
     "cheapInteraction": {
-     "p25": 14,
-     "median": 17,
-     "p75": 19
+     "p25": 12,
+     "median": 16,
+     "p75": 18
     },
     "removal": {
      "p25": 11,
@@ -9192,14 +9193,14 @@
      "p75": 0
     },
     "counterspell": {
-     "p25": 16,
-     "median": 18,
-     "p75": 19
+     "p25": 14,
+     "median": 16,
+     "p75": 18
     },
     "cheapInteraction": {
-     "p25": 20,
-     "median": 22,
-     "p75": 23
+     "p25": 18,
+     "median": 20,
+     "p75": 22
     },
     "removal": {
      "p25": 13,
@@ -9368,7 +9369,7 @@
   },
   "The Fantasticar": {
    "decks": 21,
-   "recipe": "engine",
+   "recipe": "lands",
    "roles": {
     "creature": {
      "p25": 0,

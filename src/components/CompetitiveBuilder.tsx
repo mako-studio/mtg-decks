@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { openProposedDeck, runCompetitiveBuild } from "@/lib/competitive-actions";
 import type { AcquisitionOption, CompetitiveBuildResult, ProposalSummary } from "@/lib/competitive-run";
 import type { BuildProgress } from "@/lib/build-steps";
+import { MAX_BUDGET_EUR, normalizeBudget } from "@/lib/budget";
 import { BuildProgressPanel, GamePlanPanel, MissingStaplesPanel, RankingPanel } from "./BuildPanels";
 import type { DeckAnalysisResult } from "@/lib/actions";
 import { parseCollectionCsv, parseCollectionText } from "@/lib/collection-import";
@@ -84,7 +85,7 @@ const ACQ_OPTIONS: { value: AcquisitionOption; label: string }[] = [
  * termine sans résultat : l'appelant se replie alors sur la Server Action.
  */
 async function buildWithProgress(
-  input: { formatKey: FormatKey; collectionCards: { name: string; count: number }[]; maxAcquisitions: AcquisitionOption },
+  input: { formatKey: FormatKey; collectionCards: { name: string; count: number }[]; maxAcquisitions: AcquisitionOption; budgetEur: number | null },
   onProgress: (p: BuildProgress) => void
 ): Promise<CompetitiveBuildResult> {
   const res = await fetch("/api/competitive-build", {
@@ -155,6 +156,55 @@ function TierBadge({ tier, label }: { tier: PowerTierLevel; label: string }) {
   return <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${TIER_CLASS[tier]}`}>{label}</span>;
 }
 
+/** Le deck « optimisé » peut-il contenir des cartes hors liste pour ce résultat ? */
+function canBuy(res: CompetitiveBuildResult): boolean {
+  return res.budgetEur !== null ? res.budgetEur > 0 : res.maxAcquisitions > 0;
+}
+
+/** Clé d'un deck ouvert : change avec la limite d'achats (nombre de cartes ou budget). */
+function limitKey(res: CompetitiveBuildResult): string {
+  return res.budgetEur !== null ? `b${res.budgetEur}` : `n${res.maxAcquisitions}`;
+}
+
+/**
+ * Relance avec un autre budget depuis l'écran des résultats (04/10/2026).
+ * Champ texte plutôt que curseur : Ben saisit un montant précis.
+ */
+function BudgetRelaunch({ current, disabled, onRelaunch }: { current: number; disabled: boolean; onRelaunch: (budget: number) => void }) {
+  const [value, setValue] = useState(String(current));
+  const parsed = normalizeBudget(value);
+  return (
+    <form
+      className="flex items-center gap-1"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (parsed !== null) onRelaunch(parsed);
+      }}
+    >
+      <label className="flex items-center gap-1">
+        <span className="text-muted">Budget</span>
+        <input
+          type="text"
+          inputMode="decimal"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          disabled={disabled}
+          aria-label="Budget en euros"
+          className="w-16 rounded-md border border-border bg-surface px-2 py-1 text-right disabled:opacity-60"
+        />
+        <span className="text-muted">€</span>
+      </label>
+      <button
+        type="submit"
+        disabled={disabled || parsed === null || parsed === current}
+        className="rounded-md border border-border px-2.5 py-1 font-medium hover:bg-accent hover:text-accent-foreground disabled:opacity-60"
+      >
+        Relancer
+      </button>
+    </form>
+  );
+}
+
 function allOwned(p: ProposalSummary): boolean {
   return p.commanders.every((c) => c.owned);
 }
@@ -192,6 +242,9 @@ export function CompetitiveBuilder({ fromSimulator = false }: { fromSimulator?: 
   const fileRef = useRef<HTMLInputElement>(null);
   const [format, setFormat] = useState<FormatKey>("commander");
   const [maxAcq, setMaxAcq] = useState<AcquisitionOption>(15);
+  // Limite des achats en Duel (04/10/2026) : un nombre de cartes, ou un budget strict en euros.
+  const [limitMode, setLimitMode] = useState<"cards" | "budget">("budget");
+  const [budgetText, setBudgetText] = useState("30");
   const [formError, setFormError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
 
@@ -224,10 +277,11 @@ export function CompetitiveBuilder({ fromSimulator = false }: { fromSimulator?: 
       planHint: deck.planHint,
     });
     setOpened(opened);
-    setOpenedKey(`${res.formatKey}:${p.commander}:${v}:${res.maxAcquisitions}`);
+    setOpenedKey(`${res.formatKey}:${p.commander}:${v}:${limitKey(res)}`);
   }
 
-  function launch(cards: { name: string; count: number }[], fmt: FormatKey, acq: AcquisitionOption) {
+  /** `budget` : budget en euros (Duel uniquement) ; null = limite en nombre de cartes (`acq`). */
+  function launch(cards: { name: string; count: number }[], fmt: FormatKey, acq: AcquisitionOption, budget: number | null) {
     setFormError(null);
     setProgress(null);
     setLive(true);
@@ -236,7 +290,7 @@ export function CompetitiveBuilder({ fromSimulator = false }: { fromSimulator?: 
     const id = ++runId.current;
     startBuilding(async () => {
       let res: CompetitiveBuildResult;
-      const input = { formatKey: fmt, collectionCards: cards, maxAcquisitions: acq };
+      const input = { formatKey: fmt, collectionCards: cards, maxAcquisitions: acq, budgetEur: fmt === "duelcommander" ? budget : null };
       try {
         res = await buildWithProgress(input, (p) => {
           if (runId.current === id) setProgress(p);
@@ -263,7 +317,7 @@ export function CompetitiveBuilder({ fromSimulator = false }: { fromSimulator?: 
       } catch {
         // Stockage indisponible (navigation privée...) : simple confort, on ignore.
       }
-      const v: Variant = res.maxAcquisitions > 0 ? "upgraded" : "owned";
+      const v: Variant = canBuy(res) ? "upgraded" : "owned";
       setResult(res);
       setSelected(0);
       setVariant(v);
@@ -296,7 +350,15 @@ export function CompetitiveBuilder({ fromSimulator = false }: { fromSimulator?: 
       setFormError(parsed.error);
       return;
     }
-    launch(parsed.cards, format, maxAcq);
+    let budget: number | null = null;
+    if (format === "duelcommander" && limitMode === "budget") {
+      budget = normalizeBudget(budgetText);
+      if (budget === null) {
+        setFormError("Budget illisible : saisis un montant en euros (par exemple 30 ou 12,50).");
+        return;
+      }
+    }
+    launch(parsed.cards, format, maxAcq, budget);
   }
 
   /** Reprend la liste envoyée depuis le simulateur d'un deck (voir DeckBuilder.sendToBuilder). */
@@ -472,24 +534,73 @@ export function CompetitiveBuilder({ fromSimulator = false }: { fromSimulator?: 
             <span className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-accent text-xs text-accent-foreground">3</span>
             Cartes recommandées hors de ta liste
           </h2>
-          <p className="mt-1 text-xs text-muted">
-            Nombre maximum de cartes à acquérir que le système peut ajouter pour rapprocher chaque deck du Tier 4 (Game
-            Changers, mana rapide, tutors, pièces de combo, cartes en synergie). Tu verras toujours aussi la version
-            « avec mes cartes uniquement ».
-          </p>
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {ACQ_OPTIONS.map((o) => (
-              <button
-                key={o.value}
-                type="button"
-                onClick={() => setMaxAcq(o.value)}
-                aria-pressed={maxAcq === o.value}
-                className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${maxAcq === o.value ? "border-accent bg-accent text-accent-foreground" : "border-border text-muted hover:text-foreground"}`}
-              >
-                {o.label}
-              </button>
-            ))}
-          </div>
+          {format === "duelcommander" && (
+            <div className="mt-3 flex flex-wrap gap-1.5" role="radiogroup" aria-label="Type de limite">
+              {(
+                [
+                  ["budget", "Budget en euros"],
+                  ["cards", "Nombre de cartes"],
+                ] as const
+              ).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  role="radio"
+                  aria-checked={limitMode === key}
+                  onClick={() => setLimitMode(key)}
+                  className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${limitMode === key ? "border-accent bg-accent text-accent-foreground" : "border-border text-muted hover:text-foreground"}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+          {format === "duelcommander" && limitMode === "budget" ? (
+            <>
+              <p className="mt-3 text-xs text-muted">
+                Budget maximal par deck, commandant à acquérir compris. Le site cherche les achats qui apportent le plus
+                sans jamais dépasser ce montant, puis te montre ce que quelques euros de plus apporteraient. Tu verras
+                toujours aussi la version « avec mes cartes uniquement ». 0 = mes cartes seulement.
+              </p>
+              <label className="mt-3 flex items-center gap-2 text-sm">
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={budgetText}
+                  onChange={(e) => setBudgetText(e.target.value)}
+                  aria-label="Budget en euros"
+                  className="w-28 rounded-lg border border-border bg-surface px-3 py-1.5 text-right text-sm"
+                />
+                <span>€</span>
+                <span className="text-xs text-muted">(jusqu&apos;à {MAX_BUDGET_EUR} €)</span>
+              </label>
+              <p className="mt-2 text-[11px] text-muted">
+                Prix Scryfall en euros, indicatifs : celui de l&apos;impression renvoyée (une autre peut coûter moins), sans
+                frais de port. Une carte sans prix connu n&apos;est jamais proposée à l&apos;achat.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="mt-1 text-xs text-muted">
+                Nombre maximum de cartes à acquérir que le système peut ajouter pour rapprocher chaque deck du Tier 4 (Game
+                Changers, mana rapide, tutors, pièces de combo, cartes en synergie). Tu verras toujours aussi la version
+                « avec mes cartes uniquement ».
+              </p>
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {ACQ_OPTIONS.map((o) => (
+                  <button
+                    key={o.value}
+                    type="button"
+                    onClick={() => setMaxAcq(o.value)}
+                    aria-pressed={maxAcq === o.value}
+                    className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${maxAcq === o.value ? "border-accent bg-accent text-accent-foreground" : "border-border text-muted hover:text-foreground"}`}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </section>
 
         <div className="space-y-3">
@@ -511,7 +622,8 @@ export function CompetitiveBuilder({ fromSimulator = false }: { fromSimulator?: 
   const p = result.proposals[selected];
   const formatLabel = FORMAT_CHOICES.find((f) => f.key === result.formatKey)?.title ?? "";
   const otherFormat: FormatKey = result.formatKey === "commander" ? "duelcommander" : "commander";
-  const currentKey = p ? `${result.formatKey}:${p.commander}:${variant}:${result.maxAcquisitions}` : null;
+  const currentKey = p ? `${result.formatKey}:${p.commander}:${variant}:${limitKey(result)}` : null;
+  const budgetMode = result.budgetEur !== null;
   const shownDeck = p ? (variant === "upgraded" ? p.upgraded : p.owned) : null;
 
   return (
@@ -528,28 +640,39 @@ export function CompetitiveBuilder({ fromSimulator = false }: { fromSimulator?: 
           ← Modifier ma liste
         </button>
         <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span className="text-muted">{formatLabel} · jusqu&apos;à {result.maxAcquisitions} cartes hors liste</span>
+          <span className="text-muted">
+            {formatLabel} · {budgetMode ? `budget ${formatEur(result.budgetEur ?? 0)} par deck` : `jusqu'à ${result.maxAcquisitions} cartes hors liste`}
+          </span>
           <button
             type="button"
             disabled={building}
-            onClick={() => launch(result.collectionCards, otherFormat, result.maxAcquisitions)}
+            onClick={() => launch(result.collectionCards, otherFormat, result.maxAcquisitions, null)}
             className="rounded-md border border-border px-2.5 py-1 font-medium hover:bg-accent hover:text-accent-foreground disabled:opacity-60"
           >
             Relancer en {otherFormat === "duelcommander" ? "Duel" : "Multi"}
           </button>
-          <select
-            value={result.maxAcquisitions}
-            disabled={building}
-            onChange={(e) => launch(result.collectionCards, result.formatKey, Number(e.target.value) as AcquisitionOption)}
-            className="rounded-md border border-border bg-surface px-2 py-1 disabled:opacity-60"
-            aria-label="Cartes hors liste"
-          >
-            {ACQ_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.value === 0 ? "Mes cartes uniquement" : `Jusqu'à ${o.value} cartes hors liste`}
-              </option>
-            ))}
-          </select>
+          {budgetMode ? (
+            <BudgetRelaunch
+              key={result.budgetEur}
+              current={result.budgetEur ?? 0}
+              disabled={building}
+              onRelaunch={(b) => launch(result.collectionCards, result.formatKey, result.maxAcquisitions, b)}
+            />
+          ) : (
+            <select
+              value={result.maxAcquisitions}
+              disabled={building}
+              onChange={(e) => launch(result.collectionCards, result.formatKey, Number(e.target.value) as AcquisitionOption, null)}
+              className="rounded-md border border-border bg-surface px-2 py-1 disabled:opacity-60"
+              aria-label="Cartes hors liste"
+            >
+              {ACQ_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.value === 0 ? "Mes cartes uniquement" : `Jusqu'à ${o.value} cartes hors liste`}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
       </div>
 
@@ -724,7 +847,7 @@ export function CompetitiveBuilder({ fromSimulator = false }: { fromSimulator?: 
               <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Version du deck">
                 {(["owned", "upgraded"] as const).map((v) => {
                   const d = v === "owned" ? p.owned : p.upgraded;
-                  const disabled = v === "upgraded" && result.maxAcquisitions === 0;
+                  const disabled = v === "upgraded" && !canBuy(result);
                   return (
                     <button
                       key={v}
@@ -751,8 +874,12 @@ export function CompetitiveBuilder({ fromSimulator = false }: { fromSimulator?: 
                           : disabled
                             ? "Désactivé (aucune carte hors liste autorisée)"
                             : p.acquisitions.length === 0
-                              ? "Aucune carte du pool recommandé ne fait mieux que tes cartes pour ce commandant"
-                              : `+${p.acquisitions.length} carte${p.acquisitions.length > 1 ? "s" : ""} à acquérir · ≈ ${formatEur(p.acquisitionCostEur)}${p.acquisitionPriceUnknown ? ` (+${p.acquisitionPriceUnknown} sans prix)` : ""}`}
+                              ? p.budget
+                                ? `Aucun achat sous ${formatEur(p.budget.budgetEur)} ne rend ce deck plus solide que tes cartes${p.budget.commanderCostEur > 0 ? ` (commandant : ${formatEur(p.budget.commanderCostEur)})` : ""}`
+                                : "Aucune carte du pool recommandé ne fait mieux que tes cartes pour ce commandant"
+                              : p.budget
+                                ? `+${p.acquisitions.length} carte${p.acquisitions.length > 1 ? "s" : ""} à acquérir · ${formatEur(p.budget.cardsCostEur + p.budget.commanderCostEur)} sur ${formatEur(p.budget.budgetEur)} de budget${p.budget.commanderCostEur > 0 ? ` (dont commandant ${formatEur(p.budget.commanderCostEur)})` : ""}`
+                                : `+${p.acquisitions.length} carte${p.acquisitions.length > 1 ? "s" : ""} à acquérir · ≈ ${formatEur(p.acquisitionCostEur)}${p.acquisitionPriceUnknown ? ` (+${p.acquisitionPriceUnknown} sans prix)` : ""}`}
                       </p>
                     </button>
                   );
@@ -824,12 +951,16 @@ export function CompetitiveBuilder({ fromSimulator = false }: { fromSimulator?: 
 
           {p.acquisitions.length > 0 && (
             <div className="mt-5">
-              <h3 className="text-sm font-semibold">Pool recommandé hors de ta liste ({p.acquisitions.length})</h3>
+              <h3 className="text-sm font-semibold">
+                {p.budget ? `Achats retenus dans ton budget (${p.acquisitions.length})` : `Pool recommandé hors de ta liste (${p.acquisitions.length})`}
+              </h3>
               <p className="text-xs text-muted">
-                {result.formatKey === "duelcommander"
+                {p.budget
+                  ? `${formatEur(p.budget.cardsCostEur)} de cartes${p.budget.commanderCostEur > 0 ? ` + ${formatEur(p.budget.commanderCostEur)} de commandant` : ""} sur ${formatEur(p.budget.budgetEur)} — reste ${formatEur(p.budget.remainingEur)}. Achats choisis pour apporter le plus au deck sans dépasser le budget.`
+                  : result.formatKey === "duelcommander"
                   ? "De la mieux notée par le moteur à la moins bien notée (qualité, place dans la forme et le plan du deck). Au plus un tiers de terrains."
                   : "Classées par gain d'indice de tier au moment où le moteur les a choisies."}{" "}
-                Prix Scryfall (EUR, indicatif, peut manquer).
+                {p.budget ? "Prix Scryfall (EUR, indicatifs)." : "Prix Scryfall (EUR, indicatif, peut manquer)."}
               </p>
               <div className="mt-2 overflow-x-auto">
                 <table className="w-full min-w-[560px] text-left text-xs">
@@ -861,6 +992,51 @@ export function CompetitiveBuilder({ fromSimulator = false }: { fromSimulator?: 
                         <td className="py-1.5 pr-2 text-muted">{a.reasons.join(" · ") || "Rôle de deckbuilding (piliers)"}</td>
                         <td className="py-1.5 pr-2 text-right font-medium">{a.tierGain > 0 ? `+${a.tierGain}` : "—"}</td>
                         <td className="py-1.5 text-right">{a.priceEur !== null ? formatEur(a.priceEur) : "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {p.budget && p.budget.more.length > 0 && (
+            <div className="mt-5 rounded-lg border border-border p-3">
+              <h3 className="text-sm font-semibold">Pour quelques euros de plus</h3>
+              <p className="mt-0.5 text-xs text-muted">
+                Cartes non retenues faute de budget, de la plus rentable à la moins rentable (apport par euro).
+                « Apport » : la note que le moteur donne à la carte, moins celle de la carte de ta liste qu&apos;elle
+                remplacerait — un ordre de grandeur, pas un taux de victoire. « Dépassement » : ce qu&apos;il faudrait
+                ajouter au budget pour acheter cette carte et toutes celles au-dessus.
+                {p.budget.unpriced > 0 ? ` ${p.budget.unpriced} carte${p.budget.unpriced > 1 ? "s" : ""} du pool sans prix connu ne ${p.budget.unpriced > 1 ? "sont" : "est"} pas proposée${p.budget.unpriced > 1 ? "s" : ""}.` : ""}
+              </p>
+              <div className="mt-2 overflow-x-auto">
+                <table className="w-full min-w-[560px] text-left text-xs">
+                  <thead className="text-muted">
+                    <tr className="border-b border-border">
+                      <th className="py-1.5 pr-2 font-medium">Carte</th>
+                      <th className="py-1.5 pr-2 font-medium">Pourquoi</th>
+                      <th className="py-1.5 pr-2 text-right font-medium">Apport</th>
+                      <th className="py-1.5 pr-2 text-right font-medium">Prix</th>
+                      <th className="py-1.5 text-right font-medium">Dépassement</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {p.budget.more.map((m) => (
+                      <tr key={m.name} className="border-b border-border/60 align-top">
+                        <td className="py-1.5 pr-2">
+                          <div className="flex items-center gap-2">
+                            {m.imageUrl && <CardImageHover src={m.imageUrl} zoomSrc={m.imageUrl} alt={m.name} width={28} />}
+                            <div>
+                              <p className="font-medium">{m.name}</p>
+                              <p className="text-[11px] text-muted">{m.typeLine}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-1.5 pr-2 text-muted">{m.reasons.join(" · ") || "Mieux notée que la carte qu'elle remplacerait"}</td>
+                        <td className="py-1.5 pr-2 text-right font-medium">+{m.gain.toLocaleString("fr-FR")}</td>
+                        <td className="py-1.5 pr-2 text-right">{formatEur(m.priceEur)}</td>
+                        <td className="py-1.5 text-right">{m.overBudgetEur > 0 ? `+${formatEur(m.overBudgetEur)}` : "tient dans le reste"}</td>
                       </tr>
                     ))}
                   </tbody>

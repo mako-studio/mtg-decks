@@ -5,6 +5,8 @@ import { hasDeadSingletonSynergy } from "./deck-score";
 import {
   buildDeckForCommander,
   buildFeatureIndex,
+  buildWithEuroBudget,
+  commanderCostEur,
   candidateKey,
   modeForFormat,
   rankProposalsAsync,
@@ -13,6 +15,7 @@ import {
   TIER4_THRESHOLD,
   unionIdentity,
   MAX_DECK_COLORS,
+  type BudgetOutcome,
   type BuiltDeck,
   type CandidateSource,
   type CardFeatures,
@@ -44,6 +47,7 @@ import { commanderRating, type CommanderRating, type DeckAudit } from "./deck-au
 import { describeGamePlan, type GamePlanSummary } from "./game-plan-summary";
 import { missingStaples } from "./staples";
 import { BUILD_STEPS, type BuildProgress } from "./build-steps";
+import { cardPriceEur, normalizeBudget } from "./budget";
 
 /**
  * Déroulé complet du constructeur compétitif (25/09/2026, demande de Ben —
@@ -139,6 +143,35 @@ export interface ProposalSummary {
   ranking: { score: number; commander: CommanderRating } | null;
   /** Autres commandants évalués de MÊMES couleurs, non affichés : même deck à ≥ 75 % ou troisième proposition de ces couleurs. */
   alternatives: { commander: string; owned: boolean; score: number | null }[];
+  /** Mode budget (04/10/2026) : ce qui a été dépensé et ce que quelques euros de plus apporteraient. null hors mode budget. */
+  budget: BudgetSummary | null;
+}
+
+/** Une carte hors budget qui améliorerait le deck (section « pour quelques euros de plus »). */
+export interface BudgetExtraCard {
+  name: string;
+  priceEur: number;
+  /** Apport estimé par le moteur (note de la carte moins celle de la carte possédée qu'elle remplacerait). Pas un taux de victoire. */
+  gain: number;
+  /** Dépassement cumulé du budget si l'on achète cette carte et toutes celles qui la précèdent dans la liste. */
+  overBudgetEur: number;
+  reasons: string[];
+  imageUrl: string | null;
+  typeLine: string;
+}
+
+export interface BudgetSummary {
+  /** Budget saisi, commandant compris. */
+  budgetEur: number;
+  /** Prix du ou des commandants à acquérir (0 s'ils sont possédés). */
+  commanderCostEur: number;
+  /** Prix des cartes à acquérir du deck optimisé. */
+  cardsCostEur: number;
+  /** Budget non dépensé. */
+  remainingEur: number;
+  /** Cartes du pool jouables dans ces couleurs mais sans prix en euros : non proposées. */
+  unpriced: number;
+  more: BudgetExtraCard[];
 }
 
 /** Une staple absente du deck (staples.ts), prête pour l'interface. */
@@ -180,6 +213,8 @@ export interface CompetitiveBuildResult {
   error: string | null;
   formatKey: "commander" | "duelcommander";
   maxAcquisitions: AcquisitionOption;
+  /** Budget en euros appliqué (Duel uniquement), null si la limite est un nombre de cartes. */
+  budgetEur: number | null;
   collectionCards: { name: string; count: number }[];
   unresolvedNames: string[];
   /** Noms corrigés automatiquement (orthographe proche, nom français...). */
@@ -198,6 +233,7 @@ const EMPTY: CompetitiveBuildResult = {
   error: null,
   formatKey: "commander",
   maxAcquisitions: 15,
+  budgetEur: null,
   collectionCards: [],
   unresolvedNames: [],
   corrections: [],
@@ -220,10 +256,41 @@ function fail(error: string, partial: Partial<CompetitiveBuildResult> = {}): Com
   return { ...EMPTY, ...partial, ok: false, error };
 }
 
-function priceEur(card: ScryfallCard): number | null {
-  const v = card.prices?.eur ?? null;
-  const n = v ? Number.parseFloat(v) : NaN;
-  return Number.isFinite(n) ? n : null;
+const priceEur = cardPriceEur;
+const round2 = (n: number) => Math.round(n * 100) / 100;
+/** Cartes affichées dans « pour quelques euros de plus ». */
+const BUDGET_EXTRAS_SHOWN = 8;
+
+function budgetSummary(outcome: BudgetOutcome | undefined, upgradedDeck: BuiltDeck): BudgetSummary | null {
+  if (!outcome) return null;
+  const cardsCost = upgradedDeck.acquisitions.reduce((s, a) => s + (priceEur(a.card) ?? 0), 0);
+  const remaining = Math.max(0, outcome.budgetEur - outcome.commanderCostEur - cardsCost);
+  const inDeck = new Set(upgradedDeck.cards.map((c) => c.name.toLowerCase()));
+  let cumulated = 0;
+  const more: BudgetExtraCard[] = [];
+  for (const m of outcome.more) {
+    // Déjà dans le deck, ou abordable avec ce qui reste : le moteur l'avait sous la main et ne l'a pas retenue.
+    if (inDeck.has(m.name.toLowerCase()) || m.priceEur <= remaining + 1e-9) continue;
+    cumulated += m.priceEur;
+    more.push({
+      name: m.name,
+      priceEur: m.priceEur,
+      gain: m.gain,
+      overBudgetEur: round2(Math.max(0, cumulated - remaining)),
+      reasons: m.reasons,
+      imageUrl: getDisplayImageUrl(m.card, "normal"),
+      typeLine: m.card.type_line,
+    });
+    if (more.length >= BUDGET_EXTRAS_SHOWN) break;
+  }
+  return {
+    budgetEur: outcome.budgetEur,
+    commanderCostEur: round2(outcome.commanderCostEur),
+    cardsCostEur: round2(cardsCost),
+    remainingEur: round2(remaining),
+    unpriced: outcome.unpriced,
+    more,
+  };
 }
 
 /**
@@ -384,6 +451,7 @@ function summarize(
     reference: referenceSummary(p.upgradedDeck.reference, p.ownedDeck, p.upgradedDeck, owned),
     ranking: isDuel && p.rankScore !== undefined ? { score: p.rankScore, commander: commanderRating(cards, "duel") } : null,
     alternatives,
+    budget: budgetSummary(p.budget, p.upgradedDeck),
   };
 }
 
@@ -433,6 +501,8 @@ export async function runCompetitiveBuildCore(
     formatKey: string;
     collectionCards: { name: string; count: number }[];
     maxAcquisitions: AcquisitionOption;
+    /** Budget en euros, commandant compris (Duel uniquement). Défini : remplace `maxAcquisitions`. */
+    budgetEur?: number | null;
   },
   onProgress?: (p: BuildProgress) => void
 ): Promise<CompetitiveBuildResult> {
@@ -455,7 +525,12 @@ export async function runCompetitiveBuildCore(
   const formatKey = format.key === "duelcommander" ? "duelcommander" : "commander";
   const isDuel = formatKey === "duelcommander";
   const mode = modeForFormat(format);
-  const base = { formatKey, maxAcquisitions, collectionCards } as const;
+  // Budget en euros : Duel uniquement (le format de Ben ; non essayé en multijoueur).
+  const budgetEur = isDuel && input.budgetEur !== undefined && input.budgetEur !== null ? normalizeBudget(input.budgetEur) : null;
+  const budgetMode = budgetEur !== null;
+  /** Le deck « optimisé » peut-il contenir des cartes hors liste ? */
+  const buying = budgetMode ? budgetEur > 0 : maxAcquisitions > 0;
+  const base = { formatKey, maxAcquisitions, budgetEur, collectionCards } as const;
 
   if (collectionCards.length === 0) return fail("Aucune carte reconnue dans ta liste.", base);
   // 26/09/2026 : 429 subis PENDANT cette construction → pool incomplet, à signaler.
@@ -539,7 +614,15 @@ export async function runCompetitiveBuildCore(
     for (const card of backgrounds) addCandidate(card, "popular");
     // Backgrounds possédés d'abord.
     mates.sort((a, b) => Number(b.owned[0]) - Number(a.owned[0]));
-    const candidates = Array.from(candidatesByName.values());
+    // Mode budget : un commandant à acquérir compte dans le budget ; trop cher ou sans prix connu, il est écarté.
+    const affordable = (c: CommanderCandidate) => {
+      if (!budgetMode) return true;
+      const cost = commanderCostEur(c);
+      return cost !== null && cost <= budgetEur;
+    };
+    const unaffordable = Array.from(candidatesByName.values()).filter((c) => !affordable(c)).length;
+    for (let i = mates.length - 1; i >= 0; i--) if (!affordable(mates[i])) mates.splice(i, 1);
+    const candidates = Array.from(candidatesByName.values()).filter(affordable);
     if (candidates.length === 0) {
       return fail(scryfallRateLimitStatus().limited ? scryfallDownMessage() : "Impossible de trouver un commandant légal pour ce format (service Scryfall indisponible ?).", {
         ...base,
@@ -580,9 +663,17 @@ export async function runCompetitiveBuildCore(
         // Duel (04/10/2026) : classement par solidité du deck + note du
         // commandant (deck-optimizer.ts), plus par l'indice de tier.
         evaluate: isDuel ? (deck) => rankScore(deck, quickPlaytest(deck, { features, basics, mode }), mode) : undefined,
+        budgetEur: budgetMode ? budgetEur : undefined,
       },
       (done, total, label) => emit("rank", done / total, `Deck ${done}/${total} : ${label}`)
     );
+    // Mode budget : un duo dont les deux commandants à acquérir dépassent ensemble le budget n'est pas proposé.
+    if (budgetMode) {
+      for (let i = ranked.length - 1; i >= 0; i--) {
+        const cost = commanderCostEur(ranked[i].candidate);
+        if (cost === null || cost > budgetEur) ranked.splice(i, 1);
+      }
+    }
     const isOwnedCandidate = (p: DeckProposal) => p.candidate.owned.every(Boolean);
     // Duel (04/10/2026, retour de Ben : « l'algo s'enferme dans des schémas ») :
     // plusieurs commandants de mêmes couleurs mènent au même deck à quelques
@@ -630,9 +721,19 @@ export async function runCompetitiveBuildCore(
       const profile = mergeProfiles(p.candidate.cards.map(commanderProfile));
       const ctx = { commanders: p.candidate.cards, format, mode, features, owned, basics, profile, combos };
       const ownedDeck = buildDeckForCommander({ ...ctx, acquirable: new Set(), maxAcquisitions: 0 });
+      if (budgetMode) {
+        const { deck, outcome } = buildWithEuroBudget(ctx, acq, ownedDeck, budgetEur, commanderCostEur(p.candidate) ?? budgetEur);
+        return { ownedDeck, upgradedDeck: deck, budget: outcome as BudgetOutcome | undefined };
+      }
       const upgradedDeck =
         acq.size > 0 && maxAcquisitions > 0 ? buildDeckForCommander({ ...ctx, acquirable: acq, maxAcquisitions }) : ownedDeck;
-      return { ownedDeck, upgradedDeck };
+      return { ownedDeck, upgradedDeck, budget: undefined as BudgetOutcome | undefined };
+    };
+    /** Adopte le deck amélioré reconstruit s'il est meilleur (et, en mode budget, la liste d'achats qui va avec). */
+    const adoptUpgraded = (p: DeckProposal, r: { upgradedDeck: BuiltDeck; budget: BudgetOutcome | undefined }) => {
+      if (!better(r.upgradedDeck, p.upgradedDeck)) return;
+      p.upgradedDeck = r.upgradedDeck;
+      if (r.budget) p.budget = r.budget;
     };
     // Duel : « meilleur » = indice de solidité plus haut ; multijoueur : tier, puis score (règle d'avant).
     const solidityOf = (d: BuiltDeck) => deckSolidity(d, quickPlaytest(d, { features, basics, mode })).score;
@@ -644,7 +745,11 @@ export async function runCompetitiveBuildCore(
     // 5. Élargissement du pool par la synergie pour les meilleures propositions
     const acquirableByProposal = new Map<string, Set<string>>();
     await emit("synergy", 0);
-    if (maxAcquisitions > 0) {
+    // Mode budget : le classement n'a fait qu'une passe rapide ; passe complète pour chaque deck affiché.
+    if (budgetMode && buying) {
+      for (const p of top) adoptUpgraded(p, rebuild(p, CURATED_COMBOS, acquirable));
+    }
+    if (buying) {
       const synergyTargets = enrichOrder.slice(0, SYNERGY_SEARCH_TOP);
       for (const [si, p] of synergyTargets.entries()) {
         await emit("synergy", si / synergyTargets.length, candidateKey(p.candidate));
@@ -662,8 +767,7 @@ export async function runCompetitiveBuildCore(
           if ((owned.get(key) ?? 0) <= 0 && features.has(key)) extended.add(key);
         }
         acquirableByProposal.set(candidateKey(p.candidate), extended);
-        const { upgradedDeck } = rebuild(p, CURATED_COMBOS, extended);
-        if (better(upgradedDeck, p.upgradedDeck)) p.upgradedDeck = upgradedDeck;
+        adoptUpgraded(p, rebuild(p, CURATED_COMBOS, extended));
       }
     }
 
@@ -708,7 +812,7 @@ export async function runCompetitiveBuildCore(
       }
       opportunitiesByKey.set(key, opportunities);
       const extendedAcq = new Set(acq);
-      if (missingNames.size && maxAcquisitions > 0) {
+      if (missingNames.size && buying) {
         const resolved = await getCardsByNames(Array.from(missingNames), { fuzzyFallback: false });
         const fresh = Array.from(resolved.values()).filter((c) => !features.has(c.name.toLowerCase()));
         for (const [k, f] of buildFeatureIndex(fresh, format)) features.set(k, f);
@@ -723,7 +827,7 @@ export async function runCompetitiveBuildCore(
       acquirableByProposal.set(key, extendedAcq);
       const rebuilt = rebuild(p, combos, extendedAcq);
       if (better(rebuilt.ownedDeck, p.ownedDeck)) p.ownedDeck = rebuilt.ownedDeck;
-      if (better(rebuilt.upgradedDeck, p.upgradedDeck)) p.upgradedDeck = rebuilt.upgradedDeck;
+      adoptUpgraded(p, rebuilt);
     });
 
     // 7. Plans de jeu, parties simulées, ajustements (03/10/2026 — voir
@@ -746,20 +850,30 @@ export async function runCompetitiveBuildCore(
       if (!sameDeck) {
         await tick();
         const acq = acquirableByProposal.get(key) ?? acquirable;
-        upgradedOpt = optimizeDeck({ ...base, acquirable: acq, maxAcquisitions }, p.upgradedDeck);
+        // Mode budget : les ajustements ne puisent que dans les achats déjà retenus — le budget reste tenu.
+        const purchasable = p.budget?.purchasable;
+        upgradedOpt = purchasable
+          ? optimizeDeck({ ...base, acquirable: purchasable, maxAcquisitions: purchasable.size, euroBudget: true }, p.upgradedDeck)
+          : optimizeDeck({ ...base, acquirable: acq, maxAcquisitions }, p.upgradedDeck);
         gamesPlayed += upgradedOpt.gamesPlayed;
         // Le deck amélioré ne doit jamais passer sous le deck possédé.
         if (isDuel ? upgradedOpt.solidity.score >= ownedOpt.solidity.score : better(upgradedOpt.deck, ownedOpt.deck)) p.upgradedDeck = upgradedOpt.deck;
         else {
           p.upgradedDeck = p.ownedDeck;
           upgradedOpt = null;
+          // Mode budget : aucun achat essayé ne rend le deck plus solide — rien à proposer « pour quelques euros de plus ».
+          if (p.budget) p.budget = { ...p.budget, purchasable: new Set(), more: [] };
         }
       } else {
         p.upgradedDeck = p.ownedDeck;
       }
       optimized.set(key, { owned: ownedOpt, upgraded: upgradedOpt });
       // Classement final sur le deck optimisé (400 parties simulées au lieu de 120).
-      if (isDuel) p.rankScore = rankScore(p.ownedDeck, ownedOpt.playtest.score, mode);
+      // Mode budget : le classement porte sur le deck que le budget permet, pas sur le deck possédé.
+      if (isDuel) {
+        p.rankScore =
+          budgetMode && upgradedOpt ? rankScore(p.upgradedDeck, upgradedOpt.playtest.score, mode) : rankScore(p.ownedDeck, ownedOpt.playtest.score, mode);
+      }
     }
 
     // 8. Estimation de bracket + combos confirmées (Commander Spellbook) sur
@@ -838,6 +952,11 @@ export async function runCompetitiveBuildCore(
         `Duel : le tier intègre la présence des cartes dans ${DUEL_META_INFO.deckCount} decks de tournoi mtgtop8 (${DUEL_META_INFO.period ?? "septembre 2026"}) — pour l'élargir : node scripts/fetch-duel-meta.mjs sur ton Mac (ou la mise à jour hebdomadaire automatique).`
       );
     }
+    if (budgetMode) {
+      notes.unshift(
+        `Budget : ${budgetEur.toLocaleString("fr-FR")} € au plus par deck, commandant à acquérir compris. Prix Scryfall en euros de l'impression renvoyée (une autre impression peut coûter moins), sans frais de port ni état de la carte ; une carte sans prix connu n'est jamais proposée à l'achat. Le classement porte sur le deck que ce budget permet.${unaffordable > 0 ? ` ${unaffordable} commandant${unaffordable > 1 ? "s" : ""} à acquérir écarté${unaffordable > 1 ? "s" : ""} (plus cher${unaffordable > 1 ? "s" : ""} que le budget, ou sans prix).` : ""}`
+      );
+    }
     const pairs = top.filter((p) => p.candidate.cards.length === 2).length;
     if (ownedTop.length === 0) {
       notes.push(
@@ -869,6 +988,7 @@ export async function runCompetitiveBuildCore(
       error: null,
       formatKey,
       maxAcquisitions,
+      budgetEur,
       collectionCards,
       unresolvedNames: resolution.unresolved,
       corrections: resolution.corrections,

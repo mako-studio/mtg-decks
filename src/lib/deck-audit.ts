@@ -358,9 +358,20 @@ const CURVE_BUCKETS: RoleId[] = ["cmc01", "cmc2", "cmc3", "cmc4", "cmc5plus"];
  * troisième quartile. Même logique, à demi-poids, pour la tranche de coût.
  * C'est ce qui empêche un deck de tempo de finir avec 40 réponses et aucune
  * créature, ou un deck de créatures sans réponses.
+ *
+ * Deux garde-fous (04/10/2026, mesurés sur la collection de Ben : Traxos,
+ * noté 2,9, entrait pour « remplir les 4 manas » pendant que Tetsuko
+ * Umezawa, notée 5,8, était freinée de −4,8) :
+ * - les FREINS ne se cumulent plus : seul le plus fort compte (rôles, puis
+ *   tranche de coût). Une carte à trois rôles n'est pas trois fois de trop ;
+ * - le BONUS « comble un manque » dépend de la qualité (`quality`, 0-10) :
+ *   nul à 3,5 et en dessous, entier à partir de 5,5. Un quota ne se comble
+ *   pas avec une carte de remplissage. Sans `quality` : bonus entier.
+ * Ces seuils sont des choix de conception.
  */
-export function structureNeed(roles: readonly RoleId[], recipe: Recipe, counts: Record<RoleId, number>): { score: number; fills: RoleId | null } {
-  let score = 0;
+export function structureNeed(roles: readonly RoleId[], recipe: Recipe, counts: Record<RoleId, number>, quality?: number): { score: number; fills: RoleId | null } {
+  let bonus = 0;
+  let brake = 0;
   let fills: RoleId | null = null;
   let bestGap = 0;
   for (const r of QUOTA_ROLES) {
@@ -372,26 +383,29 @@ export function structureNeed(roles: readonly RoleId[], recipe: Recipe, counts: 
     // contrôle en joue peu, mais il lui en faut pour conclure.
     const cap = Math.max(range.p75, range.median + 1, r === "threat" ? 4 : 0);
     if (c < range.p25) {
-      score += 1.6;
+      bonus += 1.6;
       if (range.p25 - c > bestGap) {
         bestGap = range.p25 - c;
         fills = r;
       }
-    } else if (c < range.median) score += 0.8;
-    else if (c >= cap) score -= Math.min(4, 1.5 + 0.6 * (c - cap));
+    } else if (c < range.median) bonus += 0.8;
+    else if (c >= cap) brake = Math.max(brake, Math.min(4, 1.5 + 0.6 * (c - cap)));
   }
-  score = Math.max(-4, Math.min(3.2, score));
+  bonus = Math.min(3.2, bonus);
+  let curveBrake = 0;
   for (const r of CURVE_BUCKETS) {
     if (!roles.includes(r)) continue;
     const range = recipe.roles[r];
     if (!range) continue;
     const c = counts[r];
     const cap = Math.max(range.p75, range.median + 1);
-    if (c < range.p25) score += 0.8;
-    else if (c < range.median) score += 0.4;
-    else if (c >= cap) score -= Math.min(2.4, 0.8 + 0.4 * (c - cap));
+    if (c < range.p25) bonus += 0.8;
+    else if (c < range.median) bonus += 0.4;
+    else if (c >= cap) curveBrake = Math.max(curveBrake, Math.min(2.4, 0.8 + 0.4 * (c - cap)));
   }
-  return { score, fills };
+  const worth = quality === undefined ? 1 : Math.max(0, Math.min(1, (quality - 3.5) / 2));
+  if (worth === 0) fills = null;
+  return { score: bonus * worth - brake - curveBrake, fills };
 }
 
 /** Rôles cités pour justifier une carte sans preuve en tournoi, du plus parlant au plus général. */

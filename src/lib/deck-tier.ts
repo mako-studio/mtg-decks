@@ -2,6 +2,7 @@ import type { CategoryConfig, DeckCategory, DeckStats, EnrichedCard, FormatKey, 
 import { getDisplayOracleText } from "./scryfall";
 import { classifyCard } from "./deck-score";
 import { isRealAcceleration } from "./card-quality";
+import { counterspellKind } from "./mechanics";
 import { CURATED_COMBOS, findCompleteCombos, type ComboDef } from "./combos";
 import { duelMetaPresence } from "./duel-meta";
 
@@ -162,12 +163,11 @@ export interface CardTierSignals {
   duelMeta: number;
 }
 
-const COUNTERSPELL_PATTERN = /counter target [^.]*(spell|ability)/i;
 
 /** Contresort qui n'est pas déjà compté comme removal ou disruption (pour ne pas le compter deux fois). */
 export function isPureCounterspell(card: ScryfallCard, categories: readonly DeckCategory[] = classifyCard(card)): boolean {
   if (card.type_line?.split(" // ")[0].includes("Land")) return false;
-  return COUNTERSPELL_PATTERN.test(getDisplayOracleText(card)) && !categories.includes("removal") && !categories.includes("disruption");
+  return counterspellKind(getDisplayOracleText(card)) === "large" && !categories.includes("removal") && !categories.includes("disruption");
 }
 
 export function cardTierSignals(card: ScryfallCard, categories: DeckCategory[] = classifyCard(card)): CardTierSignals {
