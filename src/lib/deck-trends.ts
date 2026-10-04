@@ -37,6 +37,8 @@ export interface Recipe {
   avgCmc: number;
   colors: Record<string, number>;
   z: Record<string, number>;
+  /** Forme propre à un commandant : identifiant de la recette de sa famille (pour comparer à armes égales, voir structureScore). */
+  family?: string;
 }
 
 interface TrendsFile {
@@ -135,6 +137,7 @@ for (const [label, sh] of Object.entries(FILE.shapes ?? {})) {
     avgCmc: sh.avgCmc,
     colors: family?.colors ?? {},
     z: family?.z ?? {},
+    family: family?.id,
   });
 }
 

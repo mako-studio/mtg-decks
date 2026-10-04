@@ -3059,3 +3059,78 @@ un gain de taux de victoire ; un budget plus élevé ne garantit pas un
 indice de solidité plus haut (observé : non monotone à quelques dixièmes
 près). Seuils (45 candidats, +50 %, 8 cartes affichées, plafond 1 000 €) :
 choix de conception.
+
+### Deck de tournoi non reconnu, noms accentués, forme des commandants de tournoi (04/10/2026)
+
+Retour de Ben : « j'ai mis à jour ma liste avec des cartes d'un deck gagnant
+Vivi et des cartes fortes (Volcanic Island…). L'algo ne reconnaît pas le deck
+Vivi et les recommandations ne sont pas forcément cohérentes. »
+
+**Constats** (liste de Ben, 2 267 lignes) :
+
+- Ses 44 ajouts sont exactement les cartes d'un deck Vivi Ornitier de
+  l'archive (mtgtop8, 28/08/2026) : il en possède 61 sur 97 hors terrains de
+  base. Vivi Ornitier lui-même n'est PAS dans la liste : il ne peut être
+  qu'un « commandant à acquérir ».
+- Vivi était bien évalué (2e par affinité) mais classé 14e, derrière quatre
+  commandants bleu-rouge joués par 2 à 4 decks de tournoi (Niv-Mizzet Parun,
+  Sanar, Zaffai, Ral) : deux propositions au plus par identité de couleur,
+  donc jamais affiché.
+- Cette liste Vivi est atypique (Final Fortune, Roaming Throne, Spark Double :
+  1 ou 2 des 13 decks Vivi). Le moteur, qui raisonne en parts de decks, ne
+  peut pas la retrouver.
+- En mode budget, 30 commandants à acquérir étaient écartés sans être nommés.
+  Le prix réel de Vivi Ornitier n'a pas pu être vérifié ici : il est possible
+  qu'il en fasse partie.
+
+**Trois défauts corrigés.**
+
+1. *Noms accentués* (`card-name.ts`, `NameIndex`) : mtgtop8 écrit « Lorien
+   Revealed », Scryfall « Lórien Revealed ». La carte (26 % des decks bleus,
+   92 % des decks Vivi) était lue « jamais vue en tournoi ». Dix cartes de
+   l'archive concernées (dont Troll of Khazad-dûm, 12,6 %), plus des clés au
+   caractère abîmé. Corrigé dans `duel-meta.ts`, `duel-profiles.ts`,
+   `duel-reference.ts`, `duel-suggest.ts` et les deux scripts
+   d'apprentissage (formes réapprises ; modèle de qualité inchangé).
+2. *Forme* (`structureScore`, `deck-audit.ts`) : un commandant joué en
+   tournoi était mesuré contre SA forme (fourchettes étroites), un commandant
+   sans référence contre celle de sa famille (fourchettes larges) — le second
+   gagnait toujours (Vivi 81, Sanar 97 pour un deck voisin). On retient la
+   meilleure des deux mesures.
+3. *Deck de tournoi presque complet* (`tournament-lists.ts`,
+   `scripts/duel-lists.mjs` → `src/data/duel-tournament-lists.json`, 2 072
+   listes, ~1 Mo) : la collection est comparée carte par carte à chaque liste
+   de l'archive. Panneau « Decks de tournoi presque complets dans ta liste »
+   (3 listes au plus, à partir de 40 % de cartes possédées) : cartes
+   manquantes, prix, comparaison au budget, bouton « Ouvrir ce deck » (la
+   liste réelle, dans le simulateur). À partir de 50 %, le commandant est
+   évalué et affiché d'office parmi les propositions, avec la mention
+   « Tu as 61/97 cartes d'un deck de tournoi de ce commandant ».
+
+**Cohérence des recommandations en mode budget.**
+
+- « Staples manquants » : en Duel, la colonne « Indice » (formule de tier du
+  multijoueur, qui affichait « = » ou −0,1 pour une carte jouée par 75 % des
+  decks) est masquée ; une staple plus chère que le budget restant est
+  marquée « hors budget ».
+- Achats acceptés jusqu'à 1 point de solidité en moins si la qualité des
+  cartes progresse (l'indice varie d'environ un point d'une construction à
+  l'autre ; sans cette tolérance, Vivi ressortait « 0 achat » pour 0,2 point).
+
+**Vérifié** (build de production, faux Scryfall, prix fictifs) : Vivi
+Ornitier proposé avec et sans budget ; panneau affiché, deck de tournoi
+ouvert dans le simulateur (99 cartes), aucune erreur de page ; budget 30 € :
+10 propositions ≤ 30 €. Cœur des decks de tournoi retrouvé : 91,8 % avec
+référence, 78,3 % sans (92,0 / 78,3 avant). Sur le site réel de Ben, le mode
+budget a tourné avec les vrais prix (capture du 04/10 : 21 achats, 29,34 €
+sur 30 €).
+
+**Limites.** Rapprochement des listes par nom (face avant, sans accents) :
+une carte renommée compte comme manquante — « Detect Intrusion (= Spider-Sense
+en papier) » de la liste de Ben n'est pas reconnue, il faut écrire
+« Spider-Sense ». Le deck que le moteur construit pour Vivi suit la moyenne
+des 13 decks Vivi, pas la liste atypique : pour celle-ci, utiliser « Ouvrir
+ce deck ». Seuils 40 % / 50 % / 3 listes / tolérance d'1 point : choix de
+conception. Correction d'une affirmation antérieure : `duel-meta.json`
+(2 072 decks) n'est pas « en retard » sur l'archive (2 126) — l'écart, ce
+sont des decks de plus de 180 jours, écartés volontairement.

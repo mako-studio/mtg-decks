@@ -36,12 +36,14 @@ if (!forgePath) { console.error("Usage : npm run learn-quality -- /chemin/forge-
 type RawCard = Partial<ScryfallCard> & { name: string; type_line?: string };
 const forge = JSON.parse(fs.readFileSync(forgePath, "utf8")).cards as Record<string, RawCard>;
 const meta = JSON.parse(fs.readFileSync(path.join(ROOT, "src/data/duel-meta.json"), "utf8"));
+/** Minuscules sans accents : mtgtop8 écrit « Lorien Revealed », Scryfall « Lórien Revealed » (04/10/2026). */
+const fold = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 const presence = new Map<string, number>();
 for (const [n, v] of Object.entries((meta.cardsInColors ?? meta.cards) as Record<string, number>)) {
-  presence.set(n.toLowerCase(), v); presence.set(n.toLowerCase().split(" // ")[0], v);
+  presence.set(fold(n), v); presence.set(fold(n).split(" // ")[0], v);
 }
 const recentRaw = JSON.parse(fs.readFileSync(path.join(ROOT, "src/data/recent-set-cards.json"), "utf8")).cards;
-const recent = new Set<string>((Array.isArray(recentRaw) ? recentRaw : Object.values(recentRaw)).map((c) => String((c as { name: string }).name).toLowerCase()));
+const recent = new Set<string>((Array.isArray(recentRaw) ? recentRaw : Object.values(recentRaw)).map((c) => String((c as { name: string }).name).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")));
 
 // Générateur déterministe (mulberry32) : l'échantillon et les plis sont reproductibles.
 let seed = 20261004;
@@ -51,7 +53,7 @@ interface Row { name: string; x: Record<string, number>; y: number; pos: boolean
 const rows: Row[] = [];
 const seen = new Set<string>();
 for (const card of Object.values(forge)) {
-  const key = String(card.name).toLowerCase();
+  const key = fold(String(card.name));
   if (seen.has(key)) continue;
   seen.add(key);
   const type = String(card.type_line ?? "").split(" // ")[0];

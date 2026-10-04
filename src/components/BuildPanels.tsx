@@ -388,7 +388,19 @@ export function GamePlanPanel({ plan }: { plan: GamePlanSummary }) {
   );
 }
 
-export function MissingStaplesPanel({ staples, variantLabel }: { staples: StapleCard[]; variantLabel: string }) {
+export function MissingStaplesPanel({
+  staples,
+  variantLabel,
+  duel = false,
+  remainingEur = null,
+}: {
+  staples: StapleCard[];
+  variantLabel: string;
+  /** Duel : la colonne « Indice » (formule de tier du multijoueur) est masquée — elle affichait « = » ou un gain négatif pour des cartes pourtant jouées par 70 % des decks de tournoi (04/10/2026). */
+  duel?: boolean;
+  /** Mode budget : ce qu'il reste du budget pour ce deck ; une staple plus chère est signalée « hors budget ». */
+  remainingEur?: number | null;
+}) {
   if (staples.length === 0) {
     return (
       <div className="mt-5" data-testid="missing-staples">
@@ -404,9 +416,14 @@ export function MissingStaplesPanel({ staples, variantLabel }: { staples: Staple
     <div className="mt-5" data-testid="missing-staples">
       <h3 className="text-sm font-semibold">Staples manquants ({staples.length})</h3>
       <p className="text-xs text-muted">
-        Cartes de référence absentes de la version « {variantLabel} », de la plus utile à la moins utile. Le gain est celui
-        de l&apos;échange indiqué, calculé avec la formule de tier du site. « Dans ta liste » : tu la possèdes, mais le
-        moteur ne l&apos;a pas retenue.
+        Cartes de référence absentes de la version « {variantLabel} », de la plus utile à la moins utile.{" "}
+        {duel
+          ? "En Duel, la référence est la part des decks de tournoi de ces couleurs qui jouent la carte."
+          : "Le gain est celui de l'échange indiqué, calculé avec la formule de tier du site."}{" "}
+        « Dans ta liste » : tu la possèdes, mais le moteur ne l&apos;a pas retenue.
+        {remainingEur !== null
+          ? " À titre indicatif : ton budget est déjà réparti entre les achats retenus plus bas ; une carte marquée « hors budget » coûte plus que ce qu'il en reste."
+          : ""}
       </p>
       <div className="mt-2 overflow-x-auto">
         <table className="w-full min-w-[620px] text-left text-xs">
@@ -415,7 +432,7 @@ export function MissingStaplesPanel({ staples, variantLabel }: { staples: Staple
               <th className="py-1.5 pr-2 font-medium">Carte</th>
               <th className="py-1.5 pr-2 font-medium">Pourquoi</th>
               <th className="py-1.5 pr-2 font-medium">À la place de</th>
-              <th className="py-1.5 pr-2 text-right font-medium">Indice</th>
+              {!duel && <th className="py-1.5 pr-2 text-right font-medium">Indice</th>}
               <th className="py-1.5 text-right font-medium">Prix</th>
             </tr>
           </thead>
@@ -433,8 +450,15 @@ export function MissingStaplesPanel({ staples, variantLabel }: { staples: Staple
                 </td>
                 <td className="py-1.5 pr-2 text-muted">{s.reasons.join(" · ")}</td>
                 <td className="py-1.5 pr-2">{s.replaces ?? "—"}</td>
-                <td className="py-1.5 pr-2 text-right font-medium tabular-nums">{s.tierGain > 0 ? `+${s.tierGain}` : s.tierGain < 0 ? String(s.tierGain) : "="}</td>
-                <td className="py-1.5 text-right tabular-nums">{s.owned ? "—" : s.priceEur !== null ? eur(s.priceEur) : "?"}</td>
+                {!duel && (
+                  <td className="py-1.5 pr-2 text-right font-medium tabular-nums">{s.tierGain > 0 ? `+${s.tierGain}` : s.tierGain < 0 ? String(s.tierGain) : "="}</td>
+                )}
+                <td className="py-1.5 text-right tabular-nums">
+                  {s.owned ? "—" : s.priceEur !== null ? eur(s.priceEur) : "?"}
+                  {!s.owned && remainingEur !== null && (s.priceEur === null || s.priceEur > remainingEur) && (
+                    <span className="block text-[10px] font-medium text-warning">hors budget</span>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>

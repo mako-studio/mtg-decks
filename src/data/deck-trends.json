@@ -175,14 +175,14 @@
   },
   "spells": {
    "duel": {
-    "baseProducers": 21.9,
+    "baseProducers": 22,
     "builtProducers": {
      "p25": 32.6,
      "median": 39,
-     "p75": 46.2
+     "p75": 46.8
     },
     "builtRewarders": 5,
-    "lift": 1.77,
+    "lift": 1.78,
     "builtShare": 0.25,
     "support": 51,
     "examples": [
@@ -217,12 +217,12 @@
    "duel": {
     "baseProducers": 6,
     "builtProducers": {
-     "p25": 24.7,
-     "median": 33.7,
-     "p75": 49
+     "p25": 24.9,
+     "median": 34,
+     "p75": 49.5
     },
     "builtRewarders": 8.5,
-    "lift": 5.75,
+    "lift": 5.76,
     "builtShare": 0.07,
     "support": 15,
     "examples": [
@@ -426,7 +426,7 @@
      "p75": 11
     },
     "builtRewarders": 4,
-    "lift": 3.28,
+    "lift": 3.27,
     "builtShare": 0.04,
     "support": 9,
     "examples": [
@@ -503,10 +503,10 @@
   },
   "combat": {
    "duel": {
-    "baseProducers": 9.1,
+    "baseProducers": 9.2,
     "builtProducers": {
-     "p25": 13,
-     "median": 15.5,
+     "p25": 13.4,
+     "median": 15.9,
      "p75": 18.6
     },
     "builtRewarders": 10.3,
@@ -549,7 +549,7 @@
      "median": 12.1,
      "p75": 19.8
     },
-    "builtRewarders": 6.3,
+    "builtRewarders": 6.6,
     "lift": 6.11,
     "builtShare": 0.04,
     "support": 8,
@@ -650,7 +650,7 @@
      "median": 1.7,
      "p75": 3.3
     },
-    "builtRewarders": 3.1,
+    "builtRewarders": 3.2,
     "lift": 2.42,
     "builtShare": 0.04,
     "support": 8,
@@ -713,7 +713,7 @@
      "p75": 5
     },
     "builtRewarders": 3,
-    "lift": 4.81,
+    "lift": 4.9,
     "builtShare": 0.03,
     "support": 7,
     "examples": [
@@ -752,8 +752,8 @@
      "median": 1.2,
      "p75": 2.9
     },
-    "builtRewarders": 9,
-    "lift": 1.39,
+    "builtRewarders": 9.2,
+    "lift": 1.38,
     "builtShare": 0.27,
     "support": 56,
     "examples": [
@@ -793,7 +793,7 @@
      "p75": 28.1
     },
     "builtRewarders": 6.5,
-    "lift": 3.22,
+    "lift": 3.21,
     "builtShare": 0.07,
     "support": 15,
     "examples": [
@@ -1087,10 +1087,10 @@
   {
    "id": "control",
    "label": "Contrôle",
-   "summary": "contresorts au-dessus de la moyenne, créatures en dessous de la moyenne, pioche au-dessus de la moyenne",
-   "share": 0.3,
-   "commanders": 38,
-   "decks": 704,
+   "summary": "contresorts au-dessus de la moyenne, pioche au-dessus de la moyenne, créatures en dessous de la moyenne",
+   "share": 0.31,
+   "commanders": 39,
+   "decks": 743,
    "examples": [
     "Aragorn, King of Gondor",
     "Atraxa, Grand Unifier",
@@ -1103,17 +1103,17 @@
     "creature": {
      "p25": 6,
      "median": 12,
-     "p75": 19
+     "p75": 21
     },
     "cheapCreature": {
      "p25": 3,
      "median": 5,
-     "p75": 7
+     "p75": 8
     },
     "threat": {
      "p25": 1,
-     "median": 1,
-     "p75": 2
+     "median": 2,
+     "p75": 3
     },
     "counterspell": {
      "p25": 12,
@@ -1128,7 +1128,7 @@
     "removal": {
      "p25": 10,
      "median": 12,
-     "p75": 15
+     "p75": 14
     },
     "wipe": {
      "p25": 0,
@@ -1136,14 +1136,14 @@
      "p75": 2
     },
     "draw": {
-     "p25": 11,
+     "p25": 12,
      "median": 14,
      "p75": 16
     },
     "ramp": {
-     "p25": 2,
-     "median": 3,
-     "p75": 6
+     "p25": 3,
+     "median": 4,
+     "p75": 7
     },
     "tutor": {
      "p25": 1,
@@ -1161,14 +1161,14 @@
      "p75": 1
     },
     "cmc01": {
-     "p25": 17,
+     "p25": 16,
      "median": 19,
-     "p75": 23
+     "p75": 22
     },
     "cmc2": {
      "p25": 18,
      "median": 20,
-     "p75": 21
+     "p75": 22
     },
     "cmc3": {
      "p25": 9,
@@ -1181,42 +1181,42 @@
      "p75": 7
     },
     "cmc5plus": {
-     "p25": 2,
-     "median": 4,
+     "p25": 3,
+     "median": 5,
      "p75": 6
     }
    },
    "lands": {
     "p25": 36,
-    "median": 37,
+    "median": 38,
     "p75": 39
    },
-   "avgCmc": 2.31,
+   "avgCmc": 2.34,
    "colors": {
-    "1": 0.24,
-    "2": 0.37,
-    "3": 0.24,
+    "1": 0.23,
+    "2": 0.36,
+    "3": 0.23,
     "4": 0.08,
-    "5": 0.08
+    "5": 0.1
    },
    "z": {
-    "creature": -1.08,
-    "cheapCreature": -0.97,
-    "threat": -0.46,
-    "counterspell": 1.26,
+    "creature": -1.04,
+    "cheapCreature": -0.94,
+    "threat": -0.42,
+    "counterspell": 1.25,
     "cheapInteraction": 0.97,
     "removal": 0.01,
-    "wipe": 0.56,
-    "draw": 1.08,
-    "ramp": -0.31,
+    "wipe": 0.53,
+    "draw": 1.1,
+    "ramp": -0.25,
     "tutor": -0.26,
-    "protection": -0.71,
+    "protection": -0.69,
     "recursion": -0.35,
-    "cmc01": -0.13,
-    "cmc2": 0.1,
+    "cmc01": -0.15,
+    "cmc2": 0.13,
     "cmc3": 0,
     "cmc4": 0.12,
-    "cmc5plus": 0.02,
+    "cmc5plus": 0.1,
     "lands": -0.08
    }
   },
@@ -1224,27 +1224,27 @@
    "id": "creatures",
    "label": "Créatures et valeur",
    "summary": "créatures au-dessus de la moyenne, cartes à 3 manas au-dessus de la moyenne, removal au-dessus de la moyenne",
-   "share": 0.26,
-   "commanders": 33,
-   "decks": 624,
+   "share": 0.25,
+   "commanders": 32,
+   "decks": 585,
    "examples": [
     "Cloud, Midgar Mercenary",
     "Phelia, Exuberant Shepherd",
     "Slimefoot and Squee",
     "Kraum, Ludevic's Opus + Yoshimaru, Ever Faithful",
     "Deadpool, Trading Card",
-    "Nick Fury, Agent of S.H.I.E.L.D."
+    "Zurgo Bellstriker"
    ],
    "roles": {
     "creature": {
-     "p25": 30,
+     "p25": 31,
      "median": 33,
-     "p75": 36
+     "p75": 37
     },
     "cheapCreature": {
-     "p25": 16,
+     "p25": 17,
      "median": 19,
-     "p75": 21
+     "p75": 22
     },
     "threat": {
      "p25": 1,
@@ -1262,7 +1262,7 @@
      "p75": 17
     },
     "removal": {
-     "p25": 12,
+     "p25": 13,
      "median": 14,
      "p75": 16
     },
@@ -1288,7 +1288,7 @@
     },
     "protection": {
      "p25": 4,
-     "median": 7,
+     "median": 8,
      "p75": 10
     },
     "recursion": {
@@ -1298,7 +1298,7 @@
     },
     "cmc01": {
      "p25": 16,
-     "median": 19,
+     "median": 20,
      "p75": 24
     },
     "cmc2": {
@@ -1319,7 +1319,7 @@
     "cmc5plus": {
      "p25": 2,
      "median": 4,
-     "p75": 4
+     "p75": 5
     }
    },
    "lands": {
@@ -1327,31 +1327,31 @@
     "median": 37,
     "p75": 38
    },
-   "avgCmc": 2.26,
+   "avgCmc": 2.27,
    "colors": {
-    "1": 0.24,
-    "2": 0.33,
-    "3": 0.36,
-    "5": 0.06
+    "1": 0.25,
+    "2": 0.34,
+    "3": 0.38,
+    "5": 0.03
    },
    "z": {
-    "creature": 0.72,
-    "cheapCreature": 0.56,
-    "threat": 0.25,
-    "counterspell": -0.37,
-    "cheapInteraction": 0.2,
-    "removal": 0.65,
-    "wipe": -0.34,
-    "draw": -0.5,
-    "ramp": -0.63,
+    "creature": 0.73,
+    "cheapCreature": 0.57,
+    "threat": 0.22,
+    "counterspell": -0.41,
+    "cheapInteraction": 0.17,
+    "removal": 0.68,
+    "wipe": -0.33,
+    "draw": -0.55,
+    "ramp": -0.68,
     "tutor": -0.32,
-    "protection": 0.53,
-    "recursion": -0.56,
-    "cmc01": -0.32,
-    "cmc2": 0.47,
-    "cmc3": 0.66,
-    "cmc4": 0.33,
-    "cmc5plus": -0.34,
+    "protection": 0.55,
+    "recursion": -0.57,
+    "cmc01": -0.31,
+    "cmc2": 0.43,
+    "cmc3": 0.69,
+    "cmc4": 0.35,
+    "cmc5plus": -0.38,
     "lands": -0.3
    }
   },
@@ -1359,32 +1359,32 @@
    "id": "engine",
    "label": "Accélération et moteur",
    "summary": "tutors au-dessus de la moyenne, rampe au-dessus de la moyenne, interaction à 1-2 manas en dessous de la moyenne",
-   "share": 0.17,
-   "commanders": 22,
-   "decks": 231,
+   "share": 0.19,
+   "commanders": 24,
+   "decks": 322,
    "examples": [
     "Brigid, Clachan's Heart",
+    "Tifa Lockhart",
     "Toph, Greatest Earthbender",
     "Raph & Mikey, Troublemakers",
-    "Grist, the Hunger Tide",
-    "Prossh, Skyraider of Kher",
-    "Dargo, the Shipwrecker + Silas Renn, Seeker Adept"
+    "The Fantasticar",
+    "Grist, the Hunger Tide"
    ],
    "roles": {
     "creature": {
-     "p25": 30,
-     "median": 37,
-     "p75": 41
+     "p25": 20,
+     "median": 33,
+     "p75": 40
     },
     "cheapCreature": {
-     "p25": 18,
-     "median": 21,
+     "p25": 14,
+     "median": 19,
      "p75": 28
     },
     "threat": {
      "p25": 0,
      "median": 1,
-     "p75": 3
+     "p75": 2
     },
     "counterspell": {
      "p25": 0,
@@ -1392,14 +1392,14 @@
      "p75": 0
     },
     "cheapInteraction": {
-     "p25": 7,
-     "median": 8,
-     "p75": 9
+     "p25": 4,
+     "median": 7,
+     "p75": 8
     },
     "removal": {
-     "p25": 7,
-     "median": 8,
-     "p75": 12
+     "p25": 4,
+     "median": 7,
+     "p75": 11
     },
     "wipe": {
      "p25": 0,
@@ -1408,93 +1408,93 @@
     },
     "draw": {
      "p25": 2,
-     "median": 4,
+     "median": 3,
      "p75": 6
     },
     "ramp": {
      "p25": 11,
-     "median": 11,
-     "p75": 22
+     "median": 14,
+     "p75": 20
     },
     "tutor": {
-     "p25": 3,
-     "median": 8,
+     "p25": 1,
+     "median": 4,
      "p75": 14
     },
     "protection": {
      "p25": 5,
-     "median": 6,
-     "p75": 8
+     "median": 7,
+     "p75": 11
     },
     "recursion": {
      "p25": 0,
      "median": 0,
-     "p75": 2
+     "p75": 1
     },
     "cmc01": {
-     "p25": 21,
-     "median": 26,
-     "p75": 28
+     "p25": 22,
+     "median": 28,
+     "p75": 36
     },
     "cmc2": {
-     "p25": 15,
-     "median": 16,
-     "p75": 18
+     "p25": 10,
+     "median": 15,
+     "p75": 17
     },
     "cmc3": {
      "p25": 9,
      "median": 10,
-     "p75": 12
+     "p75": 11
     },
     "cmc4": {
-     "p25": 5,
-     "median": 6,
+     "p25": 3,
+     "median": 5,
      "p75": 6
     },
     "cmc5plus": {
      "p25": 2,
      "median": 2,
-     "p75": 5
+     "p75": 4
     }
    },
    "lands": {
-    "p25": 37,
-    "median": 38,
-    "p75": 39
+    "p25": 38,
+    "median": 39,
+    "p75": 41
    },
-   "avgCmc": 2.16,
+   "avgCmc": 1.98,
    "colors": {
-    "0": 0.05,
-    "1": 0.18,
-    "2": 0.41,
-    "3": 0.27,
-    "4": 0.09
+    "0": 0.04,
+    "1": 0.25,
+    "2": 0.38,
+    "3": 0.25,
+    "4": 0.08
    },
    "z": {
-    "creature": 0.34,
-    "cheapCreature": 0.49,
-    "threat": -0.37,
-    "counterspell": -0.63,
-    "cheapInteraction": -0.84,
-    "removal": -0.69,
-    "wipe": -0.49,
-    "draw": -0.45,
-    "ramp": 1.04,
-    "tutor": 1.24,
-    "protection": 0.69,
-    "recursion": -0.22,
-    "cmc01": 0.6,
-    "cmc2": -0.14,
-    "cmc3": -0.13,
-    "cmc4": -0.17,
-    "cmc5plus": -0.21,
-    "lands": -0.26
+    "creature": 0.22,
+    "cheapCreature": 0.4,
+    "threat": -0.41,
+    "counterspell": -0.64,
+    "cheapInteraction": -0.9,
+    "removal": -0.78,
+    "wipe": -0.47,
+    "draw": -0.49,
+    "ramp": 1.03,
+    "tutor": 1.07,
+    "protection": 0.73,
+    "recursion": -0.25,
+    "cmc01": 0.77,
+    "cmc2": -0.3,
+    "cmc3": -0.25,
+    "cmc4": -0.26,
+    "cmc5plus": -0.31,
+    "lands": -0.16
    }
   },
   {
    "id": "aggro",
    "label": "Agression",
-   "summary": "créatures à 1-2 manas au-dessus de la moyenne, cartes à 0-1 mana au-dessus de la moyenne, grosses menaces au-dessus de la moyenne",
+   "summary": "créatures à 1-2 manas au-dessus de la moyenne, cartes à 0-1 mana au-dessus de la moyenne, cartes à 4 manas en dessous de la moyenne",
    "share": 0.12,
    "commanders": 15,
    "decks": 173,
@@ -1509,7 +1509,7 @@
    "roles": {
     "creature": {
      "p25": 24,
-     "median": 37,
+     "median": 38,
      "p75": 39
     },
     "cheapCreature": {
@@ -1598,30 +1598,30 @@
     "median": 36,
     "p75": 38
    },
-   "avgCmc": 1.85,
+   "avgCmc": 1.86,
    "colors": {
     "1": 0.33,
     "2": 0.6,
     "5": 0.07
    },
    "z": {
-    "creature": 0.75,
-    "cheapCreature": 1.41,
-    "threat": 1.04,
+    "creature": 0.74,
+    "cheapCreature": 1.4,
+    "threat": 0.97,
     "counterspell": -0.56,
     "cheapInteraction": -0.17,
-    "removal": 0.15,
+    "removal": 0.14,
     "wipe": -0.39,
-    "draw": -0.07,
-    "ramp": -0.69,
+    "draw": -0.11,
+    "ramp": -0.73,
     "tutor": -0.64,
     "protection": -0.34,
     "recursion": 1,
     "cmc01": 1.07,
-    "cmc2": 0.39,
-    "cmc3": -0.8,
-    "cmc4": -1,
-    "cmc5plus": -0.62,
+    "cmc2": 0.38,
+    "cmc3": -0.81,
+    "cmc4": -1.01,
+    "cmc5plus": -0.65,
     "lands": -0.41
    }
   },
@@ -1644,7 +1644,7 @@
     "creature": {
      "p25": 22,
      "median": 27,
-     "p75": 32
+     "p75": 33
     },
     "cheapCreature": {
      "p25": 1,
@@ -1654,7 +1654,7 @@
     "threat": {
      "p25": 2,
      "median": 3,
-     "p75": 4
+     "p75": 5
     },
     "counterspell": {
      "p25": 0,
@@ -1682,9 +1682,9 @@
      "p75": 8
     },
     "ramp": {
-     "p25": 3,
+     "p25": 4,
      "median": 5,
-     "p75": 8
+     "p75": 9
     },
     "tutor": {
      "p25": 4,
@@ -1722,9 +1722,9 @@
      "p75": 8
     },
     "cmc5plus": {
-     "p25": 14,
-     "median": 20,
-     "p75": 23
+     "p25": 15,
+     "median": 21,
+     "p75": 24
     }
    },
    "lands": {
@@ -1732,7 +1732,7 @@
     "median": 36,
     "p75": 37
    },
-   "avgCmc": 3.68,
+   "avgCmc": 3.7,
    "colors": {
     "1": 0.1,
     "2": 0.3,
@@ -1740,23 +1740,23 @@
     "5": 0.3
    },
    "z": {
-    "creature": 0.31,
+    "creature": 0.34,
     "cheapCreature": -0.79,
-    "threat": 0.53,
+    "threat": 0.7,
     "counterspell": -0.65,
     "cheapInteraction": -0.77,
     "removal": 0.25,
     "wipe": 0.93,
-    "draw": -0.43,
-    "ramp": 0.31,
+    "draw": -0.45,
+    "ramp": 0.34,
     "tutor": -0.16,
     "protection": -0.15,
     "recursion": 1.39,
     "cmc01": -1.47,
-    "cmc2": -0.84,
-    "cmc3": -0.06,
-    "cmc4": 1.14,
-    "cmc5plus": 2.4,
+    "cmc2": -0.85,
+    "cmc3": -0.07,
+    "cmc4": 1.13,
+    "cmc5plus": 2.39,
     "lands": -0.16
    }
   },
@@ -1764,32 +1764,32 @@
    "id": "lands",
    "label": "Deck de terrains",
    "summary": "terrains au-dessus de la moyenne, rampe au-dessus de la moyenne, interaction à 1-2 manas en dessous de la moyenne",
-   "share": 0.07,
-   "commanders": 9,
-   "decks": 154,
+   "share": 0.06,
+   "commanders": 7,
+   "decks": 63,
    "examples": [
-    "Tifa Lockhart",
-    "The Fantasticar",
     "Azusa, Lost but Seeking",
     "Nissa, Resurgent Animist",
     "Lumra, Bellow of the Woods",
-    "The Gitrog Monster"
+    "The Gitrog Monster",
+    "Golos, Tireless Pilgrim",
+    "Mole Man, Moloid Master"
    ],
    "roles": {
     "creature": {
-     "p25": 18,
-     "median": 20,
-     "p75": 23
+     "p25": 19,
+     "median": 19,
+     "p75": 20
     },
     "cheapCreature": {
      "p25": 3,
-     "median": 11,
-     "p75": 15
+     "median": 8,
+     "p75": 9
     },
     "threat": {
      "p25": 1,
-     "median": 1,
-     "p75": 2
+     "median": 2,
+     "p75": 3
     },
     "counterspell": {
      "p25": 0,
@@ -1802,9 +1802,9 @@
      "p75": 4
     },
     "removal": {
-     "p25": 3,
-     "median": 4,
-     "p75": 6
+     "p25": 5,
+     "median": 7,
+     "p75": 7
     },
     "wipe": {
      "p25": 0,
@@ -1817,83 +1817,82 @@
      "p75": 4
     },
     "ramp": {
-     "p25": 15,
-     "median": 18,
-     "p75": 20
+     "p25": 19,
+     "median": 20,
+     "p75": 22
     },
     "tutor": {
-     "p25": 1,
-     "median": 1,
-     "p75": 6
+     "p25": 6,
+     "median": 7,
+     "p75": 7
     },
     "protection": {
      "p25": 3,
-     "median": 5,
-     "p75": 16
+     "median": 4,
+     "p75": 4
     },
     "recursion": {
-     "p25": 0,
-     "median": 1,
-     "p75": 2
+     "p25": 1,
+     "median": 2,
+     "p75": 3
     },
     "cmc01": {
-     "p25": 16,
-     "median": 36,
-     "p75": 39
+     "p25": 13,
+     "median": 16,
+     "p75": 18
     },
     "cmc2": {
-     "p25": 7,
-     "median": 9,
-     "p75": 11
+     "p25": 10,
+     "median": 11,
+     "p75": 15
     },
     "cmc3": {
-     "p25": 8,
-     "median": 9,
+     "p25": 9,
+     "median": 10,
      "p75": 11
     },
     "cmc4": {
      "p25": 2,
      "median": 3,
-     "p75": 4
+     "p75": 5
     },
     "cmc5plus": {
-     "p25": 1,
-     "median": 2,
-     "p75": 4
+     "p25": 4,
+     "median": 4,
+     "p75": 9
     }
    },
    "lands": {
-    "p25": 41,
-    "median": 42,
-    "p75": 52
+    "p25": 48,
+    "median": 53,
+    "p75": 54
    },
-   "avgCmc": 2.03,
+   "avgCmc": 2.78,
    "colors": {
-    "0": 0.11,
-    "1": 0.56,
-    "2": 0.11,
-    "3": 0.11,
-    "5": 0.11
+    "1": 0.57,
+    "2": 0.14,
+    "3": 0.14,
+    "5": 0.14
    },
    "z": {
-    "creature": -0.52,
+    "creature": -0.37,
     "cheapCreature": -0.62,
-    "threat": -0.38,
+    "threat": -0.34,
     "counterspell": -0.75,
-    "cheapInteraction": -1.65,
-    "removal": -1.28,
-    "wipe": -0.3,
-    "draw": -1.02,
-    "ramp": 1.9,
-    "tutor": 0.5,
-    "protection": 0.09,
-    "recursion": 0.87,
-    "cmc01": 0.12,
-    "cmc2": -1.48,
-    "cmc3": -0.69,
-    "cmc4": -0.92,
-    "cmc5plus": 0.06,
-    "lands": 2.92
+    "cheapInteraction": -1.66,
+    "removal": -1.14,
+    "wipe": -0.32,
+    "draw": -1.09,
+    "ramp": 2.06,
+    "tutor": 0.86,
+    "protection": -0.24,
+    "recursion": 1.28,
+    "cmc01": -0.62,
+    "cmc2": -1.3,
+    "cmc3": -0.48,
+    "cmc4": -0.86,
+    "cmc5plus": 0.21,
+    "lands": 3.47
    }
   }
  ],
@@ -1997,7 +1996,7 @@
   },
   "Tifa Lockhart": {
    "decks": 70,
-   "recipe": "lands",
+   "recipe": "engine",
    "roles": {
     "creature": {
      "p25": 21,
@@ -2122,7 +2121,7 @@
      "p75": 12
     },
     "removal": {
-     "p25": 12,
+     "p25": 13,
      "median": 13,
      "p75": 14
     },
@@ -2388,9 +2387,9 @@
    "recipe": "creatures",
    "roles": {
     "creature": {
-     "p25": 36,
-     "median": 37,
-     "p75": 39
+     "p25": 37,
+     "median": 38,
+     "p75": 40
     },
     "cheapCreature": {
      "p25": 20,
@@ -2398,9 +2397,9 @@
      "p75": 21
     },
     "threat": {
-     "p25": 4,
-     "median": 4,
-     "p75": 4
+     "p25": 5,
+     "median": 5,
+     "p75": 5
     },
     "counterspell": {
      "p25": 0,
@@ -2428,8 +2427,8 @@
      "p75": 7
     },
     "ramp": {
-     "p25": 11,
-     "median": 12,
+     "p25": 12,
+     "median": 13,
      "p75": 13
     },
     "tutor": {
@@ -2468,9 +2467,9 @@
      "p75": 9
     },
     "cmc5plus": {
-     "p25": 4,
-     "median": 4,
-     "p75": 5
+     "p25": 5,
+     "median": 5,
+     "p75": 6
     }
    },
    "lands": {
@@ -2478,7 +2477,7 @@
     "median": 37,
     "p75": 38
    },
-   "avgCmc": 2.44
+   "avgCmc": 2.49
   },
   "Tasigur, the Golden Fang": {
    "decks": 56,
@@ -2520,14 +2519,14 @@
      "p75": 2
     },
     "draw": {
-     "p25": 16,
-     "median": 18,
-     "p75": 19
+     "p25": 17,
+     "median": 19,
+     "p75": 20
     },
     "ramp": {
-     "p25": 4,
-     "median": 4,
-     "p75": 4
+     "p25": 5,
+     "median": 5,
+     "p75": 5
     },
     "tutor": {
      "p25": 2,
@@ -2565,9 +2564,9 @@
      "p75": 6
     },
     "cmc5plus": {
-     "p25": 2,
-     "median": 3,
-     "p75": 3
+     "p25": 3,
+     "median": 4,
+     "p75": 4
     }
    },
    "lands": {
@@ -2575,7 +2574,7 @@
     "median": 38,
     "p75": 39
    },
-   "avgCmc": 2.18
+   "avgCmc": 2.23
   },
   "Glarb, Calamity's Augur": {
    "decks": 29,
@@ -2617,14 +2616,14 @@
      "p75": 1
     },
     "draw": {
-     "p25": 13,
-     "median": 14,
-     "p75": 15
+     "p25": 14,
+     "median": 15,
+     "p75": 16
     },
     "ramp": {
-     "p25": 3,
-     "median": 3,
-     "p75": 5
+     "p25": 4,
+     "median": 4,
+     "p75": 6
     },
     "tutor": {
      "p25": 2,
@@ -2662,9 +2661,9 @@
      "p75": 8
     },
     "cmc5plus": {
-     "p25": 3,
-     "median": 3,
-     "p75": 5
+     "p25": 4,
+     "median": 4,
+     "p75": 6
     }
    },
    "lands": {
@@ -2672,16 +2671,16 @@
     "median": 38,
     "p75": 38
    },
-   "avgCmc": 2.3
+   "avgCmc": 2.35
   },
   "Asmoranomardicadaistinaculdacar": {
    "decks": 21,
    "recipe": "aggro",
    "roles": {
     "creature": {
-     "p25": 36,
-     "median": 37,
-     "p75": 38
+     "p25": 37,
+     "median": 38,
+     "p75": 39
     },
     "cheapCreature": {
      "p25": 16,
@@ -2689,9 +2688,9 @@
      "p75": 17
     },
     "threat": {
-     "p25": 5,
-     "median": 5,
-     "p75": 6
+     "p25": 6,
+     "median": 6,
+     "p75": 7
     },
     "counterspell": {
      "p25": 0,
@@ -2719,9 +2718,9 @@
      "p75": 18
     },
     "ramp": {
-     "p25": 1,
-     "median": 2,
-     "p75": 2
+     "p25": 2,
+     "median": 3,
+     "p75": 3
     },
     "tutor": {
      "p25": 3,
@@ -2759,9 +2758,9 @@
      "p75": 6
     },
     "cmc5plus": {
-     "p25": 5,
-     "median": 5,
-     "p75": 6
+     "p25": 6,
+     "median": 6,
+     "p75": 7
     }
    },
    "lands": {
@@ -2769,11 +2768,11 @@
     "median": 34,
     "p75": 35
    },
-   "avgCmc": 2.38
+   "avgCmc": 2.44
   },
   "Nick Fury, Agent of S.H.I.E.L.D.": {
    "decks": 39,
-   "recipe": "creatures",
+   "recipe": "control",
    "roles": {
     "creature": {
      "p25": 27,
@@ -2811,14 +2810,14 @@
      "p75": 0
     },
     "draw": {
-     "p25": 10,
-     "median": 13,
+     "p25": 11,
+     "median": 14,
      "p75": 14
     },
     "ramp": {
-     "p25": 3,
-     "median": 4,
-     "p75": 4
+     "p25": 4,
+     "median": 5,
+     "p75": 5
     },
     "tutor": {
      "p25": 1,
@@ -2856,9 +2855,9 @@
      "p75": 6
     },
     "cmc5plus": {
-     "p25": 3,
-     "median": 3,
-     "p75": 4
+     "p25": 4,
+     "median": 4,
+     "p75": 5
     }
    },
    "lands": {
@@ -2866,7 +2865,7 @@
     "median": 38,
     "p75": 38
    },
-   "avgCmc": 2.3
+   "avgCmc": 2.33
   },
   "Vivi Ornitier": {
    "decks": 13,
@@ -2908,14 +2907,14 @@
      "p75": 1
     },
     "draw": {
-     "p25": 16,
-     "median": 18,
-     "p75": 19
+     "p25": 17,
+     "median": 19,
+     "p75": 20
     },
     "ramp": {
-     "p25": 1,
-     "median": 1,
-     "p75": 1
+     "p25": 2,
+     "median": 2,
+     "p75": 2
     },
     "tutor": {
      "p25": 0,
@@ -2953,9 +2952,9 @@
      "p75": 6
     },
     "cmc5plus": {
-     "p25": 3,
-     "median": 4,
-     "p75": 5
+     "p25": 4,
+     "median": 5,
+     "p75": 6
     }
    },
    "lands": {
@@ -2963,7 +2962,7 @@
     "median": 35,
     "p75": 35
    },
-   "avgCmc": 2.18
+   "avgCmc": 2.22
   },
   "Juri, Master of the Revue": {
    "decks": 5,
@@ -3296,14 +3295,14 @@
      "p75": 2
     },
     "draw": {
-     "p25": 11,
-     "median": 11,
-     "p75": 12
+     "p25": 12,
+     "median": 12,
+     "p75": 13
     },
     "ramp": {
-     "p25": 2,
-     "median": 2,
-     "p75": 2
+     "p25": 3,
+     "median": 3,
+     "p75": 3
     },
     "tutor": {
      "p25": 2,
@@ -3341,9 +3340,9 @@
      "p75": 7
     },
     "cmc5plus": {
-     "p25": 7,
-     "median": 8,
-     "p75": 8
+     "p25": 8,
+     "median": 9,
+     "p75": 9
     }
    },
    "lands": {
@@ -3351,7 +3350,7 @@
     "median": 39,
     "p75": 40
    },
-   "avgCmc": 2.92
+   "avgCmc": 2.95
   },
   "Tivit, Seller of Secrets": {
    "decks": 19,
@@ -3393,14 +3392,14 @@
      "p75": 2
     },
     "draw": {
-     "p25": 12,
-     "median": 12,
-     "p75": 14
+     "p25": 13,
+     "median": 13,
+     "p75": 15
     },
     "ramp": {
-     "p25": 3,
-     "median": 3,
-     "p75": 4
+     "p25": 4,
+     "median": 4,
+     "p75": 5
     },
     "tutor": {
      "p25": 1,
@@ -3438,9 +3437,9 @@
      "p75": 6
     },
     "cmc5plus": {
-     "p25": 2,
-     "median": 3,
-     "p75": 4
+     "p25": 3,
+     "median": 4,
+     "p75": 5
     }
    },
    "lands": {
@@ -3448,7 +3447,7 @@
     "median": 40,
     "p75": 41
    },
-   "avgCmc": 2.31
+   "avgCmc": 2.35
   },
   "Dargo, the Shipwrecker + Silas Renn, Seeker Adept": {
    "decks": 6,
@@ -3456,7 +3455,7 @@
    "roles": {
     "creature": {
      "p25": 13,
-     "median": 13,
+     "median": 14,
      "p75": 14
     },
     "cheapCreature": {
@@ -3545,15 +3544,15 @@
     "median": 35,
     "p75": 35
    },
-   "avgCmc": 2.01
+   "avgCmc": 2.02
   },
   "Aminatou, the Fateshifter": {
    "decks": 38,
    "recipe": "control",
    "roles": {
     "creature": {
-     "p25": 16,
-     "median": 19,
+     "p25": 17,
+     "median": 20,
      "p75": 24
     },
     "cheapCreature": {
@@ -3562,9 +3561,9 @@
      "p75": 7
     },
     "threat": {
-     "p25": 1,
-     "median": 2,
-     "p75": 3
+     "p25": 2,
+     "median": 3,
+     "p75": 4
     },
     "counterspell": {
      "p25": 9,
@@ -3587,14 +3586,14 @@
      "p75": 3
     },
     "draw": {
-     "p25": 11,
+     "p25": 12,
      "median": 15,
      "p75": 18
     },
     "ramp": {
-     "p25": 0,
+     "p25": 1,
      "median": 1,
-     "p75": 2
+     "p75": 3
     },
     "tutor": {
      "p25": 2,
@@ -3632,9 +3631,9 @@
      "p75": 5
     },
     "cmc5plus": {
-     "p25": 6,
-     "median": 13,
-     "p75": 13
+     "p25": 8,
+     "median": 14,
+     "p75": 14
     }
    },
    "lands": {
@@ -3642,7 +3641,7 @@
     "median": 36,
     "p75": 37
    },
-   "avgCmc": 2.78
+   "avgCmc": 2.83
   },
   "Prossh, Skyraider of Kher": {
    "decks": 18,
@@ -3845,7 +3844,7 @@
     "creature": {
      "p25": 23,
      "median": 27,
-     "p75": 33
+     "p75": 34
     },
     "cheapCreature": {
      "p25": 0,
@@ -3854,8 +3853,8 @@
     },
     "threat": {
      "p25": 2,
-     "median": 2,
-     "p75": 4
+     "median": 3,
+     "p75": 5
     },
     "counterspell": {
      "p25": 0,
@@ -3923,7 +3922,7 @@
      "p75": 8
     },
     "cmc5plus": {
-     "p25": 19,
+     "p25": 20,
      "median": 22,
      "p75": 24
     }
@@ -3933,7 +3932,7 @@
     "median": 36,
     "p75": 37
    },
-   "avgCmc": 3.8
+   "avgCmc": 3.82
   },
   "Atraxa, Grand Unifier": {
    "decks": 67,
@@ -3975,14 +3974,14 @@
      "p75": 3
     },
     "draw": {
-     "p25": 14,
-     "median": 15,
-     "p75": 16
+     "p25": 15,
+     "median": 16,
+     "p75": 17
     },
     "ramp": {
-     "p25": 7,
-     "median": 8,
-     "p75": 8
+     "p25": 8,
+     "median": 9,
+     "p75": 9
     },
     "tutor": {
      "p25": 3,
@@ -4021,8 +4020,8 @@
     },
     "cmc5plus": {
      "p25": 7,
-     "median": 7,
-     "p75": 7
+     "median": 8,
+     "p75": 8
     }
    },
    "lands": {
@@ -4030,7 +4029,7 @@
     "median": 40,
     "p75": 40
    },
-   "avgCmc": 2.59
+   "avgCmc": 2.63
   },
   "Acererak the Archlich": {
    "decks": 12,
@@ -4134,7 +4133,7 @@
    "recipe": "engine",
    "roles": {
     "creature": {
-     "p25": 32,
+     "p25": 33,
      "median": 35,
      "p75": 36
     },
@@ -4146,7 +4145,7 @@
     "threat": {
      "p25": 2,
      "median": 2,
-     "p75": 2
+     "p75": 3
     },
     "counterspell": {
      "p25": 0,
@@ -4175,7 +4174,7 @@
     },
     "ramp": {
      "p25": 11,
-     "median": 12,
+     "median": 13,
      "p75": 13
     },
     "tutor": {
@@ -4216,7 +4215,7 @@
     "cmc5plus": {
      "p25": 4,
      "median": 4,
-     "p75": 4
+     "p75": 5
     }
    },
    "lands": {
@@ -4224,7 +4223,7 @@
     "median": 38,
     "p75": 39
    },
-   "avgCmc": 2.27
+   "avgCmc": 2.28
   },
   "Aragorn, King of Gondor": {
    "decks": 87,
@@ -4266,14 +4265,14 @@
      "p75": 1
     },
     "draw": {
-     "p25": 10,
-     "median": 11,
+     "p25": 11,
+     "median": 12,
      "p75": 13
     },
     "ramp": {
-     "p25": 1,
-     "median": 2,
-     "p75": 2
+     "p25": 2,
+     "median": 3,
+     "p75": 3
     },
     "tutor": {
      "p25": 0,
@@ -4311,9 +4310,9 @@
      "p75": 5
     },
     "cmc5plus": {
-     "p25": 2,
-     "median": 2,
-     "p75": 3
+     "p25": 3,
+     "median": 3,
+     "p75": 4
     }
    },
    "lands": {
@@ -4321,7 +4320,7 @@
     "median": 37,
     "p75": 38
    },
-   "avgCmc": 2.2
+   "avgCmc": 2.24
   },
   "Light-Paws, Emperor's Voice": {
    "decks": 50,
@@ -4460,14 +4459,14 @@
      "p75": 1
     },
     "draw": {
-     "p25": 11,
+     "p25": 12,
      "median": 14,
-     "p75": 15
+     "p75": 16
     },
     "ramp": {
      "p25": 1,
-     "median": 1,
-     "p75": 3
+     "median": 2,
+     "p75": 4
     },
     "tutor": {
      "p25": 1,
@@ -4506,8 +4505,8 @@
     },
     "cmc5plus": {
      "p25": 2,
-     "median": 2,
-     "p75": 4
+     "median": 3,
+     "p75": 5
     }
    },
    "lands": {
@@ -4515,15 +4514,15 @@
     "median": 36,
     "p75": 38
    },
-   "avgCmc": 2.34
+   "avgCmc": 2.37
   },
   "Phlage, Titan of Fire's Fury": {
    "decks": 14,
    "recipe": "creatures",
    "roles": {
     "creature": {
-     "p25": 31,
-     "median": 31,
+     "p25": 32,
+     "median": 32,
      "p75": 35
     },
     "cheapCreature": {
@@ -4549,7 +4548,7 @@
     "removal": {
      "p25": 19,
      "median": 21,
-     "p75": 21
+     "p75": 22
     },
     "wipe": {
      "p25": 1,
@@ -4558,7 +4557,7 @@
     },
     "draw": {
      "p25": 7,
-     "median": 7,
+     "median": 8,
      "p75": 8
     },
     "ramp": {
@@ -4572,8 +4571,8 @@
      "p75": 2
     },
     "protection": {
-     "p25": 2,
-     "median": 2,
+     "p25": 3,
+     "median": 3,
      "p75": 5
     },
     "recursion": {
@@ -4592,12 +4591,12 @@
      "p75": 18
     },
     "cmc3": {
-     "p25": 13,
+     "p25": 14,
      "median": 14,
      "p75": 15
     },
     "cmc4": {
-     "p25": 4,
+     "p25": 5,
      "median": 5,
      "p75": 5
     },
@@ -4612,21 +4611,21 @@
     "median": 36,
     "p75": 36
    },
-   "avgCmc": 2.28
+   "avgCmc": 2.3
   },
   "Cloud, Midgar Mercenary": {
    "decks": 108,
    "recipe": "creatures",
    "roles": {
     "creature": {
-     "p25": 28,
+     "p25": 29,
      "median": 30,
-     "p75": 31
+     "p75": 32
     },
     "cheapCreature": {
-     "p25": 19,
+     "p25": 20,
      "median": 21,
-     "p75": 22
+     "p75": 23
     },
     "threat": {
      "p25": 1,
@@ -4656,7 +4655,7 @@
     "draw": {
      "p25": 6,
      "median": 7,
-     "p75": 7
+     "p75": 8
     },
     "ramp": {
      "p25": 2,
@@ -4684,9 +4683,9 @@
      "p75": 28
     },
     "cmc2": {
-     "p25": 16,
+     "p25": 17,
      "median": 18,
-     "p75": 19
+     "p75": 20
     },
     "cmc3": {
      "p25": 9,
@@ -4716,9 +4715,9 @@
    "recipe": "control",
    "roles": {
     "creature": {
-     "p25": 18,
-     "median": 18,
-     "p75": 19
+     "p25": 19,
+     "median": 19,
+     "p75": 20
     },
     "cheapCreature": {
      "p25": 6,
@@ -4726,9 +4725,9 @@
      "p75": 7
     },
     "threat": {
-     "p25": 0,
-     "median": 1,
-     "p75": 1
+     "p25": 1,
+     "median": 2,
+     "p75": 2
     },
     "counterspell": {
      "p25": 9,
@@ -4752,13 +4751,13 @@
     },
     "draw": {
      "p25": 8,
-     "median": 9,
-     "p75": 9
+     "median": 10,
+     "p75": 10
     },
     "ramp": {
-     "p25": 2,
-     "median": 4,
-     "p75": 4
+     "p25": 3,
+     "median": 5,
+     "p75": 6
     },
     "tutor": {
      "p25": 1,
@@ -4796,9 +4795,9 @@
      "p75": 6
     },
     "cmc5plus": {
-     "p25": 2,
-     "median": 2,
-     "p75": 3
+     "p25": 3,
+     "median": 4,
+     "p75": 4
     }
    },
    "lands": {
@@ -4806,7 +4805,7 @@
     "median": 37,
     "p75": 38
    },
-   "avgCmc": 2.25
+   "avgCmc": 2.32
   },
   "Emet-Selch, Unsundered": {
    "decks": 15,
@@ -4815,7 +4814,7 @@
     "creature": {
      "p25": 15,
      "median": 15,
-     "p75": 23
+     "p75": 24
     },
     "cheapCreature": {
      "p25": 3,
@@ -4850,12 +4849,12 @@
     "draw": {
      "p25": 9,
      "median": 12,
-     "p75": 16
+     "p75": 17
     },
     "ramp": {
      "p25": 1,
      "median": 1,
-     "p75": 1
+     "p75": 2
     },
     "tutor": {
      "p25": 3,
@@ -4895,7 +4894,7 @@
     "cmc5plus": {
      "p25": 10,
      "median": 11,
-     "p75": 18
+     "p75": 19
     }
    },
    "lands": {
@@ -4903,7 +4902,7 @@
     "median": 36,
     "p75": 36
    },
-   "avgCmc": 3.35
+   "avgCmc": 3.37
   },
   "Toph, Greatest Earthbender": {
    "decks": 30,
@@ -5104,9 +5103,9 @@
    "recipe": "creatures",
    "roles": {
     "creature": {
-     "p25": 36,
-     "median": 39,
-     "p75": 39
+     "p25": 37,
+     "median": 40,
+     "p75": 40
     },
     "cheapCreature": {
      "p25": 16,
@@ -5114,9 +5113,9 @@
      "p75": 23
     },
     "threat": {
-     "p25": 5,
-     "median": 6,
-     "p75": 7
+     "p25": 6,
+     "median": 7,
+     "p75": 8
     },
     "counterspell": {
      "p25": 0,
@@ -5144,9 +5143,9 @@
      "p75": 8
     },
     "ramp": {
-     "p25": 0,
-     "median": 1,
-     "p75": 1
+     "p25": 1,
+     "median": 2,
+     "p75": 2
     },
     "tutor": {
      "p25": 2,
@@ -5184,9 +5183,9 @@
      "p75": 8
     },
     "cmc5plus": {
-     "p25": 4,
-     "median": 5,
-     "p75": 5
+     "p25": 5,
+     "median": 6,
+     "p75": 6
     }
    },
    "lands": {
@@ -5194,7 +5193,7 @@
     "median": 34,
     "p75": 38
    },
-   "avgCmc": 2.36
+   "avgCmc": 2.42
   },
   "Mister Fantastic": {
    "decks": 4,
@@ -5236,14 +5235,14 @@
      "p75": 0
     },
     "draw": {
-     "p25": 14,
-     "median": 15,
-     "p75": 16
+     "p25": 15,
+     "median": 16,
+     "p75": 17
     },
     "ramp": {
-     "p25": 7,
-     "median": 8,
-     "p75": 9
+     "p25": 8,
+     "median": 9,
+     "p75": 10
     },
     "tutor": {
      "p25": 2,
@@ -5281,9 +5280,9 @@
      "p75": 9
     },
     "cmc5plus": {
-     "p25": 4,
-     "median": 4,
-     "p75": 4
+     "p25": 5,
+     "median": 5,
+     "p75": 5
     }
    },
    "lands": {
@@ -5291,7 +5290,7 @@
     "median": 36,
     "p75": 37
    },
-   "avgCmc": 2.12
+   "avgCmc": 2.17
   },
   "Nissa, Resurgent Animist": {
    "decks": 13,
@@ -5492,9 +5491,9 @@
    "recipe": "reanimator",
    "roles": {
     "creature": {
-     "p25": 23,
-     "median": 23,
-     "p75": 28
+     "p25": 24,
+     "median": 24,
+     "p75": 29
     },
     "cheapCreature": {
      "p25": 6,
@@ -5502,9 +5501,9 @@
      "p75": 8
     },
     "threat": {
-     "p25": 5,
-     "median": 6,
-     "p75": 6
+     "p25": 6,
+     "median": 7,
+     "p75": 7
     },
     "counterspell": {
      "p25": 0,
@@ -5532,9 +5531,9 @@
      "p75": 7
     },
     "ramp": {
-     "p25": 5,
-     "median": 6,
-     "p75": 7
+     "p25": 6,
+     "median": 7,
+     "p75": 8
     },
     "tutor": {
      "p25": 2,
@@ -5572,9 +5571,9 @@
      "p75": 3
     },
     "cmc5plus": {
-     "p25": 15,
-     "median": 15,
-     "p75": 17
+     "p25": 16,
+     "median": 16,
+     "p75": 18
     }
    },
    "lands": {
@@ -5582,7 +5581,7 @@
     "median": 35,
     "p75": 36
    },
-   "avgCmc": 3.29
+   "avgCmc": 3.33
   },
   "Sythis, Harvest's Hand": {
    "decks": 4,
@@ -5818,14 +5817,14 @@
      "p75": 0
     },
     "draw": {
-     "p25": 16,
-     "median": 16,
-     "p75": 17
+     "p25": 17,
+     "median": 17,
+     "p75": 18
     },
     "ramp": {
-     "p25": 1,
-     "median": 2,
-     "p75": 2
+     "p25": 2,
+     "median": 3,
+     "p75": 3
     },
     "tutor": {
      "p25": 0,
@@ -5863,9 +5862,9 @@
      "p75": 4
     },
     "cmc5plus": {
-     "p25": 2,
-     "median": 3,
-     "p75": 4
+     "p25": 3,
+     "median": 4,
+     "p75": 5
     }
    },
    "lands": {
@@ -5873,16 +5872,16 @@
     "median": 36,
     "p75": 37
    },
-   "avgCmc": 2.2
+   "avgCmc": 2.24
   },
   "Deadpool, Trading Card": {
    "decks": 45,
    "recipe": "creatures",
    "roles": {
     "creature": {
-     "p25": 32,
-     "median": 33,
-     "p75": 34
+     "p25": 33,
+     "median": 34,
+     "p75": 35
     },
     "cheapCreature": {
      "p25": 13,
@@ -5890,9 +5889,9 @@
      "p75": 17
     },
     "threat": {
-     "p25": 4,
-     "median": 5,
-     "p75": 6
+     "p25": 5,
+     "median": 6,
+     "p75": 7
     },
     "counterspell": {
      "p25": 0,
@@ -5920,9 +5919,9 @@
      "p75": 6
     },
     "ramp": {
-     "p25": 1,
-     "median": 2,
-     "p75": 2
+     "p25": 2,
+     "median": 3,
+     "p75": 3
     },
     "tutor": {
      "p25": 1,
@@ -5960,9 +5959,9 @@
      "p75": 5
     },
     "cmc5plus": {
-     "p25": 4,
-     "median": 4,
-     "p75": 4
+     "p25": 5,
+     "median": 5,
+     "p75": 5
     }
    },
    "lands": {
@@ -5970,7 +5969,7 @@
     "median": 36,
     "p75": 37
    },
-   "avgCmc": 2.41
+   "avgCmc": 2.46
   },
   "Amalia Benavides Aguirre + Lurrus of the Dream-Den": {
    "decks": 10,
@@ -6304,8 +6303,8 @@
     },
     "draw": {
      "p25": 9,
-     "median": 10,
-     "p75": 10
+     "median": 11,
+     "p75": 11
     },
     "ramp": {
      "p25": 0,
@@ -6338,8 +6337,8 @@
      "p75": 17
     },
     "cmc3": {
-     "p25": 10,
-     "median": 10,
+     "p25": 11,
+     "median": 11,
      "p75": 11
     },
     "cmc4": {
@@ -6358,7 +6357,7 @@
     "median": 39,
     "p75": 39
    },
-   "avgCmc": 2.06
+   "avgCmc": 2.07
   },
   "Breya, Etherium Shaper": {
    "decks": 4,
@@ -6401,12 +6400,12 @@
     },
     "draw": {
      "p25": 12,
-     "median": 13,
-     "p75": 15
+     "median": 14,
+     "p75": 16
     },
     "ramp": {
-     "p25": 3,
-     "median": 7,
+     "p25": 4,
+     "median": 8,
      "p75": 13
     },
     "tutor": {
@@ -6446,8 +6445,8 @@
     },
     "cmc5plus": {
      "p25": 3,
-     "median": 4,
-     "p75": 5
+     "median": 5,
+     "p75": 6
     }
    },
    "lands": {
@@ -6455,16 +6454,16 @@
     "median": 40,
     "p75": 41
    },
-   "avgCmc": 2.15
+   "avgCmc": 2.17
   },
   "Magda, Brazen Outlaw": {
    "decks": 14,
    "recipe": "creatures",
    "roles": {
     "creature": {
-     "p25": 26,
-     "median": 27,
-     "p75": 27
+     "p25": 27,
+     "median": 28,
+     "p75": 28
     },
     "cheapCreature": {
      "p25": 12,
@@ -6502,8 +6501,8 @@
      "p75": 3
     },
     "ramp": {
-     "p25": 7,
-     "median": 8,
+     "p25": 8,
+     "median": 9,
      "p75": 9
     },
     "tutor": {
@@ -6532,9 +6531,9 @@
      "p75": 15
     },
     "cmc3": {
-     "p25": 13,
-     "median": 13,
-     "p75": 14
+     "p25": 14,
+     "median": 14,
+     "p75": 15
     },
     "cmc4": {
      "p25": 4,
@@ -6552,7 +6551,7 @@
     "median": 39,
     "p75": 39
    },
-   "avgCmc": 2.38
+   "avgCmc": 2.39
   },
   "Zurgo Bellstriker": {
    "decks": 25,
@@ -7079,9 +7078,9 @@
      "p75": 3
     },
     "draw": {
-     "p25": 8,
-     "median": 9,
-     "p75": 11
+     "p25": 9,
+     "median": 10,
+     "p75": 12
     },
     "ramp": {
      "p25": 4,
@@ -7114,9 +7113,9 @@
      "p75": 19
     },
     "cmc3": {
-     "p25": 9,
+     "p25": 10,
      "median": 10,
-     "p75": 11
+     "p75": 12
     },
     "cmc4": {
      "p25": 7,
@@ -7134,7 +7133,7 @@
     "median": 38,
     "p75": 38
    },
-   "avgCmc": 2.65
+   "avgCmc": 2.66
   },
   "Ertai Resurrected": {
    "decks": 14,
@@ -7176,14 +7175,14 @@
      "p75": 1
     },
     "draw": {
-     "p25": 12,
-     "median": 13,
-     "p75": 14
+     "p25": 13,
+     "median": 14,
+     "p75": 15
     },
     "ramp": {
-     "p25": 2,
-     "median": 3,
-     "p75": 3
+     "p25": 4,
+     "median": 4,
+     "p75": 4
     },
     "tutor": {
      "p25": 2,
@@ -7222,8 +7221,8 @@
     },
     "cmc5plus": {
      "p25": 2,
-     "median": 2,
-     "p75": 2
+     "median": 3,
+     "p75": 3
     }
    },
    "lands": {
@@ -7231,7 +7230,7 @@
     "median": 39,
     "p75": 39
    },
-   "avgCmc": 2.31
+   "avgCmc": 2.35
   },
   "Mole Man, Moloid Master": {
    "decks": 4,
@@ -7370,14 +7369,14 @@
      "p75": 6
     },
     "draw": {
-     "p25": 16,
-     "median": 16,
-     "p75": 17
+     "p25": 17,
+     "median": 17,
+     "p75": 18
     },
     "ramp": {
-     "p25": 2,
-     "median": 2,
-     "p75": 2
+     "p25": 3,
+     "median": 3,
+     "p75": 3
     },
     "tutor": {
      "p25": 1,
@@ -7415,9 +7414,9 @@
      "p75": 8
     },
     "cmc5plus": {
-     "p25": 8,
-     "median": 9,
-     "p75": 9
+     "p25": 9,
+     "median": 10,
+     "p75": 10
     }
    },
    "lands": {
@@ -7425,7 +7424,7 @@
     "median": 38,
     "p75": 40
    },
-   "avgCmc": 2.68
+   "avgCmc": 2.71
   },
   "Bruse Tarl, Boorish Herder + Yoshimaru, Ever Faithful": {
    "decks": 4,
@@ -7626,9 +7625,9 @@
    "recipe": "creatures",
    "roles": {
     "creature": {
-     "p25": 44,
+     "p25": 45,
      "median": 47,
-     "p75": 47
+     "p75": 49
     },
     "cheapCreature": {
      "p25": 24,
@@ -7678,7 +7677,7 @@
     "protection": {
      "p25": 10,
      "median": 11,
-     "p75": 11
+     "p75": 12
     },
     "recursion": {
      "p25": 0,
@@ -7703,11 +7702,11 @@
     "cmc4": {
      "p25": 7,
      "median": 9,
-     "p75": 10
+     "p75": 11
     },
     "cmc5plus": {
      "p25": 3,
-     "median": 3,
+     "median": 4,
      "p75": 4
     }
    },
@@ -7716,7 +7715,7 @@
     "median": 37,
     "p75": 38
    },
-   "avgCmc": 2.43
+   "avgCmc": 2.45
   },
   "Tana, the Bloodsower + Yoshimaru, Ever Faithful": {
    "decks": 7,
@@ -7855,14 +7854,14 @@
      "p75": 0
     },
     "draw": {
-     "p25": 16,
-     "median": 17,
-     "p75": 17
+     "p25": 17,
+     "median": 18,
+     "p75": 18
     },
     "ramp": {
-     "p25": 2,
-     "median": 2,
-     "p75": 2
+     "p25": 3,
+     "median": 3,
+     "p75": 3
     },
     "tutor": {
      "p25": 6,
@@ -7900,9 +7899,9 @@
      "p75": 4
     },
     "cmc5plus": {
-     "p25": 0,
-     "median": 0,
-     "p75": 0
+     "p25": 1,
+     "median": 1,
+     "p75": 1
     }
    },
    "lands": {
@@ -7910,7 +7909,7 @@
     "median": 35,
     "p75": 35
    },
-   "avgCmc": 1.84
+   "avgCmc": 1.89
   },
   "Niv-Mizzet Reborn": {
    "decks": 5,
@@ -7919,7 +7918,7 @@
     "creature": {
      "p25": 14,
      "median": 17,
-     "p75": 19
+     "p75": 20
     },
     "cheapCreature": {
      "p25": 4,
@@ -7929,7 +7928,7 @@
     "threat": {
      "p25": 4,
      "median": 4,
-     "p75": 5
+     "p75": 6
     },
     "counterspell": {
      "p25": 7,
@@ -7957,8 +7956,8 @@
      "p75": 8
     },
     "ramp": {
-     "p25": 5,
-     "median": 5,
+     "p25": 6,
+     "median": 6,
      "p75": 6
     },
     "tutor": {
@@ -7999,7 +7998,7 @@
     "cmc5plus": {
      "p25": 6,
      "median": 7,
-     "p75": 12
+     "p75": 13
     }
    },
    "lands": {
@@ -8007,7 +8006,7 @@
     "median": 39,
     "p75": 40
    },
-   "avgCmc": 2.71
+   "avgCmc": 2.73
   },
   "Bruce Banner": {
    "decks": 10,
@@ -8049,14 +8048,14 @@
      "p75": 2
     },
     "draw": {
-     "p25": 13,
-     "median": 14,
-     "p75": 14
+     "p25": 14,
+     "median": 15,
+     "p75": 15
     },
     "ramp": {
-     "p25": 4,
-     "median": 5,
-     "p75": 6
+     "p25": 5,
+     "median": 6,
+     "p75": 7
     },
     "tutor": {
      "p25": 0,
@@ -8094,9 +8093,9 @@
      "p75": 4
     },
     "cmc5plus": {
-     "p25": 4,
-     "median": 5,
-     "p75": 5
+     "p25": 5,
+     "median": 6,
+     "p75": 6
     }
    },
    "lands": {
@@ -8104,7 +8103,7 @@
     "median": 38,
     "p75": 39
    },
-   "avgCmc": 2.32
+   "avgCmc": 2.37
   },
   "Oswald Fiddlebender": {
    "decks": 4,
@@ -8391,9 +8390,9 @@
     }
    },
    "lands": {
-    "p25": 38,
-    "median": 38,
-    "p75": 38
+    "p25": 39,
+    "median": 39,
+    "p75": 39
    },
    "avgCmc": 2.17
   },
@@ -8534,14 +8533,14 @@
      "p75": 0
     },
     "draw": {
-     "p25": 17,
-     "median": 17,
-     "p75": 19
+     "p25": 18,
+     "median": 18,
+     "p75": 20
     },
     "ramp": {
-     "p25": 2,
-     "median": 3,
-     "p75": 4
+     "p25": 3,
+     "median": 4,
+     "p75": 5
     },
     "tutor": {
      "p25": 1,
@@ -8579,9 +8578,9 @@
      "p75": 7
     },
     "cmc5plus": {
-     "p25": 0,
-     "median": 2,
-     "p75": 2
+     "p25": 1,
+     "median": 3,
+     "p75": 3
     }
    },
    "lands": {
@@ -8589,7 +8588,7 @@
     "median": 35,
     "p75": 36
    },
-   "avgCmc": 2.06
+   "avgCmc": 2.1
   },
   "Obyra, Dreaming Duelist": {
    "decks": 6,
@@ -8632,13 +8631,13 @@
     },
     "draw": {
      "p25": 14,
-     "median": 15,
-     "p75": 15
+     "median": 16,
+     "p75": 16
     },
     "ramp": {
      "p25": 0,
-     "median": 1,
-     "p75": 1
+     "median": 2,
+     "p75": 2
     },
     "tutor": {
      "p25": 1,
@@ -8676,9 +8675,9 @@
      "p75": 9
     },
     "cmc5plus": {
-     "p25": 0,
+     "p25": 1,
      "median": 2,
-     "p75": 3
+     "p75": 4
     }
    },
    "lands": {
@@ -8686,7 +8685,7 @@
     "median": 36,
     "p75": 36
    },
-   "avgCmc": 2.3
+   "avgCmc": 2.32
   },
   "Muxus, Goblin Grandee": {
    "decks": 4,
@@ -8825,14 +8824,14 @@
      "p75": 3
     },
     "draw": {
-     "p25": 12,
-     "median": 12,
-     "p75": 13
+     "p25": 13,
+     "median": 13,
+     "p75": 14
     },
     "ramp": {
-     "p25": 10,
-     "median": 12,
-     "p75": 12
+     "p25": 11,
+     "median": 13,
+     "p75": 13
     },
     "tutor": {
      "p25": 2,
@@ -8870,9 +8869,9 @@
      "p75": 5
     },
     "cmc5plus": {
-     "p25": 6,
-     "median": 7,
-     "p75": 7
+     "p25": 7,
+     "median": 8,
+     "p75": 8
     }
    },
    "lands": {
@@ -8880,7 +8879,7 @@
     "median": 40,
     "p75": 40
    },
-   "avgCmc": 2.41
+   "avgCmc": 2.46
   },
   "King T'Challa": {
    "decks": 21,
@@ -8924,12 +8923,12 @@
     "draw": {
      "p25": 17,
      "median": 18,
-     "p75": 19
+     "p75": 20
     },
     "ramp": {
-     "p25": 1,
+     "p25": 2,
      "median": 2,
-     "p75": 2
+     "p75": 3
     },
     "tutor": {
      "p25": 1,
@@ -8968,8 +8967,8 @@
     },
     "cmc5plus": {
      "p25": 4,
-     "median": 4,
-     "p75": 5
+     "median": 5,
+     "p75": 6
     }
    },
    "lands": {
@@ -8977,7 +8976,7 @@
     "median": 40,
     "p75": 40
    },
-   "avgCmc": 2.28
+   "avgCmc": 2.31
   },
   "Golos, Tireless Pilgrim": {
    "decks": 7,
@@ -8985,8 +8984,8 @@
    "roles": {
     "creature": {
      "p25": 12,
-     "median": 16,
-     "p75": 18
+     "median": 17,
+     "p75": 19
     },
     "cheapCreature": {
      "p25": 1,
@@ -8995,8 +8994,8 @@
     },
     "threat": {
      "p25": 3,
-     "median": 3,
-     "p75": 3
+     "median": 4,
+     "p75": 4
     },
     "counterspell": {
      "p25": 0,
@@ -9025,8 +9024,8 @@
     },
     "ramp": {
      "p25": 20,
-     "median": 24,
-     "p75": 26
+     "median": 25,
+     "p75": 27
     },
     "tutor": {
      "p25": 6,
@@ -9064,9 +9063,9 @@
      "p75": 4
     },
     "cmc5plus": {
-     "p25": 11,
-     "median": 15,
-     "p75": 16
+     "p25": 12,
+     "median": 16,
+     "p75": 17
     }
    },
    "lands": {
@@ -9074,7 +9073,7 @@
     "median": 45,
     "p75": 48
    },
-   "avgCmc": 3.37
+   "avgCmc": 3.39
   },
   "Niv-Mizzet, Parun": {
    "decks": 4,
@@ -9116,14 +9115,14 @@
      "p75": 4
     },
     "draw": {
-     "p25": 15,
-     "median": 18,
-     "p75": 20
+     "p25": 16,
+     "median": 19,
+     "p75": 21
     },
     "ramp": {
-     "p25": 2,
-     "median": 4,
-     "p75": 7
+     "p25": 3,
+     "median": 5,
+     "p75": 8
     },
     "tutor": {
      "p25": 0,
@@ -9161,9 +9160,9 @@
      "p75": 7
     },
     "cmc5plus": {
-     "p25": 3,
-     "median": 4,
-     "p75": 5
+     "p25": 4,
+     "median": 5,
+     "p75": 6
     }
    },
    "lands": {
@@ -9171,7 +9170,7 @@
     "median": 38,
     "p75": 38
    },
-   "avgCmc": 2.26
+   "avgCmc": 2.31
   },
   "Spider-Man 2099": {
    "decks": 61,
@@ -9213,14 +9212,14 @@
      "p75": 1
     },
     "draw": {
-     "p25": 11,
-     "median": 12,
-     "p75": 13
+     "p25": 12,
+     "median": 13,
+     "p75": 14
     },
     "ramp": {
-     "p25": 1,
-     "median": 2,
-     "p75": 2
+     "p25": 2,
+     "median": 3,
+     "p75": 3
     },
     "tutor": {
      "p25": 0,
@@ -9258,9 +9257,9 @@
      "p75": 3
     },
     "cmc5plus": {
-     "p25": 4,
-     "median": 5,
-     "p75": 5
+     "p25": 5,
+     "median": 6,
+     "p75": 6
     }
    },
    "lands": {
@@ -9268,7 +9267,7 @@
     "median": 36,
     "p75": 37
    },
-   "avgCmc": 2.29
+   "avgCmc": 2.33
   },
   "Lumra, Bellow of the Woods": {
    "decks": 12,
@@ -9369,7 +9368,7 @@
   },
   "The Fantasticar": {
    "decks": 21,
-   "recipe": "lands",
+   "recipe": "engine",
    "roles": {
     "creature": {
      "p25": 0,

@@ -1,3 +1,4 @@
+import { foldName } from "./card-name";
 import type { CardSuggestion, EnrichedCard, FormatConfig, ScryfallCard } from "./types";
 import { classifyCard } from "./deck-score";
 import { getCardsByNames } from "./scryfall";
@@ -60,8 +61,8 @@ export async function suggestDuelImprovements(
   const audit = auditDeckFromCards(resolved.map((c) => ({ card: c.card, count: c.count })), commanders, "duel");
   const reference = referenceFor(commanders.map((c) => c.name));
   const recipe = recipeFor(commanders, audit);
-  const inDeck = new Set(currentCards.map((c) => c.name.toLowerCase().split(" // ")[0]));
-  const commanderKeys = new Set(commanders.map((c) => c.name.toLowerCase().split(" // ")[0]));
+  const inDeck = new Set(currentCards.map((c) => foldName(c.name).split(" // ")[0]));
+  const commanderKeys = new Set(commanders.map((c) => foldName(c.name).split(" // ")[0]));
 
   // --- Candidates : cartes des decks de tournoi absentes du deck ---
   const prior = new Map<string, number>();
@@ -113,7 +114,7 @@ export async function suggestDuelImprovements(
   // --- Classement des candidates ---
   const scored = cards
     .filter((card) => isLegalInFormat(card, format) && card.color_identity.every((c) => colorIdentity.includes(c)))
-    .filter((card) => !inDeck.has(card.name.toLowerCase().split(" // ")[0]) && !commanderKeys.has(card.name.toLowerCase().split(" // ")[0]))
+    .filter((card) => !inDeck.has(foldName(card.name).split(" // ")[0]) && !commanderKeys.has(foldName(card.name).split(" // ")[0]))
     .filter((card) => (multiplayerOnly(card)?.severity ?? 0) < 0.5)
     .filter((card) => !unmetDependencies([...deckCards, card], commanders).some((u) => u.name === card.name && u.dependency.kind !== "tribe"))
     .map((card) => {

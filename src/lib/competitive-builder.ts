@@ -1632,6 +1632,8 @@ export interface RankParams {
    * est ignoré, et le classement porte sur CE deck (pas sur le deck possédé).
    */
   budgetEur?: number;
+  /** Commandants (clés candidateKey) à évaluer quoi qu'il arrive — ex. ceux dont la collection contient presque un deck de tournoi. */
+  mustTry?: ReadonlySet<string>;
 }
 
 /**
@@ -1733,6 +1735,9 @@ function selectTrials(params: RankParams): Trial[] {
   for (const x of withAffinity) {
     if (chosen.size >= maxTrials) break;
     if (!chosen.has(candidateKey(x.c))) chosen.set(candidateKey(x.c), x);
+  }
+  if (params.mustTry?.size) {
+    for (const x of withAffinity) if (params.mustTry.has(candidateKey(x.c))) chosen.set(candidateKey(x.c), x);
   }
   // Pistes originales : les commandants POSSÉDÉS que la collection sert le
   // mieux sur leurs propres axes, même s'ils n'ont pas passé la présélection

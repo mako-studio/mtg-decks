@@ -55,6 +55,7 @@
 import { readFile, writeFile, mkdir, readdir, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { writeTournamentLists } from "./duel-lists.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const ARCHIVE = path.join(ROOT, "analysis/duelcommander/decks-mtgtop8.json");
@@ -516,6 +517,8 @@ async function writeOutputs(archive) {
   await writeFile(OUT, JSON.stringify(meta, null, 0) + "\n", "utf8");
   await writeFile(OUT_REFERENCE, JSON.stringify(reference) + "\n", "utf8");
   await writeFile(OUT_COOC, JSON.stringify(cooccurrence) + "\n", "utf8");
+  // Listes complètes (04/10/2026) : pour retrouver un deck de tournoi presque entier dans une collection.
+  await writeTournamentLists(decks);
   if (scryfallCards.size > 0 && !OFFLINE) {
     const sorted = Object.fromEntries([...scryfallCards.entries()].sort((a, b) => a[0].localeCompare(b[0])));
     await writeFile(OUT_CARDS, JSON.stringify({ generatedAt: new Date().toISOString().slice(0, 10), cards: sorted }) + "\n", "utf8");

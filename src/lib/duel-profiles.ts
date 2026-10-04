@@ -1,4 +1,5 @@
 import profilesData from "@/data/duel-color-profiles.json";
+import { NameIndex } from "./card-name";
 
 /**
  * Profils des decks de tournoi Duel Commander PAR IDENTITÉ COULEUR
@@ -39,15 +40,15 @@ interface Group {
   colors: string[];
   decks: number;
   stats: Record<string, number>;
-  /** Part par carte, clé : face avant en minuscules. */
-  cards: Map<string, number>;
+  /** Part par carte, clé : face avant, tolérante aux accents (card-name.ts). */
+  cards: NameIndex<number>;
 }
 const GROUPS: Group[] = Object.entries(RAW.identities ?? {}).map(([key, g]) => ({
   key,
   colors: colorsOf(key),
   decks: g.decks,
   stats: g.stats,
-  cards: new Map(Object.entries(g.cards).map(([n, s]) => [n.toLowerCase().split(" // ")[0], s])),
+  cards: new NameIndex<number>(Object.entries(g.cards).map(([n, s]) => [n.toLowerCase().split(" // ")[0], s] as const)),
 }));
 
 function similarity(a: string[], b: string[]): number {

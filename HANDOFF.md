@@ -344,6 +344,15 @@ ATTENTION : testé avec des prix FICTIFS (les données locales n'en ont pas) —
 à vérifier par Ben avec les vrais prix Scryfall. Détail : README, « Budget
 en euros pour le Duel ».
 
+Même jour, quatrième livraison : noms accentués rapprochés (`card-name.ts`),
+indice de forme équitable entre commandants (`structureScore`), decks de
+tournoi presque complets dans la collection (`tournament-lists.ts`,
+`scripts/duel-lists.mjs`, `src/data/duel-tournament-lists.json` — régénéré
+par `fetch-duel-meta.mjs`, ou seul et hors ligne par
+`node scripts/duel-lists.mjs`). Détail : README, « Deck de tournoi non
+reconnu… ». Le mode budget a été vu fonctionner sur le site de Ben avec les
+vrais prix (capture du 04/10).
+
 Au 03/10/2026 (soir) : moteur de construction refondu (tendances apprises
 des decks connus, plans de jeu, parties simulées, staples manquants,
 chargeur à étapes) — livré sur le Mac, non commité par Ben au moment de

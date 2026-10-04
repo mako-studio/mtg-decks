@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { openProposedDeck, runCompetitiveBuild } from "@/lib/competitive-actions";
-import type { AcquisitionOption, CompetitiveBuildResult, ProposalSummary } from "@/lib/competitive-run";
+import type { AcquisitionOption, CompetitiveBuildResult, NearTournamentDeck, ProposalSummary } from "@/lib/competitive-run";
 import type { BuildProgress } from "@/lib/build-steps";
 import { MAX_BUDGET_EUR, normalizeBudget } from "@/lib/budget";
 import { BuildProgressPanel, GamePlanPanel, MissingStaplesPanel, RankingPanel } from "./BuildPanels";
@@ -253,6 +253,8 @@ export function CompetitiveBuilder({ fromSimulator = false }: { fromSimulator?: 
   const [variant, setVariant] = useState<Variant>("upgraded");
   const [opened, setOpened] = useState<(DeckAnalysisResult & { addedNames: string[] }) | null>(null);
   const [openedKey, setOpenedKey] = useState<string | null>(null);
+  // Deck de tournoi ouvert dans le simulateur à la place d'une proposition (04/10/2026) : son libellé, sinon null.
+  const [tournamentOpen, setTournamentOpen] = useState<string | null>(null);
 
   const [building, startBuilding] = useTransition();
   const [opening, startOpening] = useTransition();
@@ -323,6 +325,7 @@ export function CompetitiveBuilder({ fromSimulator = false }: { fromSimulator?: 
       setVariant(v);
       setOpened(null);
       setOpenedKey(null);
+      setTournamentOpen(null);
       if (res.proposals.length > 0) {
         try {
           await openDeck(res, 0, v);
@@ -394,8 +397,32 @@ export function CompetitiveBuilder({ fromSimulator = false }: { fromSimulator?: 
     }
   }
 
+  /** Ouvre dans le simulateur un deck de tournoi presque complet dans la collection (liste réelle, non construite par le moteur). */
+  function openTournament(near: NearTournamentDeck) {
+    if (!result) return;
+    setFormError(null);
+    const label = `${near.commander} — deck de tournoi${near.date ? ` du ${near.date}` : ""}`;
+    startOpening(async () => {
+      try {
+        const deck = await openProposedDeck({
+          formatKey: result.formatKey,
+          commanders: near.commanders.map((c) => c.name),
+          cards: near.cards,
+          acquisitionNames: near.missing.map((m) => m.name),
+          label,
+        });
+        setOpened(deck);
+        setOpenedKey(`tournoi:${near.url}`);
+        setTournamentOpen(label);
+      } catch (err) {
+        setFormError(serverActionErrorMessage("open", err));
+      }
+    });
+  }
+
   function select(index: number, v: Variant) {
     if (!result) return;
+    setTournamentOpen(null);
     setSelected(index);
     setVariant(v);
     setFormError(null);
@@ -710,6 +737,77 @@ export function CompetitiveBuilder({ fromSimulator = false }: { fromSimulator?: 
         )}
       </div>
 
+      {result.nearTournamentDecks.length > 0 && (
+        <section className="rounded-xl border border-accent/40 bg-accent-soft/30 p-4" data-testid="near-tournament-decks">
+          <h3 className="text-sm font-semibold">Decks de tournoi presque complets dans ta liste</h3>
+          <p className="mt-0.5 text-xs text-muted">
+            Ta liste comparée carte par carte aux decks de tournoi Duel de l&apos;archive mtgtop8 (hors terrains de base,
+            commandant non compté). Ce sont des listes réelles, telles qu&apos;elles ont été jouées — à distinguer des decks
+            que le moteur construit plus bas. Prix Scryfall (EUR, indicatifs).
+          </p>
+          <ul className="mt-3 space-y-3">
+            {result.nearTournamentDecks.map((n) => {
+              const toBuy = n.commanders.filter((c) => !c.owned);
+              return (
+                <li key={n.url} className="rounded-lg border border-border bg-surface p-3">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-[240px] flex-1">
+                      <p className="text-sm font-semibold">
+                        {n.commander}{" "}
+                        <span className="ml-1 rounded-full bg-success-soft px-2 py-0.5 text-[11px] font-semibold text-success">
+                          {n.ownedCount}/{n.total} cartes · {Math.round(n.share * 100)} %
+                        </span>
+                      </p>
+                      <p className="mt-0.5 text-xs text-muted">
+                        Deck de tournoi{n.date ? ` du ${n.date}` : ""} ·{" "}
+                        <a href={n.url} target="_blank" rel="noreferrer" className="underline hover:text-foreground">
+                          voir la liste sur mtgtop8
+                        </a>{" "}
+                        ·{" "}
+                        {toBuy.length === 0
+                          ? "commandant dans ta liste"
+                          : `commandant à acquérir${toBuy.every((c) => c.priceEur !== null) ? ` (≈ ${formatEur(toBuy.reduce((s, c) => s + (c.priceEur ?? 0), 0))})` : " (prix inconnu)"}`}
+                      </p>
+                      <p className="mt-1 text-xs">
+                        Il manque {n.missing.length} carte{n.missing.length > 1 ? "s" : ""} : ≈ {formatEur(n.totalCostEur)}
+                        {toBuy.length > 0 ? " commandant compris" : ""}
+                        {n.missingUnpriced > 0 ? ` (+${n.missingUnpriced} sans prix connu)` : ""}
+                        {n.withinBudget === true && <span className="ml-1 font-medium text-success">— tient dans ton budget</span>}
+                        {n.withinBudget === false && result.budgetEur !== null && (
+                          <span className="ml-1 font-medium text-warning">
+                            — dépasse ton budget de {formatEur(n.totalCostEur - result.budgetEur)}
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={opening || building}
+                      onClick={() => openTournament(n)}
+                      className="rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent hover:text-accent-foreground disabled:opacity-60"
+                    >
+                      Ouvrir ce deck
+                    </button>
+                  </div>
+                  <details className="mt-2 text-xs">
+                    <summary className="cursor-pointer text-muted hover:text-foreground">Cartes manquantes ({n.missing.length})</summary>
+                    <ul className="mt-1.5 flex flex-wrap gap-1.5">
+                      {[...n.missing]
+                        .sort((a, b) => (b.priceEur ?? -1) - (a.priceEur ?? -1))
+                        .map((m) => (
+                          <li key={m.name} className="rounded-full bg-surface-muted px-2 py-0.5 text-[11px] text-muted">
+                            {m.name} · {m.priceEur !== null ? formatEur(m.priceEur) : "prix inconnu"}
+                          </li>
+                        ))}
+                    </ul>
+                  </details>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+
       {/*
         Deux groupes (26/09/2026, demande de Ben) : commandants déjà dans sa
         liste d'un côté, commandants à acquérir de l'autre, chacun classé
@@ -835,6 +933,11 @@ export function CompetitiveBuilder({ fromSimulator = false }: { fromSimulator?: 
                 <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
                   <ManaCost cost={identityCost(p.colorIdentity)} size="md" />
                   <span className={allOwned(p) ? "text-success" : "text-warning"}>{sourceLabel(p)}</span>
+                  {p.tournamentMatch && (
+                    <span className="rounded-full bg-success-soft px-2 py-0.5 text-[11px] font-medium text-success">
+                      Tu as {p.tournamentMatch.ownedCount}/{p.tournamentMatch.total} cartes d&apos;un deck de tournoi de ce commandant
+                    </span>
+                  )}
                   {p.pairLabel && <span className="rounded-full bg-synergy-soft px-2 py-0.5 text-synergy">Duo · {p.pairLabel}</span>}
                   {[...p.themes, ...p.tribes.map((t) => `Tribu ${t}`)].map((t) => (
                     <span key={t} className="rounded-full bg-synergy-soft px-2 py-0.5 text-synergy">
@@ -947,7 +1050,12 @@ export function CompetitiveBuilder({ fromSimulator = false }: { fromSimulator?: 
 
           {shownDeck.gamePlan && <GamePlanPanel plan={shownDeck.gamePlan} />}
 
-          <MissingStaplesPanel staples={shownDeck.missingStaples} variantLabel={variant === "owned" ? "Avec mes cartes" : "Optimisé"} />
+          <MissingStaplesPanel
+            staples={shownDeck.missingStaples}
+            variantLabel={variant === "owned" ? "Avec mes cartes" : "Optimisé"}
+            duel={result.formatKey === "duelcommander"}
+            remainingEur={p.budget ? (variant === "upgraded" ? p.budget.remainingEur : p.budget.budgetEur - p.budget.commanderCostEur) : null}
+          />
 
           {p.acquisitions.length > 0 && (
             <div className="mt-5">
@@ -1116,12 +1224,20 @@ export function CompetitiveBuilder({ fromSimulator = false }: { fromSimulator?: 
         </div>
       )}
 
-      {opened && openedKey === currentKey && !opening && (
+      {tournamentOpen && opened && !opening && (
+        <p className="rounded-lg bg-accent-soft px-3 py-2 text-sm text-accent">
+          Deck ouvert ci-dessous : <strong>{tournamentOpen}</strong> — une liste réelle de tournoi, pas un deck construit par le
+          moteur. Les cartes que tu n&apos;as pas sont marquées « ajoutées ». Clique sur une proposition pour revenir à ses
+          decks.
+        </p>
+      )}
+
+      {opened && (tournamentOpen ? openedKey?.startsWith("tournoi:") : openedKey === currentKey) && !opening && (
         opened.ok ? (
           <DeckBuilder
             key={openedKey}
             initial={opened}
-            deckSlug={`builder-${result.formatKey}-${p?.commander ?? "deck"}-${variant}`.toLowerCase().replace(/[^a-z0-9]+/g, "-")}
+            deckSlug={`builder-${result.formatKey}-${tournamentOpen ?? `${p?.commander ?? "deck"}-${variant}`}`.toLowerCase().replace(/[^a-z0-9]+/g, "-")}
             initialAddedNames={opened.addedNames}
             showBuildLink={false}
           />

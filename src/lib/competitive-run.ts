@@ -48,6 +48,8 @@ import { describeGamePlan, type GamePlanSummary } from "./game-plan-summary";
 import { missingStaples } from "./staples";
 import { BUILD_STEPS, type BuildProgress } from "./build-steps";
 import { cardPriceEur, normalizeBudget } from "./budget";
+import { foldName } from "./card-name";
+import { closestTournamentLists, listCardKey, TOURNAMENT_LISTS_INFO } from "./tournament-lists";
 
 /**
  * Déroulé complet du constructeur compétitif (25/09/2026, demande de Ben —
@@ -145,6 +147,34 @@ export interface ProposalSummary {
   alternatives: { commander: string; owned: boolean; score: number | null }[];
   /** Mode budget (04/10/2026) : ce qui a été dépensé et ce que quelques euros de plus apporteraient. null hors mode budget. */
   budget: BudgetSummary | null;
+  /** La collection contient une bonne part d'un deck de tournoi réel de ce commandant (voir NearTournamentDeck). */
+  tournamentMatch: { ownedCount: number; total: number; share: number; date: string | null; url: string } | null;
+}
+
+/**
+ * Deck de tournoi réel presque complet dans la collection (tournament-lists.ts,
+ * 04/10/2026). Affiché à part des propositions : c'est une liste existante,
+ * pas un deck construit par le moteur.
+ */
+export interface NearTournamentDeck {
+  commander: string;
+  commanders: ProposalCommander[];
+  date: string | null;
+  url: string;
+  /** Cartes hors terrains de base : possédées / total. */
+  ownedCount: number;
+  total: number;
+  share: number;
+  missing: { name: string; priceEur: number | null }[];
+  /** Prix des cartes manquantes dont le prix est connu, et nombre de celles sans prix. */
+  missingCostEur: number;
+  missingUnpriced: number;
+  /** Cartes manquantes + commandant(s) à acquérir. */
+  totalCostEur: number;
+  /** Mode budget : le deck entier tient-il dans le budget ? null hors mode budget ou si un prix manque. */
+  withinBudget: boolean | null;
+  /** La liste entière (noms Scryfall quand la carte a été retrouvée), pour l'ouvrir dans le simulateur. */
+  cards: { name: string; count: number }[];
 }
 
 /** Une carte hors budget qui améliorerait le deck (section « pour quelques euros de plus »). */
@@ -220,6 +250,8 @@ export interface CompetitiveBuildResult {
   /** Noms corrigés automatiquement (orthographe proche, nom français...). */
   corrections: NameCorrection[];
   proposals: ProposalSummary[];
+  /** Decks de tournoi réels dont la collection contient au moins 40 % des cartes, du plus complet au moins complet (Duel). */
+  nearTournamentDecks: NearTournamentDeck[];
   /** Nombre de commandants considérés / évalués en détail — transparence sur l'étendue de la recherche. */
   candidateCount: number;
   evaluatedCount: number;
@@ -238,6 +270,7 @@ const EMPTY: CompetitiveBuildResult = {
   unresolvedNames: [],
   corrections: [],
   proposals: [],
+  nearTournamentDecks: [],
   candidateCount: 0,
   evaluatedCount: 0,
   spellbookUsed: false,
@@ -301,6 +334,10 @@ function budgetSummary(outcome: BudgetOutcome | undefined, upgradedDeck: BuiltDe
  * seul classement par tier laissait souvent 8 commandants à acquérir.
  */
 const PROPOSALS_PER_GROUP = 5;
+/** Decks de tournoi « presque complets » : part minimale de cartes possédées pour être cité, puis pour forcer l'affichage du commandant, et nombre de listes citées. Choix de conception. */
+const NEAR_LIST_MIN_SHARE = 0.4;
+const NEAR_LIST_FORCE_SHARE = 0.5;
+const NEAR_LISTS_SHOWN = 3;
 /** Duel : au plus deux propositions par identité couleur dans un groupe (les suivantes sont citées comme variantes). */
 const MAX_PER_IDENTITY = 2;
 /** Propositions dont le pool recommandé est élargi par des recherches de synergie (requêtes Scryfall supplémentaires). */
@@ -386,7 +423,8 @@ function referenceSummary(
   if (!ref) return null;
   const core = Array.from(ref.shares.values()).filter((v) => v.share >= 0.5);
   if (core.length === 0) return null;
-  const front = (n: string) => n.toLowerCase().split(" // ")[0];
+  // foldName : les noms de la référence viennent de mtgtop8 (sans accents), ceux du deck de Scryfall.
+  const front = (n: string) => foldName(n).split(/\s*\/\/?\s*/)[0];
   const setOf = (d: BuiltDeck) => new Set(d.cards.map((c) => front(c.name)));
   const inOwned = setOf(ownedDeck);
   const inUp = setOf(upgradedDeck);
@@ -413,7 +451,8 @@ function summarize(
   isDuel: boolean,
   opportunities: ComboOpportunity[],
   extras: ProposalExtras = {},
-  alternatives: ProposalSummary["alternatives"] = []
+  alternatives: ProposalSummary["alternatives"] = [],
+  near?: NearTournamentDeck
 ): ProposalSummary {
   const acquisitions: ProposalCard[] = p.upgradedDeck.acquisitions.map((a) => ({
     name: a.name,
@@ -452,6 +491,7 @@ function summarize(
     ranking: isDuel && p.rankScore !== undefined ? { score: p.rankScore, commander: commanderRating(cards, "duel") } : null,
     alternatives,
     budget: budgetSummary(p.budget, p.upgradedDeck),
+    tournamentMatch: near ? { ownedCount: near.ownedCount, total: near.total, share: near.share, date: near.date, url: near.url } : null,
   };
 }
 
@@ -614,6 +654,20 @@ export async function runCompetitiveBuildCore(
     for (const card of backgrounds) addCandidate(card, "popular");
     // Backgrounds possédés d'abord.
     mates.sort((a, b) => Number(b.owned[0]) - Number(a.owned[0]));
+    // Decks de tournoi presque complets dans la collection (Duel, tournament-lists.ts). Seuls ceux dont le
+    // commandant est jouable aujourd'hui sont gardés (un commandant banni depuis n'est pas candidat).
+    const candidateByListKey = new Map<string, CommanderCandidate>();
+    for (const c of [...candidatesByName.values(), ...mates]) candidateByListKey.set(listCardKey(c.cards[0].name), c);
+    const nearLists = (isDuel ? closestTournamentLists(owned.keys(), { minShare: NEAR_LIST_MIN_SHARE, limit: 30 }) : [])
+      .filter((m) => m.commanders.every((n) => candidateByListKey.has(listCardKey(n))))
+      .slice(0, NEAR_LISTS_SHOWN);
+    /** Commandants seuls dont la collection contient au moins la moitié d'un deck de tournoi : évalués et affichés quoi qu'il arrive. */
+    const forcedKeys = new Set<string>();
+    for (const m of nearLists) {
+      if (m.share < NEAR_LIST_FORCE_SHARE || m.commanders.length !== 1) continue;
+      const c = candidateByListKey.get(listCardKey(m.commanders[0]));
+      if (c && !c.cards[0].type_line?.includes("Background")) forcedKeys.add(candidateKey(c));
+    }
     // Mode budget : un commandant à acquérir compte dans le budget ; trop cher ou sans prix connu, il est écarté.
     const affordable = (c: CommanderCandidate) => {
       if (!budgetMode) return true;
@@ -664,6 +718,7 @@ export async function runCompetitiveBuildCore(
         // commandant (deck-optimizer.ts), plus par l'indice de tier.
         evaluate: isDuel ? (deck) => rankScore(deck, quickPlaytest(deck, { features, basics, mode }), mode) : undefined,
         budgetEur: budgetMode ? budgetEur : undefined,
+        mustTry: forcedKeys,
       },
       (done, total, label) => emit("rank", done / total, `Deck ${done}/${total} : ${label}`)
     );
@@ -685,7 +740,12 @@ export async function runCompetitiveBuildCore(
     const pickDistinct = (list: DeckProposal[]): DeckProposal[] => {
       if (!isDuel) return list.slice(0, PROPOSALS_PER_GROUP);
       const kept: { p: DeckProposal; id: string; keys: Set<string> }[] = [];
+      // D'abord les commandants dont la collection contient presque un deck de tournoi : toujours affichés.
       for (const p of list) {
+        if (forcedKeys.has(candidateKey(p.candidate)) && kept.length < PROPOSALS_PER_GROUP) kept.push({ p, id: unionIdentity(p.candidate.cards).join(""), keys: nonLandKeys(p.ownedDeck) });
+      }
+      for (const p of list) {
+        if (kept.some((k) => k.p === p)) continue;
         const id = unionIdentity(p.candidate.cards).join("");
         const keys = nonLandKeys(p.ownedDeck);
         const sameColors = kept.filter((k) => k.id === id);
@@ -706,8 +766,54 @@ export async function runCompetitiveBuildCore(
       }
       return kept.map((k) => k.p);
     };
+    // Hors Duel, aucun commandant n'est « forcé » : l'ordre du classement est gardé tel quel.
     const ownedTop = pickDistinct(ranked.filter(isOwnedCandidate));
     const otherTop = pickDistinct(ranked.filter((p) => !isOwnedCandidate(p)));
+
+    // Decks de tournoi presque complets : prix des cartes manquantes (celles que le pool ne contient pas sont demandées à Scryfall).
+    const cardByListKey = new Map<string, ScryfallCard>();
+    for (const f of features.values()) if (!cardByListKey.has(listCardKey(f.card.name))) cardByListKey.set(listCardKey(f.card.name), f.card);
+    const unknownMissing = Array.from(new Set(nearLists.flatMap((m) => m.missing).filter((n) => !cardByListKey.has(listCardKey(n)))));
+    if (unknownMissing.length > 0) {
+      // mtgtop8 écrit « Fire/Ice » : Scryfall attend le recto seul.
+      const fetched = await getCardsByNames(unknownMissing.map((n) => n.split("/")[0].trim()), { fuzzyFallback: false });
+      for (const card of fetched.values()) if (!cardByListKey.has(listCardKey(card.name))) cardByListKey.set(listCardKey(card.name), card);
+    }
+    const nearTournamentDecks: NearTournamentDeck[] = nearLists.map((m) => {
+      const cmds = m.commanders.map((n) => candidateByListKey.get(listCardKey(n))!);
+      const commanders: ProposalCommander[] = cmds.map((c) => ({
+        name: c.cards[0].name,
+        owned: c.owned[0],
+        priceEur: c.owned[0] ? null : priceEur(c.cards[0]),
+        imageUrl: getDisplayImageUrl(c.cards[0], "normal"),
+      }));
+      const missing = m.missing.map((n) => {
+        const card = cardByListKey.get(listCardKey(n));
+        return { name: card?.name ?? n, priceEur: card ? priceEur(card) : null };
+      });
+      const missingCost = missing.reduce((s, x) => s + (x.priceEur ?? 0), 0);
+      const missingUnpriced = missing.filter((x) => x.priceEur === null).length;
+      const commanderCost = commanders.reduce((s, c) => s + (c.owned ? 0 : (c.priceEur ?? 0)), 0);
+      const commanderUnpriced = commanders.some((c) => !c.owned && c.priceEur === null);
+      const total = missingCost + commanderCost;
+      return {
+        commander: commanders.map((c) => c.name).join(" + "),
+        commanders,
+        date: m.date,
+        url: m.url,
+        ownedCount: m.ownedCount,
+        total: m.total,
+        share: Math.round(m.share * 100) / 100,
+        missing,
+        missingCostEur: round2(missingCost),
+        missingUnpriced,
+        totalCostEur: round2(total),
+        // Déjà au-dessus du budget avec les seuls prix connus : hors budget, même s'il manque des prix.
+        withinBudget: !budgetMode ? null : total > budgetEur ? false : missingUnpriced === 0 && !commanderUnpriced ? true : null,
+        cards: m.cards.map((c) => ({ name: cardByListKey.get(listCardKey(c.name))?.name ?? c.name, count: c.count })),
+      };
+    });
+    const nearByCommander = new Map(nearTournamentDecks.map((n) => [n.commander, n] as const));
     const top = [...ownedTop, ...otherTop];
     // Ordre d'enrichissement (synergie, Commander Spellbook) : alterné entre
     // les deux groupes, pour que chacun ait ses meilleurs decks enrichis.
@@ -857,7 +963,16 @@ export async function runCompetitiveBuildCore(
           : optimizeDeck({ ...base, acquirable: acq, maxAcquisitions }, p.upgradedDeck);
         gamesPlayed += upgradedOpt.gamesPlayed;
         // Le deck amélioré ne doit jamais passer sous le deck possédé.
-        if (isDuel ? upgradedOpt.solidity.score >= ownedOpt.solidity.score : better(upgradedOpt.deck, ownedOpt.deck)) p.upgradedDeck = upgradedOpt.deck;
+        // Mode budget : l'indice de solidité varie d'environ un point d'une construction à l'autre (forme, parties
+        // simulées). Des achats qui montent nettement la qualité des cartes ne sont pas rejetés pour quelques
+        // dixièmes : on accepte jusqu'à 1 point de moins si la qualité progresse. Choix de conception.
+        const accepted = budgetMode
+          ? upgradedOpt.solidity.score >= ownedOpt.solidity.score ||
+            (upgradedOpt.solidity.score >= ownedOpt.solidity.score - 1 && upgradedOpt.solidity.parts.quality > ownedOpt.solidity.parts.quality)
+          : isDuel
+            ? upgradedOpt.solidity.score >= ownedOpt.solidity.score
+            : better(upgradedOpt.deck, ownedOpt.deck);
+        if (accepted) p.upgradedDeck = upgradedOpt.deck;
         else {
           p.upgradedDeck = p.ownedDeck;
           upgradedOpt = null;
@@ -957,6 +1072,12 @@ export async function runCompetitiveBuildCore(
         `Budget : ${budgetEur.toLocaleString("fr-FR")} € au plus par deck, commandant à acquérir compris. Prix Scryfall en euros de l'impression renvoyée (une autre impression peut coûter moins), sans frais de port ni état de la carte ; une carte sans prix connu n'est jamais proposée à l'achat. Le classement porte sur le deck que ce budget permet.${unaffordable > 0 ? ` ${unaffordable} commandant${unaffordable > 1 ? "s" : ""} à acquérir écarté${unaffordable > 1 ? "s" : ""} (plus cher${unaffordable > 1 ? "s" : ""} que le budget, ou sans prix).` : ""}`
       );
     }
+    if (nearTournamentDecks.length > 0) {
+      const best = nearTournamentDecks[0];
+      notes.unshift(
+        `Ta liste contient ${best.ownedCount} des ${best.total} cartes (hors terrains de base) d'un deck de tournoi de ${best.commander}${best.date ? ` (${best.date})` : ""} : voir « Decks de tournoi presque complets ». Comparaison faite avec ${TOURNAMENT_LISTS_INFO.decks} listes mtgtop8.`
+      );
+    }
     const pairs = top.filter((p) => p.candidate.cards.length === 2).length;
     if (ownedTop.length === 0) {
       notes.push(
@@ -999,9 +1120,11 @@ export async function runCompetitiveBuildCore(
           isDuel,
           opportunitiesByKey.get(candidateKey(p.candidate)) ?? [],
           extrasByKey.get(candidateKey(p.candidate)),
-          alternativesByKey.get(candidateKey(p.candidate)) ?? []
+          alternativesByKey.get(candidateKey(p.candidate)) ?? [],
+          nearByCommander.get(candidateKey(p.candidate))
         )
       ),
+      nearTournamentDecks,
       candidateCount: candidates.length,
       evaluatedCount: ranked.length,
       spellbookUsed,

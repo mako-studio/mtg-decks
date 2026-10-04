@@ -1,5 +1,6 @@
 import referenceData from "@/data/duel-commander-reference.json";
 import cooccurrenceData from "@/data/duel-cooccurrence.json";
+import { foldName } from "./card-name";
 
 /**
  * Base de construction issue des decks de tournoi Duel Commander
@@ -41,8 +42,8 @@ const COOC = cooccurrenceData as { cards?: Record<string, RawPartner[]> };
 
 /** Normalise un nom de carte : minuscules, faces séparées (« A // B » → [a, b]). */
 function faces(name: string): string[] {
-  return name
-    .toLowerCase()
+  // foldName : minuscules ET accents retirés — « Lorien Revealed » (mtgtop8) = « Lórien Revealed » (Scryfall).
+  return foldName(name)
     .split(/\s*\/\/?\s*/)
     .map((s) => s.trim())
     .filter(Boolean);

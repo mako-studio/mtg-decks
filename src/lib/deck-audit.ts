@@ -4,7 +4,7 @@ import { classifyCard } from "./deck-score";
 import { AXES, ROLE_IDS, cardMechanics, cardRoles, type CardMechanics, type RoleId } from "./mechanics";
 import { cardQuality, isRealAcceleration, textQuality, type CardQuality } from "./card-quality";
 import { unmetDependencies } from "./dependencies";
-import { axisTargets, familyLabel, ownShape, RECIPES, type Recipe, type TrendMode } from "./deck-trends";
+import { axisTargets, familyLabel, ownShape, recipeById, RECIPES, type Recipe, type TrendMode } from "./deck-trends";
 import { duelPresenceForIdentity } from "./duel-profiles";
 import { duelCommanderDeckCount, duelMetaPresenceInColors } from "./duel-meta";
 import { referenceFor, referenceShare, type CommanderReference } from "./duel-reference";
@@ -344,6 +344,24 @@ export function structureFit(counts: Record<RoleId, number>, recipe: Recipe): nu
     n++;
   }
   return n ? Math.round((sum / n) * 100) : 100;
+}
+
+/**
+ * Indice « forme » affiché et compté dans la solidité (04/10/2026).
+ *
+ * Un commandant joué en tournoi est construit sur SA forme (fourchettes de
+ * 4 à 100 decks presque identiques, donc étroites) ; un commandant sans
+ * référence, sur la forme de sa famille (des centaines de decks, fourchettes
+ * larges). Mesurés chacun contre sa propre règle, le second avait toujours
+ * la meilleure note : avec la liste de Ben, Vivi Ornitier (13 decks de
+ * tournoi) obtenait 81 et Sanar (2 decks) 97 pour le même deck à quelques
+ * cartes près — et sortait du classement. On retient donc la meilleure des
+ * deux mesures : suivre une référence plus précise ne doit pas coûter.
+ */
+export function structureScore(counts: Record<RoleId, number>, recipe: Recipe): number {
+  const own = structureFit(counts, recipe);
+  const family = recipe.family ? recipeById(recipe.family) : null;
+  return family ? Math.max(own, structureFit(counts, family)) : own;
 }
 
 /** Rôles dont la forme de référence fixe un quota (fourchettes apprises, deck-trends.ts). */
@@ -799,7 +817,7 @@ export function auditDeck(input: AuditInput): DeckAudit {
     verdicts,
     // 70 % : part des cartes qui ont un rôle clair ; 30 % : réalisation du plan annoncé.
     coherence: weight ? Math.round((coherent / weight) * 70 + planFit * 30) : 100,
-    structure: recipe ? structureFit(roles, recipe) : 100,
+    structure: recipe ? structureScore(roles, recipe) : 100,
     avgQuality: weight ? Math.round((qualitySum / weight) * 100) / 100 : 0,
     flagged,
     counts: { nonLand: weight, creatures: ctx.creatures, roles },

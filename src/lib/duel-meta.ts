@@ -1,4 +1,5 @@
 import duelMeta from "@/data/duel-meta.json";
+import { foldName, NameIndex } from "./card-name";
 
 /**
  * Présence réelle des cartes dans les decks Duel Commander de tournoi
@@ -30,10 +31,11 @@ const CARDS: Record<string, number> = (duelMeta as { cards: Record<string, numbe
  */
 const CARDS_IN_COLORS: Record<string, number> =
   (duelMeta as { cardsInColors?: Record<string, number> }).cardsInColors ?? {};
-const LOWER_IN_COLORS = new Map<string, number>(Object.entries(CARDS_IN_COLORS).map(([k, v]) => [k.toLowerCase(), v]));
+// Index tolérants aux accents (card-name.ts, 04/10/2026) : « Lorien Revealed » (mtgtop8) = « Lórien Revealed » (Scryfall).
+const LOWER_IN_COLORS = new NameIndex<number>(Object.entries(CARDS_IN_COLORS));
 const COMMANDERS: Record<string, number> = (duelMeta as { commanders: Record<string, number> }).commanders;
 
-const LOWER_CARDS = new Map<string, number>(Object.entries(CARDS).map(([k, v]) => [k.toLowerCase(), v]));
+const LOWER_CARDS = new NameIndex<number>(Object.entries(CARDS));
 
 const BASIC_NAMES = new Set(
   [
@@ -92,7 +94,7 @@ export function duelMetaCardNames(minShare = 0.05): string[] {
     .map(([name]) => name);
 }
 
-const LOWER_COMMANDERS = new Map<string, number>(Object.entries(COMMANDERS).map(([k, v]) => [k.toLowerCase().split(" // ")[0], v]));
+const LOWER_COMMANDERS = new Map<string, number>(Object.entries(COMMANDERS).map(([k, v]) => [foldName(k).split(" // ")[0], v]));
 
 /**
  * Nombre de decks de tournoi de l'échantillon menés par ce commandant
@@ -102,5 +104,5 @@ const LOWER_COMMANDERS = new Map<string, number>(Object.entries(COMMANDERS).map(
  */
 export function duelCommanderDeckCount(names: readonly string[]): number {
   if (names.length === 0) return 0;
-  return Math.min(...names.map((n) => LOWER_COMMANDERS.get(n.toLowerCase().split(" // ")[0]) ?? 0));
+  return Math.min(...names.map((n) => LOWER_COMMANDERS.get(foldName(n).split(" // ")[0]) ?? 0));
 }

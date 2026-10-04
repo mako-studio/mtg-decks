@@ -43,6 +43,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ScryfallCard } from "../src/lib/types";
 
+/** Minuscules sans accents : mtgtop8 écrit « Lorien Revealed », Scryfall « Lórien Revealed » (04/10/2026). */
+const fold = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Import dynamique : les imports nommés depuis un .ts échouent sous tsx dans
 // certains environnements (voir HANDOFF §7).
@@ -62,7 +65,7 @@ const cardIndex = new Map<string, RawCard>();
 function addCards(cards: Record<string, RawCard>) {
   for (const c of Object.values(cards)) {
     for (const n of [c.name, c.name.split(" // ")[0]]) {
-      const k = n.toLowerCase();
+      const k = fold(n);
       if (!cardIndex.has(k)) cardIndex.set(k, c);
     }
   }
@@ -79,7 +82,7 @@ interface Tagged {
 }
 const tagCache = new Map<string, Tagged | null>();
 function tag(name: string): Tagged | null {
-  const key = name.toLowerCase();
+  const key = fold(name);
   if (tagCache.has(key)) return tagCache.get(key) ?? null;
   const raw = cardIndex.get(key) ?? cardIndex.get(key.split(" // ")[0]);
   let out: Tagged | null = null;
@@ -142,7 +145,7 @@ function profile(deck: Deck): Profile | null {
   const colors = new Set<string>();
   for (const name of deck.commanders) {
     const t = tag(name);
-    const raw = cardIndex.get(name.toLowerCase()) ?? cardIndex.get(name.toLowerCase().split(" // ")[0]);
+    const raw = cardIndex.get(fold(name)) ?? cardIndex.get(fold(name).split(" // ")[0]);
     for (const c of raw?.color_identity ?? []) colors.add(c);
     if (!t) continue;
     for (const i of t.rewards) {
